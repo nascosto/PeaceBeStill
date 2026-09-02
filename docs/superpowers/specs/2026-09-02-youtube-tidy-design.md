@@ -118,6 +118,8 @@ constraint is a stable ID from the same key on every release.
 
 ## Integration with system-setups
 
+Chromium ID (derived from the CRX signing key, `~/.config/youtube-tidy/crx-key.pem`): `pdhfbnmgmbemgfeeeojggeejahfaaijn`
+
 One entry per browser list, the same shape as Bypass Paywalls Clean:
 
 - Firefox (Linux and Windows): `youtube-tidy@peacebestill.fyi`, `normal_installed`,

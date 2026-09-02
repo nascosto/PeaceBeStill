@@ -1,0 +1,52 @@
+name: release
+
+# A v* tag becomes a GitHub release with four constant-named assets: the
+# Mozilla-signed XPI, the CRX packed with the repo's fixed key, and the two
+# update manifests the browsers poll. system-setups points at
+# .../releases/latest/download/<asset> for all four.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: node scripts/check-version.mjs "$GITHUB_REF_NAME"
+
+      - name: Sign for Firefox (Mozilla self-distribution channel)
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx web-ext sign --source-dir src --artifacts-dir dist --channel unlisted
+          mv dist/*.xpi dist/youtube-tidy.xpi
+
+      - name: Pack for Chromium and write the update manifests
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$CRX_PRIVATE_KEY" > "$RUNNER_TEMP/key.pem"
+          npm run build
+          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/key.pem" --zip dist/youtube-tidy.zip --out dist/youtube-tidy.crx
+          node scripts/update-manifests.mjs --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --key "$RUNNER_TEMP/key.pem" --out dist
+          rm -f "$RUNNER_TEMP/key.pem"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/youtube-tidy.xpi dist/youtube-tidy.crx dist/updates.json dist/updates.xml \
+            --title "$GITHUB_REF_NAME" \
+            --notes "YouTube Tidy $GITHUB_REF_NAME. Installed through system-setups; the assets below are what its browser policies fetch."
