@@ -28,7 +28,15 @@ against the live page, because YouTube's DOM is not documented and changes.
 | `descriptionCards`        | the transcript / podcast / chapters / course / music cards | `ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer` |
 | `descriptionChips`        | hashtags above the title and link chips inside the text   | `ytd-watch-metadata #super-title`, `#description a[href^="/hashtag/"]` (audit: in-text URL chips)                                     |
 | `footer`                  | the About / Press / Copyright block under the sidebar     | `ytd-guide-renderer #footer`                                                                                                          |
+| `titleCase`               | rewrites ALL-CAPS video titles in sentence case           | text nodes under `#video-title, a#video-title-link, ytd-watch-metadata h1 yt-formatted-string`, re-checked by a debounced observer |
 | `dislikeCount`            | shows the dislike count next to the dislike button (**off by default**, see below) | fetch `https://returnyoutubedislikeapi.com/votes?videoId=<id>`; append a span inside `dislike-button-view-model button`       |
+
+`titleCase` only touches a title that is shouting (at least six letters, 80 % or
+more of them upper case); it lower-cases it, then capitalises the start of each
+sentence and the pronoun I. Titles render and re-render as YouTube streams
+results in, so this is the one feature that keeps a `MutationObserver` running
+(debounced, disconnected when the switch is off). It edits text nodes only,
+never replaces elements, so YouTube's own markup is left intact.
 
 `dislikeCount` is the one feature that is off until switched on: YouTube stopped
 publishing dislikes in 2021, so the number comes from the Return YouTube Dislike
@@ -37,6 +45,12 @@ service answers JSON (`dislikes`, `likes`, ...) with `Access-Control-Allow-Origi
 so a plain content-script `fetch` works with no extra permission. The count is
 shown compactly (`1.2K`, `3.4M`), re-fetched on each watch-page navigation, and
 removed when the switch is turned off.
+
+Mozilla requires new extensions to declare what they collect. The manifest
+declares `data_collection_permissions` as required `none`, optional
+`browsingActivity`, and ticking `dislikeCount` on the options page requests that
+optional data-collection permission in Firefox (Chromium has no such API and
+skips the request); if it is declined the box unticks itself.
 
 Out of scope: mobile YouTube, the Shorts player UI, anything Unhook already does.
 
@@ -56,7 +70,8 @@ build step for the extension files themselves.
   Gating on the root element means a toggle takes effect in open tabs instantly
   and the stylesheet ships fully static.
 - `content.js` — reads the settings from `storage.sync` (missing key = that
-  feature's default, on for all but `dislikeCount`),
+  feature's default, on for all but `dislikeCount`), keeps ALL-CAPS titles
+  calmed through the observer described above,
   writes the enabled keys into `document.documentElement.dataset.ytTidy`, and
   re-applies on `storage.onChanged`. For `expandDescription` it listens for
   YouTube's `yt-navigate-finish` event plus initial load, then looks for the
@@ -134,6 +149,10 @@ extension is right.
 - Each toggle hides exactly its element and nothing else, in both browsers.
 - Description expansion works on first load and after navigating to another
   video, and does nothing when the description is already open.
+- An ALL-CAPS title reads in sentence case on the home grid, in the watch
+  page's heading and in its sidebar, including titles that arrive by scrolling;
+  a normally cased title is untouched; switching the feature off stops further
+  rewriting.
 - With `dislikeCount` on, a watch page shows a compact dislike count beside the
   dislike button within a couple of seconds, it changes when navigating to
   another video, and switching it off removes it; with it off (the default) the

@@ -14,8 +14,10 @@
 
 - Firefox ID is exactly `youtube-tidy@peacebestill.fyi`; extension name is `YouTube Tidy`; first version is `1.0.0`.
 - Public repo is `nascosto/youtube-tidy`; asset names are constant: `youtube-tidy.xpi`, `youtube-tidy.crx`, `updates.json`, `updates.xml`; "latest" URLs are `https://github.com/nascosto/youtube-tidy/releases/latest/download/<asset>`; per-release URLs are `https://github.com/nascosto/youtube-tidy/releases/download/<tag>/<asset>`.
-- Feature keys, in this order, everywhere: `create`, `moreFromYoutube`, `subscriptionDots`, `expandDescription`, `descriptionChannelLinks`, `descriptionCards`, `descriptionChips`, `footer`, `dislikeCount`. A key missing from storage means that feature's default: **on** for all but `dislikeCount`, which is **off**.
+- Feature keys, in this order, everywhere: `create`, `moreFromYoutube`, `subscriptionDots`, `expandDescription`, `descriptionChannelLinks`, `descriptionCards`, `descriptionChips`, `footer`, `titleCase`, `dislikeCount`. A key missing from storage means that feature's default: **on** for all but `dislikeCount`, which is **off**.
 - `dislikeCount` fetches `https://returnyoutubedislikeapi.com/votes?videoId=<id>` (JSON with a `dislikes` number; the service sends `Access-Control-Allow-Origin: *`, verified 2026-09-02). With it off the extension makes no network requests.
+- The manifest declares `browser_specific_settings.gecko.data_collection_permissions` as `{ "required": ["none"], "optional": ["browsingActivity"] }` (Mozilla requires the declaration in new extensions). Ticking `dislikeCount` on the options page requests that optional data-collection permission in Firefox (`permissions.request({ data_collection: ["browsingActivity"] })`; Chromium has no such API and skips it) and unticks itself if declined.
+- `titleCase` is the one feature that keeps a `MutationObserver` running (debounced 200 ms, disconnected when off); it edits text nodes only.
 - Firefox `strict_min_version` is `128.0` (needed for MV3 and CSS `:has()`).
 - Only `storage` in `permissions`; the content script matches `*://www.youtube.com/*` only; no `host_permissions`.
 - No icons in 1.0.0 (both browsers fall back to a default icon); no background script; no bundler.
@@ -84,6 +86,13 @@ test("content script loads the core before the script that uses it, at document_
   assert.equal(cs.run_at, "document_start");
 });
 
+test("declares data collection: none required, browsing activity optional (the dislike count)", () => {
+  assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions, {
+    required: ["none"],
+    optional: ["browsingActivity"],
+  });
+});
+
 test("update URLs point at the constant latest-release assets", () => {
   const base = "https://github.com/nascosto/youtube-tidy/releases/latest/download/";
   assert.equal(manifest.browser_specific_settings.gecko.update_url, base + "updates.json");
@@ -123,7 +132,11 @@ Expected: FAIL with `ENOENT ... src/manifest.json`.
     "gecko": {
       "id": "youtube-tidy@peacebestill.fyi",
       "strict_min_version": "128.0",
-      "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json"
+      "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": ["browsingActivity"]
+      }
     }
   },
   "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.xml"
@@ -167,7 +180,7 @@ Then: `npm install --save-dev web-ext` (adds the dependency and `package-lock.js
 - [ ] **Step 4: Run the tests and lint**
 
 Run: `npm test && npm run lint`
-Expected: manifest tests PASS; `web-ext lint` reports 0 errors (a warning about missing icons is acceptable). If lint reports an error about `update_url`, the `--self-hosted` flag is missing from the `lint` script.
+Expected: manifest tests PASS. `web-ext lint` reports exactly three errors, all `MANIFEST_CONTENT_SCRIPT_FILE_NOT_FOUND` for `tidy-core.js`, `content.js` and `tidy.css`, which Tasks 2–3 create; lint is clean from Task 3 on. A `MANIFEST_UNUSED_UPDATE` notice is expected (Firefox ignores the top-level `update_url`; it is Chromium's). If lint reports an error about `update_url` itself, the `--self-hosted` flag is missing from the `lint` script.
 
 - [ ] **Step 5: Commit**
 
@@ -184,7 +197,7 @@ git commit -m "Scaffold the extension: manifest, npm scripts, web-ext"
 - Create: `src/tidy-core.js`, `test/tidy-core.test.mjs`, `test/helpers/load-classic.mjs`
 
 **Interfaces:**
-- Produces global `YtTidy` with: `FEATURES: Array<[key: string, label: string, defaultOn: boolean]>`; `KEYS: string[]`; `defaults(): Record<string, boolean>`; `tokensFor(settings: Record<string, boolean> | undefined): string` (space-separated enabled keys, in `KEYS` order); `formatCount(n: unknown): string` (`1234` → `"1.2K"`, non-numbers → `""`); `videoIdFrom(search: string): string | null` (the `v` query parameter).
+- Produces global `YtTidy` with: `FEATURES: Array<[key: string, label: string, defaultOn: boolean]>`; `KEYS: string[]`; `defaults(): Record<string, boolean>`; `tokensFor(settings: Record<string, boolean> | undefined): string` (space-separated enabled keys, in `KEYS` order); `formatCount(n: unknown): string` (`1234` → `"1.2K"`, non-numbers → `""`); `videoIdFrom(search: string): string | null` (the `v` query parameter); `calmTitle(text: unknown): unknown` (an ALL-CAPS title in sentence case; anything else returned unchanged).
 - Used by `content.js` (Task 3) and `options.js` (Task 4) as `globalThis.YtTidy`.
 
 - [ ] **Step 1: Write the loader helper and the failing test**
@@ -214,11 +227,11 @@ import { loadClassic } from "./helpers/load-classic.mjs";
 const { YtTidy } = loadClassic("src/tidy-core.js");
 const KEYS = [
   "create", "moreFromYoutube", "subscriptionDots", "expandDescription",
-  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "dislikeCount",
+  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "titleCase", "dislikeCount",
 ];
 const ON_BY_DEFAULT = KEYS.filter((k) => k !== "dislikeCount");
 
-test("the feature keys are the agreed nine, in order, each with a label and a default", () => {
+test("the feature keys are the agreed ten, in order, each with a label and a default", () => {
   assert.deepEqual(YtTidy.KEYS, KEYS);
   for (const [key, label, defaultOn] of YtTidy.FEATURES) {
     assert.ok(KEYS.includes(key));
@@ -237,7 +250,7 @@ test("tokensFor lists enabled keys in order; a missing key takes its default", (
   assert.equal(YtTidy.tokensFor({ dislikeCount: true }), KEYS.join(" "));
   assert.equal(
     YtTidy.tokensFor({ create: false, footer: false }),
-    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips",
+    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips titleCase",
   );
 });
 
@@ -255,6 +268,16 @@ test("videoIdFrom reads the v parameter", () => {
   assert.equal(YtTidy.videoIdFrom("?v=jNQXAC9IVRw&t=1s"), "jNQXAC9IVRw");
   assert.equal(YtTidy.videoIdFrom("?list=abc"), null);
   assert.equal(YtTidy.videoIdFrom(""), null);
+});
+
+test("calmTitle rewrites a shouting title in sentence case and leaves everything else alone", () => {
+  assert.equal(YtTidy.calmTitle("I BUILT A PC IN 24 HOURS"), "I built a pc in 24 hours");
+  assert.equal(YtTidy.calmTitle("HELLO WORLD. IT WORKS? I THINK SO! i'm sure"), "Hello world. It works? I think so! I'm sure");
+  assert.equal(YtTidy.calmTitle("Normal Title Here"), "Normal Title Here");
+  assert.equal(YtTidy.calmTitle("WOW!! THIS IS INSANE. you won't believe what happened"), "WOW!! THIS IS INSANE. you won't believe what happened", "under 80 % upper case");
+  assert.equal(YtTidy.calmTitle("NASA"), "NASA", "too short to judge");
+  assert.equal(YtTidy.calmTitle(""), "");
+  assert.equal(YtTidy.calmTitle(undefined), undefined);
 });
 ```
 
@@ -279,6 +302,7 @@ Expected: FAIL with `ENOENT ... src/tidy-core.js`.
     ["descriptionCards", "Hide the transcript, podcast, chapters and music cards in the description", true],
     ["descriptionChips", "Hide hashtags and link chips in the description", true],
     ["footer", "Hide the About / Press / Copyright block under the sidebar", true],
+    ["titleCase", "Turn ALL-CAPS titles into sentence case", true],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.
     ["dislikeCount", "Show the dislike count (asks returnyoutubedislike.com for each video)", false],
@@ -316,7 +340,23 @@ Expected: FAIL with `ENOENT ... src/tidy-core.js`.
     return new URLSearchParams(search).get("v");
   }
 
-  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom };
+  // "I BUILT A PC IN 24 HOURS" -> "I built a pc in 24 hours". Only touches a
+  // title that is shouting: at least six letters, 80 % or more of them upper
+  // case. Sentence case: lower-case it all, then capitalise the start of each
+  // sentence and the pronoun I. Anything that is not a string comes back as is.
+  function calmTitle(text) {
+    if (typeof text !== "string") return text;
+    const letters = text.match(/\p{L}/gu) || [];
+    if (letters.length < 6) return text;
+    const upper = letters.filter((c) => c === c.toUpperCase() && c !== c.toLowerCase()).length;
+    if (upper / letters.length < 0.8) return text;
+    return text
+      .toLowerCase()
+      .replace(/(^|[.!?]\s+)(\p{L})/gu, (match, before, letter) => before + letter.toUpperCase())
+      .replace(/\bi\b/g, "I");
+  }
+
+  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle };
 })(globalThis);
 ```
 
@@ -340,7 +380,7 @@ git commit -m "Add the feature list, defaults, and the pure helpers"
 - Create: `src/tidy.css`, `src/content.js`, `test/tidy-css.test.mjs`
 
 **Interfaces:**
-- Consumes `globalThis.YtTidy.{KEYS, tokensFor, formatCount, videoIdFrom}` from Task 2.
+- Consumes `globalThis.YtTidy.{KEYS, tokensFor, formatCount, videoIdFrom, calmTitle}` from Task 2.
 - Consumes `browser.storage.sync` / `chrome.storage.sync` (promise-returning `get(keys)` in both browsers' MV3) and `fetch`.
 - Produces: the root attribute `data-yt-tidy` on `<html>`; every `tidy.css` rule is `html[data-yt-tidy~="<key>"] <selector> { display: none !important; }`; a `<span class="yt-tidy-dislikes">` inside the dislike button when `dislikeCount` is on.
 
@@ -356,7 +396,7 @@ import { loadClassic } from "./helpers/load-classic.mjs";
 
 const css = readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8");
 const { YtTidy } = loadClassic("src/tidy-core.js");
-const SCRIPT_ONLY = ["expandDescription", "dislikeCount"];
+const SCRIPT_ONLY = ["expandDescription", "titleCase", "dislikeCount"];
 const gates = [...css.matchAll(/html\[data-yt-tidy~="([^"]+)"\]/g)].map((m) => m[1]);
 
 test("every gate in tidy.css is a known feature key", () => {
@@ -427,7 +467,7 @@ html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !importa
 // the description on each watch page, and shows the dislike count when asked.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, tokensFor, formatCount, videoIdFrom } = globalThis.YtTidy;
+  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle } = globalThis.YtTidy;
   let settings = {};
 
   // YouTube is a single-page app: the watch page appears after its own
@@ -501,12 +541,51 @@ html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !importa
     });
   }
 
+  // --- ALL-CAPS titles -------------------------------------------------------
+  // Titles render and re-render as YouTube streams results in, so this is the
+  // one place an observer stays on: a debounced pass over title elements that
+  // rewrites text nodes which are shouting (calmTitle leaves the rest alone).
+  // Text nodes only, never elements, so YouTube's markup survives.
+  const TITLE_SELECTOR = "#video-title, a#video-title-link, ytd-watch-metadata h1 yt-formatted-string";
+  let titleObserver = null;
+  let titleTimer = null;
+
+  function calmTitles() {
+    for (const element of document.querySelectorAll(TITLE_SELECTOR)) {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const calm = calmTitle(node.nodeValue);
+        if (calm !== node.nodeValue) node.nodeValue = calm;
+      }
+      if (element.title) {
+        const calm = calmTitle(element.title);
+        if (calm !== element.title) element.title = calm;
+      }
+    }
+  }
+
+  function watchTitles() {
+    if (settings.titleCase === false) {
+      titleObserver?.disconnect();
+      titleObserver = null;
+      return;
+    }
+    calmTitles();
+    if (titleObserver) return;
+    titleObserver = new MutationObserver(() => {
+      clearTimeout(titleTimer);
+      titleTimer = setTimeout(calmTitles, 200);
+    });
+    titleObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  }
+
   // --- Wiring ----------------------------------------------------------------
   function refresh() {
     apply();
     expandDescription();
     removeDislikes();
     showDislikes();
+    watchTitles();
   }
 
   api.storage.sync.get(KEYS).then((stored) => {
@@ -545,7 +624,7 @@ git commit -m "Add the gated stylesheet and the content script that drives it"
 
 **Interfaces:**
 - Consumes `globalThis.YtTidy.{FEATURES, KEYS, defaults}` from Task 2.
-- Produces: one `<input type="checkbox" name="<key>">` per feature inside `<form id="features">`; each change writes `{ [key]: boolean }` to `storage.sync`.
+- Produces: one `<input type="checkbox" name="<key>">` per feature inside `<form id="features">`; each change writes `{ [key]: boolean }` to `storage.sync`. Ticking `dislikeCount` first calls `permissions.request({ data_collection: ["browsingActivity"] })` when that API exists (Firefox); a refusal unticks the box and writes nothing.
 
 - [ ] **Step 1: Write the failing test** — the page loads the core first, and the script builds one checkbox per key from `FEATURES`, reflecting stored settings over defaults (tested with a minimal fake DOM and fake storage):
 
@@ -599,6 +678,35 @@ test("options.js builds one checkbox per feature and reflects stored settings ov
   form.listeners.change({ target: { name: "footer", checked: false } });
   assert.deepEqual(writes, [{ footer: false }]);
 });
+
+test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {
+  const { YtTidy } = loadClassic("src/tidy-core.js");
+  const { document, form } = fakeDocument();
+  const writes = [];
+  const requests = [];
+  let answer = true;
+  const browser = {
+    storage: { sync: { get: async () => ({}), set: async (obj) => writes.push(obj) } },
+    permissions: { request: async (req) => { requests.push(req); return answer; } },
+  };
+  loadClassic("src/options.js", { YtTidy, document, browser });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const target = { name: "dislikeCount", checked: true };
+  await form.listeners.change({ target });
+  assert.deepEqual(requests, [{ data_collection: ["browsingActivity"] }]);
+  assert.deepEqual(writes, [{ dislikeCount: true }]);
+
+  answer = false;
+  const refused = { name: "dislikeCount", checked: true };
+  await form.listeners.change({ target: refused });
+  assert.equal(refused.checked, false, "declined: the box unticks");
+  assert.deepEqual(writes, [{ dislikeCount: true }], "declined: nothing written");
+
+  await form.listeners.change({ target: { name: "dislikeCount", checked: false } });
+  assert.equal(requests.length, 2, "unticking asks nothing");
+  assert.deepEqual(writes.at(-1), { dislikeCount: false });
+});
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -650,8 +758,22 @@ Expected: FAIL with `ENOENT ... src/options.html`.
     for (const box of form.elements) box.checked = settings[box.name] === true;
   });
 
-  form.addEventListener("change", (event) => {
-    api.storage.sync.set({ [event.target.name]: event.target.checked });
+  // The dislike count sends the video ID to a third party, which Firefox tracks
+  // as an optional data-collection permission: ask for it on the way in, and
+  // take the tick back if it is refused. Chromium has no such API; skip it.
+  async function consentFor(box) {
+    if (box.name !== "dislikeCount" || !box.checked) return true;
+    if (!api.permissions?.request) return true;
+    return api.permissions.request({ data_collection: ["browsingActivity"] });
+  }
+
+  form.addEventListener("change", async (event) => {
+    const box = event.target;
+    if (!(await consentFor(box))) {
+      box.checked = false;
+      return;
+    }
+    api.storage.sync.set({ [box.name]: box.checked });
   });
 })();
 ```
@@ -704,6 +826,7 @@ git commit -m "Add the options page: one switch per feature"
   | Channel row gone | expanded description, bottom | the avatar + subscriber count + link chips row is gone |
   | Cards gone | expanded description | transcript / podcast / chapters / music cards gone; the text remains |
   | Chips gone | title area and description text | hashtags above the title and #hashtag chips in the text gone |
+  | Shouty titles calmed | home grid, watch page heading, watch sidebar; scroll to load more | an ALL-CAPS title reads in sentence case everywhere, including titles that arrive by scrolling; normal titles untouched; unticking stops further rewriting |
   | Dislike count (tick it on first) | a watch page, then another video | a compact number appears beside the thumbs-down within ~2 s; it changes on the next video; unticking removes it |
   | Toggles are live | options page | unticking a box restores the element in the open tab without a reload; ticking hides it again |
   | Console clean | devtools console on a watch page | no errors from content.js |
@@ -1175,10 +1298,12 @@ count. Every feature is a switch on the options page:
   transcript / podcast / chapters / music cards, and its hashtags and link
   chips, each separately
 - the About / Press / Copyright block under the sidebar
+- ALL-CAPS video titles, rewritten in sentence case wherever they appear
 - the dislike count beside the thumbs-down, **off by default**: it comes from
   the Return YouTube Dislike service, so turning it on tells that service
   which video you are watching. With it off the extension makes no network
-  requests at all.
+  requests at all. Firefox treats that as an optional data-collection
+  permission and asks you once when you tick the box.
 
 Manifest V3, one codebase for both browsers, no background script, only the
 `storage` permission, only on `www.youtube.com`.

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Tidy",
+  "version": "1.0.0",
+  "description": "Hides the bits of YouTube you never use and opens the description for you. Each one is a switch.",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["*://www.youtube.com/*"],
+      "css": ["tidy.css"],
+      "js": ["tidy-core.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "youtube-tidy@peacebestill.fyi",
+      "strict_min_version": "128.0",
+      "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": ["browsingActivity"]
+      }
+    }
+  },
+  "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.xml"
+}

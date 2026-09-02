@@ -1,0 +1,20 @@
+{
+  "name": "youtube-tidy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hides the bits of YouTube you never use and opens the description for you.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "lint": "web-ext lint --source-dir src --self-hosted",
+    "build": "web-ext build --source-dir src --artifacts-dir dist --overwrite-dest --filename youtube-tidy.zip",
+    "start:firefox": "web-ext run --source-dir src --start-url https://www.youtube.com",
+    "start:chromium": "web-ext run --source-dir src --target chromium --start-url https://www.youtube.com"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "web-ext": "^10.6.0"
+  }
+}
