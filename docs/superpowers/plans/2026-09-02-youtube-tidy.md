@@ -18,7 +18,7 @@
 - `dislikeCount` fetches `https://returnyoutubedislikeapi.com/votes?videoId=<id>` (JSON with a `dislikes` number; the service sends `Access-Control-Allow-Origin: *`, verified 2026-09-02). With it off the extension makes no network requests.
 - The manifest declares `browser_specific_settings.gecko.data_collection_permissions` as `{ "required": ["none"], "optional": ["browsingActivity"] }` (Mozilla requires the declaration in new extensions). Ticking `dislikeCount` on the options page requests that optional data-collection permission in Firefox (`permissions.request({ data_collection: ["browsingActivity"] })`; Chromium has no such API and skips it) and unticks itself if declined.
 - `titleCase` is the one feature that keeps a `MutationObserver` running (debounced 200 ms, disconnected when off); it edits text nodes only.
-- Firefox `strict_min_version` is `140.0`: the first Firefox that knows `data_collection_permissions` (MV3 and CSS `:has()` need less).
+- Firefox `strict_min_version` is `142.0`: the first Firefox, desktop and Android alike, that knows `data_collection_permissions`, so lint is warning-free (MV3 and CSS `:has()` need less).
 - Only `storage` in `permissions`; the content script matches `*://www.youtube.com/*` only; no `host_permissions`.
 - No icons in 1.0.0 (both browsers fall back to a default icon); no background script; no bundler.
 - Secrets (set by Ben in the public repo, never committed): `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`, `CRX_PRIVATE_KEY`. The CRX key lives locally at `~/.config/youtube-tidy/crx-key.pem`, outside the repo.
@@ -69,8 +69,9 @@ test("manifest is MV3 with the agreed identity", () => {
   assert.equal(manifest.name, "YouTube Tidy");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.equal(manifest.browser_specific_settings.gecko.id, "youtube-tidy@peacebestill.fyi");
-  // 140 is the first Firefox that knows data_collection_permissions.
-  assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "140.0");
+  // 142 is the first Firefox, desktop and Android alike, that knows
+  // data_collection_permissions; below it the linter warns.
+  assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "142.0");
 });
 
 test("manifest asks for nothing beyond storage and youtube.com", () => {
@@ -132,7 +133,7 @@ Expected: FAIL with `ENOENT ... src/manifest.json`.
   "browser_specific_settings": {
     "gecko": {
       "id": "youtube-tidy@peacebestill.fyi",
-      "strict_min_version": "140.0",
+      "strict_min_version": "142.0",
       "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json",
       "data_collection_permissions": {
         "required": ["none"],

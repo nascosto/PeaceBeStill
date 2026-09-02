@@ -9,8 +9,9 @@ test("manifest is MV3 with the agreed identity", () => {
   assert.equal(manifest.name, "YouTube Tidy");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.equal(manifest.browser_specific_settings.gecko.id, "youtube-tidy@peacebestill.fyi");
-  // 140 is the first Firefox that knows data_collection_permissions.
-  assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "140.0");
+  // 142 is the first Firefox, desktop and Android alike, that knows
+  // data_collection_permissions; below it the linter warns.
+  assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "142.0");
 });
 
 test("manifest asks for nothing beyond storage and youtube.com", () => {
