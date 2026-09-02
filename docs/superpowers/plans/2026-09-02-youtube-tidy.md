@@ -231,8 +231,10 @@ const KEYS = [
 ];
 const ON_BY_DEFAULT = KEYS.filter((k) => k !== "dislikeCount");
 
+// YtTidy comes from another vm realm, so its arrays and objects have foreign
+// prototypes; copy them before strict deep-equality.
 test("the feature keys are the agreed ten, in order, each with a label and a default", () => {
-  assert.deepEqual(YtTidy.KEYS, KEYS);
+  assert.deepEqual([...YtTidy.KEYS], KEYS);
   for (const [key, label, defaultOn] of YtTidy.FEATURES) {
     assert.ok(KEYS.includes(key));
     assert.ok(label.length > 10, `label for ${key}`);
@@ -241,7 +243,7 @@ test("the feature keys are the agreed ten, in order, each with a label and a def
 });
 
 test("everything is on by default except the dislike count", () => {
-  assert.deepEqual(YtTidy.defaults(), { ...Object.fromEntries(KEYS.map((k) => [k, true])), dislikeCount: false });
+  assert.deepEqual({ ...YtTidy.defaults() }, { ...Object.fromEntries(KEYS.map((k) => [k, true])), dislikeCount: false });
 });
 
 test("tokensFor lists enabled keys in order; a missing key takes its default", () => {
