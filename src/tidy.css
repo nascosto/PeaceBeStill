@@ -1,0 +1,24 @@
+/* Each rule is gated on a token in the root element's data-yt-tidy attribute,
+   which content.js keeps equal to the set of enabled feature keys. So the
+   stylesheet is fully static and a toggle takes effect without a reload. */
+
+/* Header: the Create button */
+html[data-yt-tidy~="create"] ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"]) { display: none !important; }
+
+/* Sidebar: the "More from YouTube" section (Premium, Music, Kids, ...) */
+html[data-yt-tidy~="moreFromYoutube"] ytd-guide-section-renderer:has(a[href*="music.youtube.com"]) { display: none !important; }
+
+/* Sidebar: the new-video dot beside a subscribed channel */
+html[data-yt-tidy~="subscriptionDots"] ytd-guide-entry-renderer #newness-dot { display: none !important; }
+
+/* Description: the channel row at the bottom (avatar, subscriber count, links) */
+html[data-yt-tidy~="descriptionChannelLinks"] ytd-video-description-infocards-section-renderer { display: none !important; }
+
+/* Description: the transcript / course / music cards and card lists */
+html[data-yt-tidy~="descriptionCards"] :is(ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer) { display: none !important; }
+
+/* Description: hashtags above the title and hashtag chips in the text */
+html[data-yt-tidy~="descriptionChips"] :is(ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]) { display: none !important; }
+
+/* Sidebar: the About / Press / Copyright block */
+html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }
