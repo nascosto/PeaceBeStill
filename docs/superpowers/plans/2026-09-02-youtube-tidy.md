@@ -18,7 +18,7 @@
 - `dislikeCount` fetches `https://returnyoutubedislikeapi.com/votes?videoId=<id>` (JSON with a `dislikes` number; the service sends `Access-Control-Allow-Origin: *`, verified 2026-09-02). With it off the extension makes no network requests.
 - The manifest declares `browser_specific_settings.gecko.data_collection_permissions` as `{ "required": ["none"], "optional": ["browsingActivity"] }` (Mozilla requires the declaration in new extensions). Ticking `dislikeCount` on the options page requests that optional data-collection permission in Firefox (`permissions.request({ data_collection: ["browsingActivity"] })`; Chromium has no such API and skips it) and unticks itself if declined.
 - `titleCase` is the one feature that keeps a `MutationObserver` running (debounced 200 ms, disconnected when off); it edits text nodes only.
-- Firefox `strict_min_version` is `128.0` (needed for MV3 and CSS `:has()`).
+- Firefox `strict_min_version` is `140.0`: the first Firefox that knows `data_collection_permissions` (MV3 and CSS `:has()` need less).
 - Only `storage` in `permissions`; the content script matches `*://www.youtube.com/*` only; no `host_permissions`.
 - No icons in 1.0.0 (both browsers fall back to a default icon); no background script; no bundler.
 - Secrets (set by Ben in the public repo, never committed): `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`, `CRX_PRIVATE_KEY`. The CRX key lives locally at `~/.config/youtube-tidy/crx-key.pem`, outside the repo.
@@ -69,7 +69,8 @@ test("manifest is MV3 with the agreed identity", () => {
   assert.equal(manifest.name, "YouTube Tidy");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.equal(manifest.browser_specific_settings.gecko.id, "youtube-tidy@peacebestill.fyi");
-  assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "128.0");
+  // 140 is the first Firefox that knows data_collection_permissions.
+  assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "140.0");
 });
 
 test("manifest asks for nothing beyond storage and youtube.com", () => {
@@ -131,7 +132,7 @@ Expected: FAIL with `ENOENT ... src/manifest.json`.
   "browser_specific_settings": {
     "gecko": {
       "id": "youtube-tidy@peacebestill.fyi",
-      "strict_min_version": "128.0",
+      "strict_min_version": "140.0",
       "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json",
       "data_collection_permissions": {
         "required": ["none"],
@@ -638,6 +639,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { loadClassic } from "./helpers/load-classic.mjs";
 
+// options.js runs in another vm realm, so objects it creates have foreign
+// prototypes; compare plain copies.
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
 test("options.html loads tidy-core.js before options.js and has the form", () => {
   const html = readFileSync(new URL("../src/options.html", import.meta.url), "utf8");
   assert.ok(html.indexOf('src="tidy-core.js"') < html.indexOf('src="options.js"'));
@@ -671,14 +676,14 @@ test("options.js builds one checkbox per feature and reflects stored settings ov
   loadClassic("src/options.js", { YtTidy, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepEqual(form.elements.map((e) => e.name), YtTidy.KEYS);
+  assert.deepEqual(form.elements.map((e) => e.name), [...YtTidy.KEYS]);
   const box = (name) => form.elements.find((e) => e.name === name);
   assert.equal(box("create").checked, false, "stored value wins");
   assert.equal(box("footer").checked, true, "default on");
   assert.equal(box("dislikeCount").checked, false, "default off");
 
-  form.listeners.change({ target: { name: "footer", checked: false } });
-  assert.deepEqual(writes, [{ footer: false }]);
+  await form.listeners.change({ target: { name: "footer", checked: false } });
+  assert.deepEqual(plain(writes), [{ footer: false }]);
 });
 
 test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {
@@ -694,20 +699,19 @@ test("ticking the dislike count asks Firefox for the optional data-collection pe
   loadClassic("src/options.js", { YtTidy, document, browser });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  const target = { name: "dislikeCount", checked: true };
-  await form.listeners.change({ target });
-  assert.deepEqual(requests, [{ data_collection: ["browsingActivity"] }]);
-  assert.deepEqual(writes, [{ dislikeCount: true }]);
+  await form.listeners.change({ target: { name: "dislikeCount", checked: true } });
+  assert.deepEqual(plain(requests), [{ data_collection: ["browsingActivity"] }]);
+  assert.deepEqual(plain(writes), [{ dislikeCount: true }]);
 
   answer = false;
   const refused = { name: "dislikeCount", checked: true };
   await form.listeners.change({ target: refused });
   assert.equal(refused.checked, false, "declined: the box unticks");
-  assert.deepEqual(writes, [{ dislikeCount: true }], "declined: nothing written");
+  assert.deepEqual(plain(writes), [{ dislikeCount: true }], "declined: nothing written");
 
   await form.listeners.change({ target: { name: "dislikeCount", checked: false } });
   assert.equal(requests.length, 2, "unticking asks nothing");
-  assert.deepEqual(writes.at(-1), { dislikeCount: false });
+  assert.deepEqual(plain(writes.at(-1)), { dislikeCount: false });
 });
 ```
 
