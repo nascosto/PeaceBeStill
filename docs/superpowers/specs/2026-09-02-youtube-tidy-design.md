@@ -13,7 +13,8 @@ Unhook stays installed; this covers what Unhook does not.
 
 ## Features
 
-Every feature is a toggle on the options page, on by default. Selectors below
+Every feature is a toggle on the options page, on by default except
+`dislikeCount`. Selectors below
 are the starting point; the audit step (see Workflow) confirms or corrects them
 against the live page, because YouTube's DOM is not documented and changes.
 
@@ -27,6 +28,15 @@ against the live page, because YouTube's DOM is not documented and changes.
 | `descriptionCards`        | the transcript / podcast / chapters / course / music cards | `ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer` |
 | `descriptionChips`        | hashtags above the title and link chips inside the text   | `ytd-watch-metadata #super-title`, `#description a[href^="/hashtag/"]` (audit: in-text URL chips)                                     |
 | `footer`                  | the About / Press / Copyright block under the sidebar     | `ytd-guide-renderer #footer`                                                                                                          |
+| `dislikeCount`            | shows the dislike count next to the dislike button (**off by default**, see below) | fetch `https://returnyoutubedislikeapi.com/votes?videoId=<id>`; append a span inside `dislike-button-view-model button`       |
+
+`dislikeCount` is the one feature that is off until switched on: YouTube stopped
+publishing dislikes in 2021, so the number comes from the Return YouTube Dislike
+service, which means telling a third party which video is being watched. The
+service answers JSON (`dislikes`, `likes`, ...) with `Access-Control-Allow-Origin: *`,
+so a plain content-script `fetch` works with no extra permission. The count is
+shown compactly (`1.2K`, `3.4M`), re-fetched on each watch-page navigation, and
+removed when the switch is turned off.
 
 Out of scope: mobile YouTube, the Shorts player UI, anything Unhook already does.
 
@@ -45,12 +55,16 @@ build step for the extension files themselves.
   on the root element, e.g. `html[data-yt-tidy~="create"] … { display: none !important }`.
   Gating on the root element means a toggle takes effect in open tabs instantly
   and the stylesheet ships fully static.
-- `content.js` — reads the settings from `storage.sync` (missing key = on),
+- `content.js` — reads the settings from `storage.sync` (missing key = that
+  feature's default, on for all but `dislikeCount`),
   writes the enabled keys into `document.documentElement.dataset.ytTidy`, and
   re-applies on `storage.onChanged`. For `expandDescription` it listens for
   YouTube's `yt-navigate-finish` event plus initial load, then looks for the
   collapsed expander with a short retry loop (the watch page renders after
-  navigation), clicks it once, and stops. No observers left running.
+  navigation), clicks it once, and stops. No observers left running. For
+  `dislikeCount` it fetches the count for the current video ID on the same
+  events and writes it into a span inside the dislike button, retrying briefly
+  for the button the same way; a navigation or a switch-off removes the span.
 - `options.html` / `options.js` / `options.css` — one checkbox per key bound to
   `storage.sync`. A one-line namespace shim (`globalThis.browser ?? chrome`)
   is the only browser difference.
@@ -120,6 +134,10 @@ extension is right.
 - Each toggle hides exactly its element and nothing else, in both browsers.
 - Description expansion works on first load and after navigating to another
   video, and does nothing when the description is already open.
+- With `dislikeCount` on, a watch page shows a compact dislike count beside the
+  dislike button within a couple of seconds, it changes when navigating to
+  another video, and switching it off removes it; with it off (the default) the
+  extension makes no network requests at all.
 - Toggling on the options page changes open tabs without a reload.
 - A tagged release yields a Mozilla-signed XPI, a CRX with the stable ID, and
   two valid update manifests, all at the constant URLs.
