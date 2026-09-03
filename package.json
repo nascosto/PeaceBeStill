@@ -9,12 +9,15 @@
     "lint": "web-ext lint --source-dir src --self-hosted",
     "build": "web-ext build --source-dir src --artifacts-dir dist --overwrite-dest --filename youtube-tidy.zip",
     "start:firefox": "web-ext run --source-dir src --start-url https://www.youtube.com",
-    "start:chromium": "web-ext run --source-dir src --target chromium --start-url https://www.youtube.com"
+    "start:chromium": "web-ext run --source-dir src --target chromium --start-url https://www.youtube.com",
+    "audit:chromium": "node audit/chromium.mjs",
+    "audit:firefox": "node audit/firefox.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "puppeteer-core": "^25.9.0",
     "web-ext": "^10.6.0"
   }
 }

@@ -44,7 +44,16 @@ Firefox → Load Temporary Add-on → `src/manifest.json`; Chromium →
 `chrome://extensions` → Developer mode → Load unpacked → `src/`.
 
 YouTube's markup is undocumented and changes. When a switch stops working,
-inspect the element, fix the selector in `src/tidy.css`, and re-check.
+run the audits, which drive a signed-out headless browser through a live watch
+page and report, per switch, how many targets exist and how many are still
+rendered (screenshots land in `audit/out/`):
+
+    npm run audit:chromium    # puppeteer-core against /usr/bin/chromium-browser
+    npm run audit:firefox     # Marionette against /usr/bin/firefox, no driver needed
+
+Then inspect the element, fix the selector in `src/tidy.css` (or the title and
+dislike selectors in `src/content.js`), and re-run. The Create button and the
+subscription dots only exist signed in, so those two are checked by hand.
 
 ## Releasing
 

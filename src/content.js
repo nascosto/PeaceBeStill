@@ -10,13 +10,15 @@
   // YouTube is a single-page app: the watch page appears after its own
   // navigation event, not a page load, and its parts arrive a little after
   // that. Every one-off DOM lookup below retries briefly, acts once, and stops.
+  // YouTube also keeps hidden duplicates of some controls around (the dislike
+  // button exists three times on a watch page), so only a rendered match counts.
   const RETRY_MS = 250;
   const RETRY_LIMIT = 40; // ~10 s
 
   function whenPresent(selector, then) {
     let attempts = 0;
     const tick = () => {
-      const element = document.querySelector(selector);
+      const element = [...document.querySelectorAll(selector)].find((e) => e.getClientRects().length > 0);
       if (element) return then(element);
       if (++attempts < RETRY_LIMIT) setTimeout(tick, RETRY_MS);
     };
@@ -72,6 +74,11 @@
         span.className = "yt-tidy-dislikes";
         span.style.marginLeft = "6px";
         button.append(span);
+        // The dislike button is an icon-only shape with a fixed width, so the
+        // number would be clipped: drop the icon-only variant and let it size
+        // itself like the like button beside it.
+        for (const cls of [...button.classList]) if (/iconbutton/i.test(cls)) button.classList.remove(cls);
+        button.style.width = "auto";
       }
       span.textContent = formatCount(dislikes);
     });
@@ -82,7 +89,10 @@
   // one place an observer stays on: a debounced pass over title elements that
   // rewrites text nodes which are shouting (calmTitle leaves the rest alone).
   // Text nodes only, never elements, so YouTube's markup survives.
-  const TITLE_SELECTOR = "#video-title, a#video-title-link, ytd-watch-metadata h1 yt-formatted-string";
+  // Old markup names the title #video-title (search results, older grids);
+  // the newer "lockup" markup used by the watch sidebar and the home grid
+  // puts it in an anchor inside yt-lockup-metadata-view-model's h3.
+  const TITLE_SELECTOR = "#video-title, a#video-title-link, ytd-watch-metadata h1 yt-formatted-string, yt-lockup-metadata-view-model h3 a";
   let titleObserver = null;
   let titleTimer = null;
 

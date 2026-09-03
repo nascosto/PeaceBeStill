@@ -28,8 +28,8 @@ against the live page, because YouTube's DOM is not documented and changes.
 | `descriptionCards`        | the transcript / podcast / chapters / course / music cards | `ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer` |
 | `descriptionChips`        | hashtags above the title and link chips inside the text   | `ytd-watch-metadata #super-title`, `#description a[href^="/hashtag/"]` (audit: in-text URL chips)                                     |
 | `footer`                  | the About / Press / Copyright block under the sidebar     | `ytd-guide-renderer #footer`                                                                                                          |
-| `titleCase`               | rewrites ALL-CAPS video titles in sentence case           | text nodes under `#video-title, a#video-title-link, ytd-watch-metadata h1 yt-formatted-string`, re-checked by a debounced observer |
-| `dislikeCount`            | shows the dislike count next to the dislike button (**off by default**, see below) | fetch `https://returnyoutubedislikeapi.com/votes?videoId=<id>`; append a span inside `dislike-button-view-model button`       |
+| `titleCase`               | rewrites ALL-CAPS video titles in sentence case           | text nodes under `#video-title, a#video-title-link, ytd-watch-metadata h1 yt-formatted-string, yt-lockup-metadata-view-model h3 a` (the last is YouTube's newer "lockup" markup, used by the watch sidebar and home grid), re-checked by a debounced observer |
+| `dislikeCount`            | shows the dislike count next to the dislike button (**off by default**, see below) | fetch `https://returnyoutubedislikeapi.com/votes?videoId=<id>`; append a span inside the *rendered* `dislike-button-view-model button` (the page keeps hidden duplicates) and drop the button's icon-only class so the number is not clipped |
 
 `titleCase` only touches a title that is shouting (at least six letters, 80 % or
 more of them upper case); it lower-cases it, then capitalises the start of each
@@ -51,6 +51,15 @@ declares `data_collection_permissions` as required `none`, optional
 `browsingActivity`, and ticking `dislikeCount` on the options page requests that
 optional data-collection permission in Firefox (Chromium has no such API and
 skips the request); if it is declined the box unticks itself.
+
+Audited 2026-09-03 with `npm run audit:chromium` (Chromium 151) and
+`npm run audit:firefox` (Firefox 155), signed out, on a live watch page: every
+description target present and not rendered, description expanded on arrival
+and after navigation, the sidebar dots and footer hidden, a switch flipped from
+the options page applied to the open tab, a shouting title calmed live, the
+dislike count rendered beside the thumbs-down. Not verifiable signed out, still
+to check by hand: the Create button, the subscription dots with real
+subscriptions, and Firefox's rendering of the More from YouTube section.
 
 Out of scope: mobile YouTube, the Shorts player UI, anything Unhook already does.
 
