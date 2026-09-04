@@ -2,7 +2,7 @@
 
 A tiny Firefox and Chromium extension that hides the bits of desktop YouTube
 you never use, opens the video description for you, calms ALL-CAPS titles, and
-can show the dislike count. Every feature is a switch on the options page:
+can show the dislike count. Every feature is a switch on the options page, grouped by where it acts:
 
 - the Create button in the header
 - the "More from YouTube" sidebar section
@@ -20,6 +20,16 @@ can show the dislike count. Every feature is a switch on the options page:
   its end (a block that sits in view for six seconds with nothing arriving is
   taken as the end, and comes back if anything does arrive)
 - ALL-CAPS video titles, rewritten in sentence case wherever they appear
+- and everything Unhook offered, ported: the whole top bar; the notifications
+  bell and the unread count in the tab title; the Explore section and Trending;
+  Subscriptions; the home feed, or sending home to the Subscriptions feed;
+  Shorts everywhere (a Short opens as a normal video); Mixes; promo banners and
+  surveys; the column beside the video, or just its recommendations and the
+  pause overlay; live chat; the playlist panel; fundraisers; merch, tickets and
+  offers; comments and their profile photos; the views line, buttons row,
+  channel row and description under the video; autoplay (switched off, toggle
+  hidden); the end-screen video wall and cards; info cards and the watermark;
+  and the shelves in search results
 - the dislike count beside the thumbs-down, **off by default**: it comes from
   the Return YouTube Dislike service, so turning it on tells that service
   which video you are watching. With it off the extension makes no network

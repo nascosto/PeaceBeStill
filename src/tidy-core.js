@@ -1,26 +1,58 @@
 // Shared by the content script and the options page. Content scripts cannot
 // be ES modules, so this is a classic script that publishes one global.
 (function (root) {
-  // [key, label, on by default]
+  // Options-page sections, in display order.
+  const GROUPS = ["Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
+  const [HEADER, HOME, WATCH, PLAYER, SEARCH, CHANNEL] = GROUPS;
+
+  // [key, label, on by default, group]. The order here is the order of the
+  // data-yt-tidy tokens; the options page groups by the fourth field.
   const FEATURES = [
-    ["create", "Hide the Create button in the header", true],
-    ["moreFromYoutube", "Hide the “More from YouTube” sidebar section", true],
-    ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", true],
-    ["expandDescription", "Open the video description automatically", true],
-    ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", true],
-    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", true],
-    ["descriptionChips", "Hide hashtags and link chips in the description", true],
-    ["footer", "Hide the About / Press / Copyright block under the sidebar", true],
-    ["ask", "Hide YouTube's AI “Ask” button and card", true],
-    ["summary", "Hide the AI-generated video summary", true],
-    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true],
-    ["channelTabs", "Hide a channel's Posts and Store tabs", true],
-    ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", true],
-    ["stalePlaceholders", "Hide the loading placeholders and spinner left behind at the end of a feed", true],
-    ["titleCase", "Turn ALL-CAPS titles into sentence case", true],
+    ["create", "Hide the Create button in the header", true, HEADER],
+    ["moreFromYoutube", "Hide the “More from YouTube” sidebar section", true, HEADER],
+    ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", true, HEADER],
+    ["expandDescription", "Open the video description automatically (and drop its Show less)", true, WATCH],
+    ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", true, WATCH],
+    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", true, WATCH],
+    ["descriptionChips", "Hide hashtags and link chips in the description", true, WATCH],
+    ["footer", "Hide the About / Press / Copyright block under the sidebar", true, HEADER],
+    ["ask", "Hide YouTube's AI “Ask” button and card", true, WATCH],
+    ["summary", "Hide the AI-generated video summary", true, WATCH],
+    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true, HOME],
+    ["channelTabs", "Hide a channel's Posts and Store tabs", true, CHANNEL],
+    ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", true, CHANNEL],
+    ["stalePlaceholders", "Hide the loading placeholders and spinner left behind at the end of a feed", true, HOME],
+    ["titleCase", "Turn ALL-CAPS titles into sentence case", true, HOME],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.
-    ["dislikeCount", "Show the dislike count (asks returnyoutubedislike.com for each video)", false],
+    ["dislikeCount", "Show the dislike count (asks returnyoutubedislike.com for each video)", false, WATCH],
+    // Ported from Unhook; defaults are the values Ben had set there.
+    ["header", "Hide the whole top bar (logo, search, account)", false, HEADER],
+    ["notifications", "Hide the notifications bell and the unread count in the tab title", true, HEADER],
+    ["exploreTrending", "Hide the Explore section, Trending, and their pages", false, HEADER],
+    ["subscriptions", "Hide Subscriptions (the sidebar entry, the channel list and the feed page)", false, HEADER],
+    ["homeFeed", "Hide the home page feed", true, HOME],
+    ["homeToSubscriptions", "Send the home page to the Subscriptions feed", true, HOME],
+    ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", true, HOME],
+    ["mixes", "Hide Mixes (auto-generated playlists)", true, HOME],
+    ["promos", "Hide promo banners, the masthead ad and surveys", true, HOME],
+    ["relatedVideos", "Hide the whole column beside the video (related videos, chat, playlist)", true, WATCH],
+    ["recommended", "Hide the recommended-videos list beside the video and the “More videos” overlay on pause", true, WATCH],
+    ["liveChat", "Hide live chat", true, WATCH],
+    ["playlistPanel", "Hide the playlist panel beside the video", true, WATCH],
+    ["fundraiser", "Hide the fundraiser shelf", true, WATCH],
+    ["merch", "Hide merch, tickets, offers and context boxes under the video", true, WATCH],
+    ["comments", "Hide comments", false, WATCH],
+    ["profilePhotos", "Hide profile photos in comments", false, WATCH],
+    ["videoInfo", "Hide the views and date line under the video", false, WATCH],
+    ["buttonsBar", "Hide the like / share / save row under the video", false, WATCH],
+    ["channelRow", "Hide the channel row under the video", false, WATCH],
+    ["description", "Hide the description", false, WATCH],
+    ["autoplay", "Switch autoplay off and hide its toggle and countdown", true, PLAYER],
+    ["endScreenFeed", "Hide the video wall when a video ends", true, PLAYER],
+    ["endScreenCards", "Hide end-screen cards", true, PLAYER],
+    ["annotations", "Hide info cards, the cards button and the channel watermark on the player", true, PLAYER],
+    ["searchShelves", "Hide the shelves in search results (For you, People also watched, Latest from…)", true, SEARCH],
   ];
   const KEYS = FEATURES.map(([key]) => key);
 
@@ -79,6 +111,17 @@
     return match ? match[1] : null;
   }
 
+  // Where a page should go instead, given the settings, or null: the home
+  // page to the Subscriptions feed (never when that feed is itself hidden),
+  // a Short to its ordinary watch page.
+  function redirectFor(pathname, settings) {
+    const merged = { ...defaults(), ...(settings || {}) };
+    if (merged.homeToSubscriptions && !merged.subscriptions && pathname === "/") return "/feed/subscriptions";
+    const short = /^\/shorts\/([A-Za-z0-9_-]{6,})/.exec(pathname || "");
+    if (merged.shorts && short) return "/watch?v=" + short[1];
+    return null;
+  }
+
   // A feed's "loading more" block (ghost cards and a spinner) should vanish
   // when the feed ends; YouTube sometimes leaves it, more often with an ad
   // blocker. Given the block's previous record, the time, the grid's item
@@ -92,5 +135,11 @@
     return { record: prev, hide: now - prev.since >= staleMs };
   }
 
-  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, placeholderVerdict };
+  // "(3) Some video - YouTube" -> "Some video - YouTube": the unread count
+  // YouTube prepends to the tab title.
+  function untitled(title) {
+    return String(title).replace(/^\(\d+\)\s+/, "");
+  }
+
+  root.YtTidy = { GROUPS, FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

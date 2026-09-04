@@ -1,17 +1,24 @@
-// One checkbox per feature, read from and written to storage.sync. The content
-// script listens for those writes, so a change shows up in open tabs at once.
+// One checkbox per feature, grouped under section headings, read from and
+// written to storage.sync. The content script listens for those writes, so a
+// change shows up in open tabs at once.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { FEATURES, KEYS, defaults } = globalThis.YtTidy;
+  const { GROUPS, FEATURES, KEYS, defaults } = globalThis.YtTidy;
   const form = document.getElementById("features");
 
-  for (const [key, label] of FEATURES) {
-    const row = document.createElement("label");
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.name = key;
-    row.append(box, document.createTextNode(" " + label));
-    form.append(row);
+  for (const group of GROUPS) {
+    const heading = document.createElement("h2");
+    heading.textContent = group;
+    form.append(heading);
+    for (const [key, label, , featureGroup] of FEATURES) {
+      if (featureGroup !== group) continue;
+      const row = document.createElement("label");
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.name = key;
+      row.append(box, document.createTextNode(" " + label));
+      form.append(row);
+    }
   }
 
   api.storage.sync.get(KEYS).then((stored) => {

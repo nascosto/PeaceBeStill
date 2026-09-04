@@ -9,12 +9,14 @@ YouTube and expands the video description, each behind its own switch, and that
 every machine provisioned by `system-setups` installs and updates automatically
 through the same enterprise-policy mechanism its other extensions use.
 
-Unhook stays installed; this covers what Unhook does not.
+Unhook's options are ported (2026-09-03), so Unhook is dropped from the system-setups policy lists; this is the one YouTube extension.
 
 ## Features
 
-Every feature is a toggle on the options page, on by default except
-`dislikeCount`. Selectors below
+Every feature is a toggle on the options page, grouped under section
+headings (Header and sidebar, Home and feeds, Watch page, Player, Search,
+Channel pages); on by default except `dislikeCount` and the ported Unhook
+options Ben had off. Selectors below
 are the starting point; the audit step (see Workflow) confirms or corrects them
 against the live page, because YouTube's DOM is not documented and changes.
 
@@ -34,6 +36,32 @@ against the live page, because YouTube's DOM is not documented and changes.
 | `channelTabs`             | a channel's Posts and Store tabs                          | `yt-tab-shape:is([tab-title="Posts"], [tab-title="Store"])` |
 | `channelTabRedirect`      | a direct visit to a channel's Posts or Store page goes to the channel home | content.js `location.replace(channelHomeFor(pathname))` on load and navigation |
 | `stalePlaceholders`       | the "loading more" block (ghost cards, spinner) left behind at the end of a feed | content.js: a `ytd-rich-grid-renderer ytd-continuation-item-renderer` that has sat in view for 6 s with the grid's item count unchanged is hidden; any growth of the grid shows it again (`placeholderVerdict`, driven by the observer, a scroll listener and a timer) |
+| `header`                  | the whole top bar                                         | `#masthead-container`; plus `ytd-app #page-manager { margin-top: 0 }` so the page does not keep the gap |
+| `notifications`           | the bell, and the unread count in the tab title           | `ytd-masthead ytd-notification-topbar-button-renderer`; content.js strips `^\(\d+\) ` from `document.title` (`untitled`) |
+| `exploreTrending`         | the Explore section, the Trending/Explore entries, those pages | `ytd-guide-section-renderer:has(a[href^="/feed/storefront"], …)`, the guide / mini-guide entries, `ytd-browse[page-subtype="trending"]` |
+| `subscriptions`           | the Subscriptions entry, channel-list section and feed page | `ytd-guide-entry-renderer:has(a[href^="/feed/subscriptions"])`, mini-guide entry, `ytd-guide-section-renderer:has(a[href^="/feed/subscriptions"])`, `ytd-browse[page-subtype="subscriptions"]` |
+| `homeFeed`                | the home page feed                                        | `ytd-browse[page-subtype="home"] ytd-rich-grid-renderer` |
+| `homeToSubscriptions`     | the home page goes to the Subscriptions feed (never when that is hidden) | content.js `redirectFor`: `/` → `/feed/subscriptions` |
+| `shorts`                  | Shorts everywhere; a Short opens as a normal video        | shelves, grids, items with `a[href*="/shorts/"]`, guide / mini-guide entries with `a[title="Shorts"]`, `yt-tab-shape[tab-title="Shorts"]`, the results chip, notifications, `ytd-shorts`; content.js `/shorts/<id>` → `/watch?v=<id>` |
+| `mixes`                   | auto-generated playlists                                  | `ytd-rich-item-renderer:has(a[href*="start_radio=1"], a[href*="list=RD"])`, `ytd-compact-radio-renderer`, `ytd-radio-renderer`, `yt-lockup-view-model:has(a[href*="list=RD"])`, `.ytp-videowall-still[data-is-mix="true"]` |
+| `promos`                  | masthead ad, promo bars, surveys                          | `#masthead-ad`, `ytd-mealbar-promo-renderer`, `ytd-primetime-promo-renderer`, `ytd-statement-banner-renderer`, `#surveys`, survey renderers |
+| `relatedVideos`           | the whole column beside the video                         | `ytd-watch-flexy #secondary` |
+| `recommended`             | the recommendation list in that column; the pause overlay | `ytd-watch-next-secondary-results-renderer #items`, `.ytp-pause-overlay` |
+| `liveChat`                | live chat                                                 | `ytd-live-chat-frame` |
+| `playlistPanel`           | the playlist panel beside the video                       | `ytd-watch-flexy ytd-playlist-panel-renderer#playlist` |
+| `fundraiser`              | the fundraiser shelf                                      | `ytd-donation-shelf-renderer` |
+| `merch`                   | merch, tickets, offers, context boxes                     | `ytd-merch-shelf-renderer`, `#ticket-shelf`, `#offer-module`, `#clarify-box` |
+| `comments`                | comments                                                  | `ytd-comments#comments`, `#comment-teaser` |
+| `profilePhotos`           | profile photos in comments                                | `ytd-comments #author-thumbnail` |
+| `videoInfo`               | the views and date line (Unhook hid the whole metadata block; this is narrower on purpose) | `ytd-watch-metadata #info-container` |
+| `buttonsBar`              | the like / share / save row                               | `ytd-watch-metadata #actions` |
+| `channelRow`              | the channel row under the video                           | `ytd-watch-metadata #owner` |
+| `description`             | the description                                           | `ytd-watch-metadata #description` |
+| `autoplay`                | autoplay off; its toggle and countdown hidden             | content.js clicks `.ytp-autonav-toggle-button[aria-checked="true"]` once per watch page (YouTube remembers it); CSS hides the toggle and `.ytp-autonav-endscreen-countdown-overlay`. Next/previous buttons stay, unlike Unhook |
+| `endScreenFeed`           | the video wall when a video ends                          | `.html5-endscreen` |
+| `endScreenCards`          | end-screen cards                                          | `.ytp-ce-element`, `.ytp-ce-hide-button-container` |
+| `annotations`             | info cards, the cards button, the channel watermark       | `.ytp-cards-teaser`, `.ytp-cards-button`, `.iv-branding`, `.ytp-iv-video-content` |
+| `searchShelves`           | shelves in search results                                 | `ytd-two-column-search-results-renderer #primary :is(ytd-shelf-renderer, ytd-horizontal-card-list-renderer)` |
 | `titleCase`               | rewrites ALL-CAPS video titles in sentence case           | text nodes under `#video-title, a#video-title-link, ytd-watch-metadata h1 yt-formatted-string, yt-lockup-metadata-view-model h3 a` (the last is YouTube's newer "lockup" markup, used by the watch sidebar and home grid), re-checked by a debounced observer |
 | `dislikeCount`            | shows the dislike count next to the dislike button (**off by default**, see below) | fetch `https://returnyoutubedislikeapi.com/votes?videoId=<id>`; append a span inside the *rendered* `dislike-button-view-model button` (the page keeps hidden duplicates) and drop the button's icon-only class so the number is not clipped |
 

@@ -1,3 +1,5 @@
-body { font: 13px system-ui, sans-serif; margin: 12px; min-width: 340px; }
-#features { display: grid; gap: 8px; }
+body { font: 13px system-ui, sans-serif; margin: 12px; min-width: 380px; }
+#features { display: grid; gap: 6px; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin: 14px 0 2px; }
+h2:first-child { margin-top: 0; }
 label { display: flex; align-items: center; gap: 6px; }

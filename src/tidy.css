@@ -1,17 +1,79 @@
 /* Each rule is gated on a token in the root element's data-yt-tidy attribute,
    which content.js keeps equal to the set of enabled feature keys. So the
-   stylesheet is fully static and a toggle takes effect without a reload. */
+   stylesheet is fully static and a toggle takes effect without a reload.
+   Rules only ever hide (display: none); the one exception is the layout fix
+   that hiding the header needs. */
+
+/* ---- Header and sidebar ------------------------------------------------- */
 
 /* Header: the Create button */
 html[data-yt-tidy~="create"] ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"]) { display: none !important; }
 
+/* Header: the whole top bar, and the space the page keeps for it */
+html[data-yt-tidy~="header"] #masthead-container { display: none !important; }
+html[data-yt-tidy~="header"] ytd-app #page-manager { margin-top: 0 !important; }
+
+/* Header: the notifications bell (content.js strips the count from the tab title) */
+html[data-yt-tidy~="notifications"] ytd-masthead ytd-notification-topbar-button-renderer { display: none !important; }
+
 /* Sidebar: the "More from YouTube" section (Premium, Music, Kids, ...) */
 html[data-yt-tidy~="moreFromYoutube"] ytd-guide-section-renderer:has(a[href*="music.youtube.com"]) { display: none !important; }
+
+/* Sidebar: the Explore section (Shopping, Music, Movies, Live, Gaming, ...),
+   the Trending / Explore entries, and those pages' content */
+html[data-yt-tidy~="exploreTrending"] :is(ytd-guide-section-renderer:has(a[href^="/feed/storefront"], a[href^="/feed/trending"], a[href^="/feed/explore"]), ytd-guide-entry-renderer:has(a[href^="/feed/trending"], a[href^="/feed/explore"]), ytd-mini-guide-entry-renderer:has(a[href^="/feed/trending"], a[href^="/feed/explore"]), ytd-browse[page-subtype="trending"]) { display: none !important; }
+
+/* Sidebar: Subscriptions (the entry, the channel list section, the feed page) */
+html[data-yt-tidy~="subscriptions"] :is(ytd-guide-entry-renderer:has(a[href^="/feed/subscriptions"]), ytd-mini-guide-entry-renderer:has(a[href^="/feed/subscriptions"]), ytd-guide-section-renderer:has(a[href^="/feed/subscriptions"]), ytd-browse[page-subtype="subscriptions"]) { display: none !important; }
 
 /* Sidebar: the new-video dot beside a subscribed channel, in the expanded
    sidebar (#newness-dot) and in the flyout the mini sidebar shows when
    "Subscriptions" is hovered (a list-item "new content indicator") */
 html[data-yt-tidy~="subscriptionDots"] :is(ytd-guide-entry-renderer #newness-dot, yt-list-item-view-model .ytListItemViewModelNewContentIndicator) { display: none !important; }
+
+/* Sidebar: the About / Press / Copyright block */
+html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }
+
+/* ---- Home and feeds ----------------------------------------------------- */
+
+/* Home: the whole feed (content.js can send the page to Subscriptions instead) */
+html[data-yt-tidy~="homeFeed"] ytd-browse[page-subtype="home"] ytd-rich-grid-renderer { display: none !important; }
+
+/* Shorts: shelves, grids, single items in feeds / results / the watch sidebar,
+   the sidebar entries, the channel tab, the results chip, notifications, and
+   the Shorts player page itself (content.js opens a Short as a normal video) */
+html[data-yt-tidy~="shorts"] :is(ytd-rich-shelf-renderer[is-shorts], ytd-reel-shelf-renderer, ytd-rich-grid-renderer[is-shorts-grid], ytd-rich-item-renderer:has(a[href*="/shorts/"]), ytd-video-renderer:has(a[href*="/shorts/"]), ytd-compact-video-renderer:has(a[href*="/shorts/"]), ytd-guide-entry-renderer:has(a[title="Shorts"]), ytd-mini-guide-entry-renderer:has(a[title="Shorts"]), yt-tab-shape[tab-title="Shorts"], yt-chip-cloud-chip-renderer:has([title="Shorts"]), ytd-notification-renderer:has(a[href^="/shorts/"]), ytd-shorts) { display: none !important; }
+
+/* Mixes: auto-generated playlists, wherever they are offered */
+html[data-yt-tidy~="mixes"] :is(ytd-rich-item-renderer:has(a[href*="start_radio=1"], a[href*="list=RD"]), ytd-compact-radio-renderer, ytd-radio-renderer, yt-lockup-view-model:has(a[href*="list=RD"]), .ytp-videowall-still[data-is-mix="true"]) { display: none !important; }
+
+/* Promos: the masthead ad, promo bars, surveys */
+html[data-yt-tidy~="promos"] :is(#masthead-ad, ytd-mealbar-promo-renderer, ytd-primetime-promo-renderer, ytd-statement-banner-renderer, #surveys, ytd-single-option-survey-renderer, ytd-inline-survey-renderer) { display: none !important; }
+
+/* Subscriptions feed: upcoming videos. Their "Upcoming" badge and "Scheduled
+   for" line are plain text, but only they carry a Notify me toggle in the
+   card's attachments (or, in the older grid markup, a toggle-button renderer
+   in the media's buttons), so the whole card keys on that. */
+html[data-yt-tidy~="upcoming"] ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer)) { display: none !important; }
+
+/* ---- Watch page --------------------------------------------------------- */
+
+/* The whole column beside the video (related videos, chat, playlist) */
+html[data-yt-tidy~="relatedVideos"] ytd-watch-flexy #secondary { display: none !important; }
+
+/* Just the recommendation list in that column, and the "More videos" overlay on pause */
+html[data-yt-tidy~="recommended"] :is(ytd-watch-next-secondary-results-renderer #items, .ytp-pause-overlay) { display: none !important; }
+
+html[data-yt-tidy~="liveChat"] ytd-live-chat-frame { display: none !important; }
+html[data-yt-tidy~="playlistPanel"] ytd-watch-flexy ytd-playlist-panel-renderer#playlist { display: none !important; }
+html[data-yt-tidy~="fundraiser"] ytd-donation-shelf-renderer { display: none !important; }
+html[data-yt-tidy~="merch"] :is(ytd-merch-shelf-renderer, #ticket-shelf, #offer-module, #clarify-box) { display: none !important; }
+html[data-yt-tidy~="comments"] :is(ytd-comments#comments, #comment-teaser) { display: none !important; }
+html[data-yt-tidy~="profilePhotos"] ytd-comments #author-thumbnail { display: none !important; }
+html[data-yt-tidy~="videoInfo"] ytd-watch-metadata #info-container { display: none !important; }
+html[data-yt-tidy~="buttonsBar"] ytd-watch-metadata #actions { display: none !important; }
+html[data-yt-tidy~="channelRow"] ytd-watch-metadata #owner { display: none !important; }
+html[data-yt-tidy~="description"] ytd-watch-metadata #description { display: none !important; }
 
 /* Description: the "Show less" button, pointless once the description opens
    itself (content.js does the opening) */
@@ -35,15 +97,27 @@ html[data-yt-tidy~="ask"] :is(yt-video-description-youchat-section-view-model, y
 /* Description: the AI-generated "Summary" block */
 html[data-yt-tidy~="summary"] ytd-structured-description-content-renderer #video-summary { display: none !important; }
 
-/* Subscriptions feed: upcoming videos. Their "Upcoming" badge and "Scheduled
-   for" line are plain text, but only they carry a Notify me toggle in the
-   card's attachments (or, in the older grid markup, a toggle-button renderer
-   in the media's buttons), so the whole card keys on that. */
-html[data-yt-tidy~="upcoming"] ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer)) { display: none !important; }
+/* ---- Player ------------------------------------------------------------- */
 
-/* Channel pages: the Posts and Store tabs (the separate channelTabRedirect
-   switch, in content.js, sends their URLs to the channel home) */
+/* Autoplay: its toggle and the "up next" countdown (content.js switches it off) */
+html[data-yt-tidy~="autoplay"] :is(.ytp-autonav-toggle-button-container, button[data-tooltip-target-id="ytp-autonav-toggle-button"], .ytp-autonav-endscreen-countdown-overlay) { display: none !important; }
+
+/* The video wall when a video ends */
+html[data-yt-tidy~="endScreenFeed"] .html5-endscreen { display: none !important; }
+
+/* End-screen cards (and their hide button) */
+html[data-yt-tidy~="endScreenCards"] :is(.ytp-ce-element, .ytp-ce-hide-button-container) { display: none !important; }
+
+/* Info cards, the cards button, the channel watermark */
+html[data-yt-tidy~="annotations"] :is(.ytp-cards-teaser, .ytp-cards-button, .iv-branding, .ytp-iv-video-content) { display: none !important; }
+
+/* ---- Search ------------------------------------------------------------- */
+
+/* Shelves in results: For you, People also watched, Latest from ..., channels */
+html[data-yt-tidy~="searchShelves"] ytd-two-column-search-results-renderer #primary :is(ytd-shelf-renderer, ytd-horizontal-card-list-renderer) { display: none !important; }
+
+/* ---- Channel pages ------------------------------------------------------ */
+
+/* The Posts and Store tabs (the separate channelTabRedirect switch, in
+   content.js, sends their URLs to the channel home) */
 html[data-yt-tidy~="channelTabs"] yt-tab-shape:is([tab-title="Posts"], [tab-title="Store"]) { display: none !important; }
-
-/* Sidebar: the About / Press / Copyright block */
-html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }

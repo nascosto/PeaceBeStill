@@ -14,7 +14,7 @@
 
 - Firefox ID is exactly `youtube-tidy@peacebestill.fyi`; extension name is `YouTube Tidy`; first version is `1.0.0`.
 - Public repo is `nascosto/youtube-tidy`; asset names are constant: `youtube-tidy.xpi`, `youtube-tidy.crx`, `updates.json`, `updates.xml`; "latest" URLs are `https://github.com/nascosto/youtube-tidy/releases/latest/download/<asset>`; per-release URLs are `https://github.com/nascosto/youtube-tidy/releases/download/<tag>/<asset>`.
-- Feature keys, in this order, everywhere: `create`, `moreFromYoutube`, `subscriptionDots`, `expandDescription`, `descriptionChannelLinks`, `descriptionCards`, `descriptionChips`, `footer`, `ask`, `summary`, `upcoming`, `channelTabs`, `channelTabRedirect`, `stalePlaceholders`, `titleCase`, `dislikeCount`. A key missing from storage means that feature's default: **on** for all but `dislikeCount`, which is **off**.
+- Feature keys, in this order, everywhere: `create`, `moreFromYoutube`, `subscriptionDots`, `expandDescription`, `descriptionChannelLinks`, `descriptionCards`, `descriptionChips`, `footer`, `ask`, `summary`, `upcoming`, `channelTabs`, `channelTabRedirect`, `stalePlaceholders`, `titleCase`, `dislikeCount`, plus the 26 Unhook ports listed in the spec. A key missing from storage means that feature's default: **on** for all but `dislikeCount`, which is **off**.
 - `dislikeCount` fetches `https://returnyoutubedislikeapi.com/votes?videoId=<id>` (JSON with a `dislikes` number; the service sends `Access-Control-Allow-Origin: *`, verified 2026-09-02). With it off the extension makes no network requests.
 - The manifest declares `browser_specific_settings.gecko.data_collection_permissions` as `{ "required": ["none"], "optional": ["browsingActivity"] }` (Mozilla requires the declaration in new extensions). Ticking `dislikeCount` on the options page requests that optional data-collection permission in Firefox (`permissions.request({ data_collection: ["browsingActivity"] })`; Chromium has no such API and skips it) and unticks itself if declined.
 - `titleCase` is the one feature that keeps a `MutationObserver` running (debounced 200 ms, disconnected when off); it edits text nodes only.
@@ -1501,6 +1501,8 @@ and add a line to the ID → name comment table above the heredoc: `#   <CRX_ID>
 ```
 
 (Windows gets `allowed` only, like Bypass Paywalls Clean: Chromium on Windows refuses off-store force-installs on an unmanaged machine, and the test permits exactly this exception.)
+
+- [ ] **Step 3b: Drop Unhook.** YouTube Tidy now covers every Unhook option, so remove Unhook from both browsers' lists in the same change: in `lib/common.sh` the `myallychou@gmail.com` entry of the Firefox heredoc and the `khncfooichmfjbepaaaebmommgaepoid` entry (and its comment-table line) of the Chromium heredoc; in `windows-setup.dsc.yaml` the matching `myallychou@gmail.com` block of the Firefox MultiString and the `khncfooichmfjbepaaaebmommgaepoid` line of the Chromium String. A machine that already has Unhook keeps it installed but can now remove it from about:addons.
 
 - [ ] **Step 4: README note.** In `README.md`'s "Notes and known rough edges", extend the Chromium bullet's Windows sentence so it names both hand-installed extensions: after "Install it by hand once — download `bypass-paywalls-chrome-clean-latest.crx` from the author's GitFlic `bpc_uploads` project and drop it onto chrome://extensions — and it updates itself from then on." add "The same goes for YouTube Tidy, our own extension (`youtube-tidy.crx` from its GitHub releases)."
 

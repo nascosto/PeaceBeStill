@@ -4,7 +4,7 @@
 // dislike count when asked.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, placeholderVerdict } = globalThis.YtTidy;
+  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled } = globalThis.YtTidy;
   let settings = {};
 
   // YouTube is a single-page app: the watch page appears after its own
@@ -155,15 +155,26 @@
     if (waiting) staleTimer = setTimeout(pruneStalePlaceholders, STALE_MS + 100);
   }
 
+  // --- Tab title -------------------------------------------------------------
+  // With the bell hidden, the "(3)" YouTube prepends to the tab title is
+  // noise too. YouTube rewrites the title on every navigation, so this is
+  // re-applied by the observer.
+  function calmTabTitle() {
+    if (settings.notifications === false) return;
+    const calm = untitled(document.title);
+    if (calm !== document.title) document.title = calm;
+  }
+
   // One observer serves every job that needs re-checking as YouTube renders.
   function observe() {
     if (settings.titleCase !== false) calmTitles();
     tightenDescription();
     pruneStalePlaceholders();
+    calmTabTitle();
   }
 
   function watchTitles() {
-    if (settings.titleCase === false && settings.expandDescription === false && settings.stalePlaceholders === false) {
+    if (settings.titleCase === false && settings.expandDescription === false && settings.stalePlaceholders === false && settings.notifications === false) {
       titleObserver?.disconnect();
       titleObserver = null;
       return;
@@ -181,22 +192,31 @@
     }, { passive: true });
   }
 
-  // --- Channel Posts / Store pages -------------------------------------------
-  // Hiding the tabs is tidy.css's job (channelTabs); this is the separate
-  // switch that sends a visit to one of those pages (a link from elsewhere, a
-  // bookmark) to the channel home instead.
-  function redirectChannelTabs() {
-    if (settings.channelTabRedirect === false) return false;
-    const home = channelHomeFor(location.pathname);
-    if (!home) return false;
-    location.replace(home);
+  // --- Redirects -------------------------------------------------------------
+  // Pages that go somewhere else instead: a channel's Posts / Store page to
+  // the channel home (channelTabRedirect), the home page to the Subscriptions
+  // feed (homeToSubscriptions), a Short to its ordinary watch page (shorts).
+  function redirectIfAsked() {
+    const target = (settings.channelTabRedirect !== false && channelHomeFor(location.pathname)) || redirectFor(location.pathname, settings);
+    if (!target) return false;
+    location.replace(target);
     return true;
+  }
+
+  // --- Autoplay --------------------------------------------------------------
+  // YouTube remembers the autoplay toggle, so switching it off once (via its
+  // own button, which tidy.css hides but keeps in the page) sticks. Only ever
+  // switches it off; turning the feature off leaves YouTube's setting alone.
+  function switchAutoplayOff() {
+    if (settings.autoplay === false || !onWatchPage()) return;
+    whenPresent('.ytp-autonav-toggle-button[aria-checked="true"]', (toggle) => toggle.click());
   }
 
   // --- Wiring ----------------------------------------------------------------
   function refresh() {
-    if (redirectChannelTabs()) return;
+    if (redirectIfAsked()) return;
     apply();
+    switchAutoplayOff();
     expandDescription();
     removeDislikes();
     showDislikes();

@@ -11,7 +11,7 @@
 // and the sidebar may not render at all; check those by hand.
 import net from "node:net";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -81,21 +81,12 @@ writeFileSync(join(profile, "user.js"), [
 // --remote-allow-system-access lets the audit read the add-on's internal UUID.
 const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", "--headless", "--no-remote", "--new-instance", "--profile", profile, "about:blank"], { stdio: "ignore" });
 
-// Keep in step with src/tidy.css.
-const SELECTORS = {
-  create: 'ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"])',
-  moreFromYoutube: 'ytd-guide-section-renderer:has(a[href*="music.youtube.com"])',
-  subscriptionDots: "ytd-guide-entry-renderer #newness-dot, yt-list-item-view-model .ytListItemViewModelNewContentIndicator",
-  descriptionChannelLinks: "ytd-video-description-infocards-section-renderer",
-  descriptionCards: "ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer, how-this-was-made-section-view-model",
-  descriptionChips: 'ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]',
-  footer: "ytd-guide-renderer #footer",
-  ask: "yt-video-description-youchat-section-view-model, ytd-menu-renderer yt-button-view-model:has(.you-chat-entrypoint-button)",
-  summary: "ytd-structured-description-content-renderer #video-summary",
-  upcoming: 'ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer))',
-  expandDescription: "#description-inline-expander #collapse",
-  channelTabs: 'yt-tab-shape:is([tab-title="Posts"], [tab-title="Store"])',
-};
+// Keep in step with src/tidy.css: read it. Every "display: none" rule gated
+// on a feature key contributes its selector (the gate stripped off).
+const SELECTORS = {};
+for (const m of readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8").matchAll(/html\[data-yt-tidy~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
+  SELECTORS[m[1]] = SELECTORS[m[1]] ? `${SELECTORS[m[1]]}, ${m[2]}` : m[2];
+}
 const SURVEY = `
   const selectors = arguments[0]; const out = {};
   for (const [key, sel] of Object.entries(selectors)) {

@@ -11,7 +11,7 @@
 // layouts) the More from YouTube section do not exist; check those by hand.
 import puppeteer from "puppeteer-core";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const SRC = fileURLToPath(new URL("../src", import.meta.url));
@@ -25,21 +25,12 @@ mkdirSync(OUT, { recursive: true });
 const EXT_ID = [...createHash("sha256").update(SRC).digest("hex").slice(0, 32)]
   .map((h) => String.fromCharCode(97 + parseInt(h, 16))).join("");
 
-// Keep in step with src/tidy.css.
-const SELECTORS = {
-  create: 'ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"])',
-  moreFromYoutube: 'ytd-guide-section-renderer:has(a[href*="music.youtube.com"])',
-  subscriptionDots: "ytd-guide-entry-renderer #newness-dot, yt-list-item-view-model .ytListItemViewModelNewContentIndicator",
-  descriptionChannelLinks: "ytd-video-description-infocards-section-renderer",
-  descriptionCards: "ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer, how-this-was-made-section-view-model",
-  descriptionChips: 'ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]',
-  footer: "ytd-guide-renderer #footer",
-  ask: "yt-video-description-youchat-section-view-model, ytd-menu-renderer yt-button-view-model:has(.you-chat-entrypoint-button)",
-  summary: "ytd-structured-description-content-renderer #video-summary",
-  upcoming: 'ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer))',
-  expandDescription: "#description-inline-expander #collapse",
-  channelTabs: 'yt-tab-shape:is([tab-title="Posts"], [tab-title="Store"])',
-};
+// Keep in step with src/tidy.css: read it. Every "display: none" rule gated
+// on a feature key contributes its selector (the gate stripped off).
+const SELECTORS = {};
+for (const m of readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8").matchAll(/html\[data-yt-tidy~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
+  SELECTORS[m[1]] = SELECTORS[m[1]] ? `${SELECTORS[m[1]]}, ${m[2]}` : m[2];
+}
 
 function survey(selectors) {
   const out = {};

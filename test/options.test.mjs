@@ -40,7 +40,10 @@ test("options.js builds one checkbox per feature and reflects stored settings ov
   loadClassic("src/options.js", { YtTidy, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepEqual(form.elements.map((e) => e.name), [...YtTidy.KEYS]);
+  // Checkboxes come grouped: every feature once, section by section.
+  const grouped = [...YtTidy.GROUPS].flatMap((g) => [...YtTidy.FEATURES].filter((f) => f[3] === g).map((f) => f[0]));
+  assert.deepEqual(form.elements.map((e) => e.name), grouped);
+  assert.deepEqual([...form.elements.map((e) => e.name)].sort(), [...YtTidy.KEYS].sort());
   const box = (name) => form.elements.find((e) => e.name === name);
   assert.equal(box("create").checked, false, "stored value wins");
   assert.equal(box("footer").checked, true, "default on");

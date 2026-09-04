@@ -5,22 +5,24 @@ import { loadClassic } from "./helpers/load-classic.mjs";
 
 const css = readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8");
 const { YtTidy } = loadClassic("src/tidy-core.js");
-// expandDescription is mostly script, but it also hides the description's
-// "Show less" button, which is pointless once the description opens itself.
-const SCRIPT_ONLY = ["channelTabRedirect", "stalePlaceholders", "titleCase", "dislikeCount"];
+// Features with no stylesheet rule at all: pure script.
+const SCRIPT_ONLY = ["channelTabRedirect", "stalePlaceholders", "titleCase", "dislikeCount", "homeToSubscriptions"];
+// The only declarations a rule may carry. Hiding, plus the one layout fix
+// hiding the header needs (the page otherwise keeps a gap where it was).
+const ALLOWED = new Set(["display: none !important;", "margin-top: 0 !important;"]);
 const gates = [...css.matchAll(/html\[data-yt-tidy~="([^"]+)"\]/g)].map((m) => m[1]);
 
 test("every gate in tidy.css is a known feature key", () => {
   for (const gate of gates) assert.ok(YtTidy.KEYS.includes(gate), `unknown gate ${gate}`);
 });
 
-test("every hiding feature has a gate; script-only features have none", () => {
+test("every non-script feature has a gate; script-only features have none", () => {
   for (const key of YtTidy.KEYS.filter((k) => !SCRIPT_ONLY.includes(k))) assert.ok(gates.includes(key), `no rule gated on ${key}`);
   for (const key of SCRIPT_ONLY) assert.ok(!gates.includes(key), `${key} should not be in the stylesheet`);
 });
 
-test("rules only ever hide; nothing is styled beyond display:none", () => {
+test("rules only hide, or zero a top margin", () => {
   const declarations = [...css.matchAll(/\{([^}]*)\}/g)].map((m) => m[1].trim());
-  assert.ok(declarations.length >= 7);
-  for (const d of declarations) assert.equal(d, "display: none !important;");
+  assert.ok(declarations.length >= 30);
+  for (const d of declarations) assert.ok(ALLOWED.has(d), `unexpected declaration: ${d}`);
 });
