@@ -87,11 +87,12 @@ const SELECTORS = {
   moreFromYoutube: 'ytd-guide-section-renderer:has(a[href*="music.youtube.com"])',
   subscriptionDots: "ytd-guide-entry-renderer #newness-dot, yt-list-item-view-model .ytListItemViewModelNewContentIndicator",
   descriptionChannelLinks: "ytd-video-description-infocards-section-renderer",
-  descriptionCards: "ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer",
+  descriptionCards: "ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer, how-this-was-made-section-view-model",
   descriptionChips: 'ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]',
   footer: "ytd-guide-renderer #footer",
   ask: "yt-video-description-youchat-section-view-model, ytd-menu-renderer yt-button-view-model:has(.you-chat-entrypoint-button)",
   summary: "ytd-structured-description-content-renderer #video-summary",
+  upcoming: 'ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer))',
   expandDescription: "#description-inline-expander #collapse",
 };
 const SURVEY = `

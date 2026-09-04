@@ -5,13 +5,13 @@ import { loadClassic } from "./helpers/load-classic.mjs";
 const { YtTidy } = loadClassic("src/tidy-core.js");
 const KEYS = [
   "create", "moreFromYoutube", "subscriptionDots", "expandDescription",
-  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "ask", "summary", "titleCase", "dislikeCount",
+  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "ask", "summary", "upcoming", "titleCase", "dislikeCount",
 ];
 const ON_BY_DEFAULT = KEYS.filter((k) => k !== "dislikeCount");
 
 // YtTidy comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
-test("the feature keys are the agreed twelve, in order, each with a label and a default", () => {
+test("the feature keys are the agreed thirteen, in order, each with a label and a default", () => {
   assert.deepEqual([...YtTidy.KEYS], KEYS);
   for (const [key, label, defaultOn] of YtTidy.FEATURES) {
     assert.ok(KEYS.includes(key));
@@ -30,7 +30,7 @@ test("tokensFor lists enabled keys in order; a missing key takes its default", (
   assert.equal(YtTidy.tokensFor({ dislikeCount: true }), KEYS.join(" "));
   assert.equal(
     YtTidy.tokensFor({ create: false, footer: false }),
-    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips ask summary titleCase",
+    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips ask summary upcoming titleCase",
   );
 });
 

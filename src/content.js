@@ -110,17 +110,36 @@
     }
   }
 
+  // --- Description bottom ----------------------------------------------------
+  // The block of cards under the description text has a 16px top margin. With
+  // every card hidden it is an empty block whose margin still pushes the box's
+  // bottom edge down, so drop the margin while nothing in it is rendered, and
+  // give it back the moment something is.
+  function tightenDescription() {
+    if (settings.expandDescription === false) return;
+    const block = document.querySelector("#description-inline-expander #structured-description");
+    if (!block) return;
+    const anythingShown = [...block.querySelectorAll("*")].some((e) => e.getBoundingClientRect().height > 0);
+    block.style.marginTop = anythingShown ? "" : "0";
+  }
+
+  // One observer serves both jobs that need re-checking as YouTube renders.
+  function observe() {
+    if (settings.titleCase !== false) calmTitles();
+    tightenDescription();
+  }
+
   function watchTitles() {
-    if (settings.titleCase === false) {
+    if (settings.titleCase === false && settings.expandDescription === false) {
       titleObserver?.disconnect();
       titleObserver = null;
       return;
     }
-    calmTitles();
+    observe();
     if (titleObserver) return;
     titleObserver = new MutationObserver(() => {
       clearTimeout(titleTimer);
-      titleTimer = setTimeout(calmTitles, 200);
+      titleTimer = setTimeout(observe, 200);
     });
     titleObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   }

@@ -8,11 +8,12 @@
     ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", true],
     ["expandDescription", "Open the video description automatically", true],
     ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", true],
-    ["descriptionCards", "Hide the transcript, podcast, chapters and music cards in the description", true],
+    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", true],
     ["descriptionChips", "Hide hashtags and link chips in the description", true],
     ["footer", "Hide the About / Press / Copyright block under the sidebar", true],
     ["ask", "Hide YouTube's AI “Ask” button and card", true],
     ["summary", "Hide the AI-generated video summary", true],
+    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true],
     ["titleCase", "Turn ALL-CAPS titles into sentence case", true],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.

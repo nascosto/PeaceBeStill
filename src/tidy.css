@@ -20,8 +20,9 @@ html[data-yt-tidy~="expandDescription"] #description-inline-expander #collapse {
 /* Description: the channel row at the bottom (avatar, subscriber count, links) */
 html[data-yt-tidy~="descriptionChannelLinks"] ytd-video-description-infocards-section-renderer { display: none !important; }
 
-/* Description: the transcript / course / music cards and card lists */
-html[data-yt-tidy~="descriptionCards"] :is(ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer) { display: none !important; }
+/* Description: the transcript / course / music cards, card lists, and the
+   "How this was made" (auto-dubbing / altered-content) block */
+html[data-yt-tidy~="descriptionCards"] :is(ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer, how-this-was-made-section-view-model) { display: none !important; }
 
 /* Description: hashtags above the title and hashtag chips in the text */
 html[data-yt-tidy~="descriptionChips"] :is(ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]) { display: none !important; }
@@ -33,6 +34,12 @@ html[data-yt-tidy~="ask"] :is(yt-video-description-youchat-section-view-model, y
 
 /* Description: the AI-generated "Summary" block */
 html[data-yt-tidy~="summary"] ytd-structured-description-content-renderer #video-summary { display: none !important; }
+
+/* Subscriptions feed: upcoming videos. Their "Upcoming" badge and "Scheduled
+   for" line are plain text, but only they carry a Notify me toggle in the
+   card's attachments (or, in the older grid markup, a toggle-button renderer
+   in the media's buttons), so the whole card keys on that. */
+html[data-yt-tidy~="upcoming"] ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer)) { display: none !important; }
 
 /* Sidebar: the About / Press / Copyright block */
 html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }
