@@ -34,6 +34,7 @@ const SELECTORS = {
   descriptionCards: "ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer",
   descriptionChips: 'ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]',
   footer: "ytd-guide-renderer #footer",
+  ask: "yt-video-description-youchat-section-view-model, ytd-menu-renderer yt-button-view-model:has(.you-chat-entrypoint-button)",
 };
 
 function survey(selectors) {

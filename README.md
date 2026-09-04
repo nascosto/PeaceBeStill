@@ -11,6 +11,7 @@ can show the dislike count. Every feature is a switch on the options page:
   transcript / podcast / chapters / music cards, and its hashtags and link
   chips, each separately
 - the About / Press / Copyright block under the sidebar
+- YouTube's AI "Ask": the card in the description and the button under the video
 - ALL-CAPS video titles, rewritten in sentence case wherever they appear
 - the dislike count beside the thumbs-down, **off by default**: it comes from
   the Return YouTube Dislike service, so turning it on tells that service

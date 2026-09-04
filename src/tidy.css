@@ -22,5 +22,10 @@ html[data-yt-tidy~="descriptionCards"] :is(ytd-video-description-transcript-sect
 /* Description: hashtags above the title and hashtag chips in the text */
 html[data-yt-tidy~="descriptionChips"] :is(ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]) { display: none !important; }
 
+/* YouTube's AI "Ask": the card in the description ("Get answers, explore
+   topics, and more" / "Ask questions") and the Ask button in the row of
+   actions under the video */
+html[data-yt-tidy~="ask"] :is(yt-video-description-youchat-section-view-model, ytd-menu-renderer yt-button-view-model:has(.you-chat-entrypoint-button)) { display: none !important; }
+
 /* Sidebar: the About / Press / Copyright block */
 html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }

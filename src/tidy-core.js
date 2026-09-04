@@ -11,6 +11,7 @@
     ["descriptionCards", "Hide the transcript, podcast, chapters and music cards in the description", true],
     ["descriptionChips", "Hide hashtags and link chips in the description", true],
     ["footer", "Hide the About / Press / Copyright block under the sidebar", true],
+    ["ask", "Hide YouTube's AI “Ask” button and card", true],
     ["titleCase", "Turn ALL-CAPS titles into sentence case", true],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.
