@@ -4,7 +4,7 @@
 // dislike count when asked.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor } = globalThis.YtTidy;
+  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, placeholderVerdict } = globalThis.YtTidy;
   let settings = {};
 
   // YouTube is a single-page app: the watch page appears after its own
@@ -123,14 +123,47 @@
     block.style.marginTop = anythingShown ? "" : "0";
   }
 
-  // One observer serves both jobs that need re-checking as YouTube renders.
+  // --- Stale feed placeholders -----------------------------------------------
+  // YouTube fetches more of a feed when its "loading more" block scrolls into
+  // view, so that block must stay in the page while a feed is live. At the
+  // end of a feed (or when an ad blocker eats the request) it is sometimes
+  // left behind, ghost cards and spinner and all. placeholderVerdict hides a
+  // block that has sat in view for STALE_MS with the grid not growing, and
+  // brings it back the moment the grid grows. Scrolling does not mutate the
+  // DOM, so a scroll listener and a timer feed this as well as the observer.
+  const STALE_MS = 6000;
+  const placeholders = new WeakMap();
+  let staleTimer = null;
+
+  function pruneStalePlaceholders() {
+    const blocks = document.querySelectorAll("ytd-rich-grid-renderer ytd-continuation-item-renderer");
+    if (settings.stalePlaceholders === false) {
+      for (const block of blocks) block.style.display = "";
+      return;
+    }
+    const now = Date.now();
+    let waiting = false;
+    for (const block of blocks) {
+      const items = block.closest("ytd-rich-grid-renderer").querySelectorAll("ytd-rich-item-renderer").length;
+      const inView = block.getBoundingClientRect().top < window.innerHeight;
+      const { record, hide } = placeholderVerdict(placeholders.get(block), now, items, inView, STALE_MS);
+      placeholders.set(block, record);
+      block.style.display = hide ? "none" : "";
+      if (!hide && record.since != null) waiting = true;
+    }
+    clearTimeout(staleTimer);
+    if (waiting) staleTimer = setTimeout(pruneStalePlaceholders, STALE_MS + 100);
+  }
+
+  // One observer serves every job that needs re-checking as YouTube renders.
   function observe() {
     if (settings.titleCase !== false) calmTitles();
     tightenDescription();
+    pruneStalePlaceholders();
   }
 
   function watchTitles() {
-    if (settings.titleCase === false && settings.expandDescription === false) {
+    if (settings.titleCase === false && settings.expandDescription === false && settings.stalePlaceholders === false) {
       titleObserver?.disconnect();
       titleObserver = null;
       return;
@@ -142,6 +175,10 @@
       titleTimer = setTimeout(observe, 200);
     });
     titleObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    window.addEventListener("scroll", () => {
+      clearTimeout(titleTimer);
+      titleTimer = setTimeout(pruneStalePlaceholders, 200);
+    }, { passive: true });
   }
 
   // --- Channel Posts / Store pages -------------------------------------------

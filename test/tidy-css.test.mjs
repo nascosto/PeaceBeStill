@@ -7,7 +7,7 @@ const css = readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8");
 const { YtTidy } = loadClassic("src/tidy-core.js");
 // expandDescription is mostly script, but it also hides the description's
 // "Show less" button, which is pointless once the description opens itself.
-const SCRIPT_ONLY = ["channelTabRedirect", "titleCase", "dislikeCount"];
+const SCRIPT_ONLY = ["channelTabRedirect", "stalePlaceholders", "titleCase", "dislikeCount"];
 const gates = [...css.matchAll(/html\[data-yt-tidy~="([^"]+)"\]/g)].map((m) => m[1]);
 
 test("every gate in tidy.css is a known feature key", () => {

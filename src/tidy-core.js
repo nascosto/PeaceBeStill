@@ -16,6 +16,7 @@
     ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true],
     ["channelTabs", "Hide a channel's Posts and Store tabs", true],
     ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", true],
+    ["stalePlaceholders", "Hide the loading placeholders and spinner left behind at the end of a feed", true],
     ["titleCase", "Turn ALL-CAPS titles into sentence case", true],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.
@@ -78,5 +79,18 @@
     return match ? match[1] : null;
   }
 
-  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor };
+  // A feed's "loading more" block (ghost cards and a spinner) should vanish
+  // when the feed ends; YouTube sometimes leaves it, more often with an ad
+  // blocker. Given the block's previous record, the time, the grid's item
+  // count and whether the block is in view: the next record, and whether to
+  // hide it. The clock only runs while it is in view, and any growth of the
+  // grid restarts it, so a block that is still loading is never hidden.
+  function placeholderVerdict(prev, now, items, inView, staleMs) {
+    if (!prev || prev.items !== items) return { record: { since: inView ? now : null, items }, hide: false };
+    if (!inView) return { record: prev, hide: false };
+    if (prev.since == null) return { record: { since: now, items }, hide: false };
+    return { record: prev, hide: now - prev.since >= staleMs };
+  }
+
+  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, placeholderVerdict };
 })(globalThis);

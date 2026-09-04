@@ -16,6 +16,9 @@ can show the dislike count. Every feature is a switch on the options page:
 - upcoming videos, Notify me button and all, in the Subscriptions feed
 - a channel's Posts and Store tabs
 - landing on a channel's Posts or Store page: sent to the channel home instead
+- the "loading more" placeholders and spinner a feed sometimes leaves behind at
+  its end (a block that sits in view for six seconds with nothing arriving is
+  taken as the end, and comes back if anything does arrive)
 - ALL-CAPS video titles, rewritten in sentence case wherever they appear
 - the dislike count beside the thumbs-down, **off by default**: it comes from
   the Return YouTube Dislike service, so turning it on tells that service

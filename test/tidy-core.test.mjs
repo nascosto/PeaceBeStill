@@ -5,13 +5,13 @@ import { loadClassic } from "./helpers/load-classic.mjs";
 const { YtTidy } = loadClassic("src/tidy-core.js");
 const KEYS = [
   "create", "moreFromYoutube", "subscriptionDots", "expandDescription",
-  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "ask", "summary", "upcoming", "channelTabs", "channelTabRedirect", "titleCase", "dislikeCount",
+  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "ask", "summary", "upcoming", "channelTabs", "channelTabRedirect", "stalePlaceholders", "titleCase", "dislikeCount",
 ];
 const ON_BY_DEFAULT = KEYS.filter((k) => k !== "dislikeCount");
 
 // YtTidy comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
-test("the feature keys are the agreed fifteen, in order, each with a label and a default", () => {
+test("the feature keys are the agreed sixteen, in order, each with a label and a default", () => {
   assert.deepEqual([...YtTidy.KEYS], KEYS);
   for (const [key, label, defaultOn] of YtTidy.FEATURES) {
     assert.ok(KEYS.includes(key));
@@ -30,7 +30,7 @@ test("tokensFor lists enabled keys in order; a missing key takes its default", (
   assert.equal(YtTidy.tokensFor({ dislikeCount: true }), KEYS.join(" "));
   assert.equal(
     YtTidy.tokensFor({ create: false, footer: false }),
-    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips ask summary upcoming channelTabs channelTabRedirect titleCase",
+    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips ask summary upcoming channelTabs channelTabRedirect stalePlaceholders titleCase",
   );
 });
 
@@ -59,6 +59,34 @@ test("channelHomeFor maps a channel's posts/store/community URL to its home, and
   for (const other of ["/@MarkRober", "/@MarkRober/videos", "/@MarkRober/featured", "/watch", "/feed/subscriptions", "/posts", ""]) {
     assert.equal(YtTidy.channelHomeFor(other), null, other);
   }
+});
+
+test("placeholderVerdict hides a loading block only after it has sat in view with the grid not growing", () => {
+  const verdict = YtTidy.placeholderVerdict;
+  // First sight, in view: start the clock, keep it shown.
+  let { record, hide } = verdict(undefined, 1000, 20, true, 6000);
+  assert.equal(hide, false);
+  assert.deepEqual({ ...record }, { since: 1000, items: 20 });
+  // Still in view, grid unchanged, not long enough yet.
+  ({ record, hide } = verdict(record, 6900, 20, true, 6000));
+  assert.equal(hide, false);
+  // Long enough: hide.
+  ({ record, hide } = verdict(record, 7000, 20, true, 6000));
+  assert.equal(hide, true);
+  // The grid grew: back to shown, clock restarted.
+  ({ record, hide } = verdict(record, 7100, 32, true, 6000));
+  assert.equal(hide, false);
+  assert.deepEqual({ ...record }, { since: 7100, items: 32 });
+  // Out of view: never hidden, no clock.
+  ({ record, hide } = verdict(undefined, 1000, 20, false, 6000));
+  assert.equal(hide, false);
+  assert.equal(record.since, null);
+  ({ record, hide } = verdict(record, 20000, 20, false, 6000));
+  assert.equal(hide, false);
+  // Comes into view later: the clock starts then, not earlier.
+  ({ record, hide } = verdict(record, 20000, 20, true, 6000));
+  assert.equal(hide, false);
+  assert.equal(record.since, 20000);
 });
 
 test("calmTitle rewrites a shouting title in sentence case and leaves everything else alone", () => {
