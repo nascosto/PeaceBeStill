@@ -5,45 +5,47 @@
   const GROUPS = ["Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
   const [HEADER, HOME, WATCH, PLAYER, SEARCH, CHANNEL] = GROUPS;
 
-  // [key, label, on by default, group]. The order here is the order of the
-  // data-yt-tidy tokens; the options page groups by the fourth field.
+  // [key, label, on by default, group, parent?]. The order here is the order
+  // of the data-yt-tidy tokens; the options page groups by the fourth field
+  // and nests by the fifth. A parent is a switch that hides the thing its
+  // children live inside, so while it is on they cannot matter.
   const FEATURES = [
-    ["create", "Hide the Create button in the header", true, HEADER],
+    ["create", "Hide the Create button in the header", true, HEADER, "header"],
     ["moreFromYoutube", "Hide the “More from YouTube” sidebar section", true, HEADER],
-    ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", true, HEADER],
-    ["expandDescription", "Open the video description automatically (and drop its Show less)", true, WATCH],
-    ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", true, WATCH],
-    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", true, WATCH],
-    ["descriptionChips", "Hide hashtags and link chips in the description", true, WATCH],
+    ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", true, HEADER, "subscriptions"],
+    ["expandDescription", "Open the video description automatically (and drop its Show less)", true, WATCH, "description"],
+    ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", true, WATCH, "description"],
+    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", true, WATCH, "description"],
+    ["descriptionChips", "Hide hashtags and link chips in the description", true, WATCH, "description"],
     ["footer", "Hide the About / Press / Copyright block under the sidebar", true, HEADER],
     ["ask", "Hide YouTube's AI “Ask” button and card", true, WATCH],
-    ["summary", "Hide the AI-generated video summary", true, WATCH],
-    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true, HOME],
+    ["summary", "Hide the AI-generated video summary", true, WATCH, "description"],
+    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true, HOME, "subscriptions"],
     ["channelTabs", "Hide a channel's Posts and Store tabs", true, CHANNEL],
     ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", true, CHANNEL],
     ["stalePlaceholders", "Hide the loading placeholders and spinner left behind at the end of a feed", true, HOME],
     ["titleCase", "Turn ALL-CAPS titles into sentence case", true, HOME],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.
-    ["dislikeCount", "Show the dislike count (asks returnyoutubedislike.com for each video)", false, WATCH],
+    ["dislikeCount", "Show the dislike count (asks returnyoutubedislike.com for each video)", false, WATCH, "buttonsBar"],
     // Ported from Unhook; defaults are the values Ben had set there.
     ["header", "Hide the whole top bar (logo, search, account)", false, HEADER],
-    ["notifications", "Hide the notifications bell and the unread count in the tab title", true, HEADER],
+    ["notifications", "Hide the notifications bell and the unread count in the tab title", true, HEADER, "header"],
     ["exploreTrending", "Hide the Explore section, Trending, and their pages", false, HEADER],
     ["subscriptions", "Hide Subscriptions (the sidebar entry, the channel list and the feed page)", false, HEADER],
     ["homeFeed", "Hide the home page feed", true, HOME],
-    ["homeToSubscriptions", "Send the home page to the Subscriptions feed", true, HOME],
+    ["homeToSubscriptions", "Send the home page to the Subscriptions feed", true, HOME, "subscriptions"],
     ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", true, HOME],
     ["mixes", "Hide Mixes (auto-generated playlists)", true, HOME],
     ["promos", "Hide promo banners, the masthead ad and surveys", true, HOME],
     ["relatedVideos", "Hide the whole column beside the video (related videos, chat, playlist)", true, WATCH],
-    ["recommended", "Hide the recommended-videos list beside the video and the “More videos” overlay on pause", true, WATCH],
-    ["liveChat", "Hide live chat", true, WATCH],
-    ["playlistPanel", "Hide the playlist panel beside the video", true, WATCH],
+    ["recommended", "Hide the recommended-videos list beside the video and the “More videos” overlay on pause", true, WATCH, "relatedVideos"],
+    ["liveChat", "Hide live chat", true, WATCH, "relatedVideos"],
+    ["playlistPanel", "Hide the playlist panel beside the video", true, WATCH, "relatedVideos"],
     ["fundraiser", "Hide the fundraiser shelf", true, WATCH],
     ["merch", "Hide merch, tickets, offers and context boxes under the video", true, WATCH],
     ["comments", "Hide comments", false, WATCH],
-    ["profilePhotos", "Hide profile photos in comments", false, WATCH],
+    ["profilePhotos", "Hide profile photos in comments", false, WATCH, "comments"],
     ["videoInfo", "Hide the views and date line under the video", false, WATCH],
     ["buttonsBar", "Hide the like / share / save row under the video", false, WATCH],
     ["channelRow", "Hide the channel row under the video", false, WATCH],
@@ -141,5 +143,26 @@
     return String(title).replace(/^\(\d+\)\s+/, "");
   }
 
-  root.YtTidy = { GROUPS, FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  // The switch a feature lives inside, or null. Only one level deep today,
+  // but isMoot walks the whole chain so deeper nesting would just work.
+  function parentOf(key) {
+    const feature = FEATURES.find(([featureKey]) => featureKey === key);
+    return (feature && feature[4]) || null;
+  }
+
+  // True when some ancestor of this feature is switched on, i.e. the thing it
+  // acts on is already hidden, so the feature cannot have any effect. The
+  // options page greys such a switch out; its stored value is left alone, so
+  // turning the parent off brings it back exactly as it was.
+  function isMoot(key, settings) {
+    const merged = { ...defaults(), ...(settings || {}) };
+    const seen = new Set();
+    for (let parent = parentOf(key); parent && !seen.has(parent); parent = parentOf(parent)) {
+      if (merged[parent] === true) return true;
+      seen.add(parent);
+    }
+    return false;
+  }
+
+  root.YtTidy = { GROUPS, FEATURES, KEYS, defaults, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

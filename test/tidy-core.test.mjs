@@ -37,6 +37,41 @@ test("the feature keys are the agreed forty-two, in order, each with a label, a 
   assert.deepEqual([...YtTidy.GROUPS], GROUPS);
 });
 
+test("every parent named is a real key, and no feature is its own ancestor", () => {
+  for (const [key, , , , parent] of YtTidy.FEATURES) {
+    if (parent === undefined) continue;
+    assert.ok(KEYS.includes(parent), `${key} names unknown parent ${parent}`);
+    const seen = new Set([key]);
+    for (let p = parent; p; p = YtTidy.parentOf(p)) {
+      assert.ok(!seen.has(p), `cycle through ${p}`);
+      seen.add(p);
+    }
+  }
+});
+
+test("a feature is moot while any ancestor of it is switched on", () => {
+  const moot = YtTidy.isMoot;
+  // Hiding the whole top bar makes its parts moot.
+  assert.equal(moot("create", { header: true }), true);
+  assert.equal(moot("notifications", { header: true }), true);
+  assert.equal(moot("create", { header: false }), false);
+  // Hiding the description makes everything inside it moot.
+  for (const child of ["expandDescription", "descriptionCards", "summary"]) {
+    assert.equal(moot(child, { description: true }), true, child);
+    assert.equal(moot(child, { description: false }), false, child);
+  }
+  // Hiding the column beside the video, the comments, the buttons row.
+  assert.equal(moot("liveChat", { relatedVideos: true }), true);
+  assert.equal(moot("profilePhotos", { comments: true }), true);
+  assert.equal(moot("dislikeCount", { buttonsBar: true }), true);
+  // Cross-section: hiding Subscriptions strands the home redirect.
+  assert.equal(moot("homeToSubscriptions", { subscriptions: true }), true);
+  assert.equal(moot("homeToSubscriptions", {}), false, "subscriptions is off by default");
+  // A parent, and an unknown key, are never moot.
+  assert.equal(moot("header", { header: true }), false);
+  assert.equal(moot("bogus", { header: true }), false);
+});
+
 test("defaults are exactly the agreed ones", () => {
   assert.deepEqual({ ...YtTidy.defaults() }, Object.fromEntries(DEFAULTS));
 });

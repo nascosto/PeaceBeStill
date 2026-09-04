@@ -1,29 +1,61 @@
-// One checkbox per feature, grouped under section headings, read from and
-// written to storage.sync. The content script listens for those writes, so a
-// change shows up in open tabs at once.
+// One checkbox per feature, grouped under section headings and nested under
+// the switch each one depends on, read from and written to storage.sync. The
+// content script listens for those writes, so a change shows up in open tabs
+// at once.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, defaults } = globalThis.YtTidy;
+  const { GROUPS, FEATURES, KEYS, defaults, parentOf, isMoot } = globalThis.YtTidy;
   const form = document.getElementById("features");
+  const labelOf = (key) => (FEATURES.find(([featureKey]) => featureKey === key) || [])[1] || key;
+
+  let settings = defaults();
+  const rows = [];
+
+  function addRow([key, label], indented) {
+    const row = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.name = key;
+    // Named only when the parent is not the switch directly above, i.e. when
+    // it lives in another section and the greying would otherwise be a puzzle.
+    const note = document.createElement("span");
+    note.className = "why";
+    row.classList.toggle("child", indented);
+    row.append(box, document.createTextNode(" " + label), note);
+    form.append(row);
+    rows.push({ key, box, row, note, indented });
+  }
 
   for (const group of GROUPS) {
     const heading = document.createElement("h2");
     heading.textContent = group;
     form.append(heading);
-    for (const [key, label, , featureGroup] of FEATURES) {
-      if (featureGroup !== group) continue;
-      const row = document.createElement("label");
-      const box = document.createElement("input");
-      box.type = "checkbox";
-      box.name = key;
-      row.append(box, document.createTextNode(" " + label));
-      form.append(row);
+
+    const inGroup = FEATURES.filter(([, , , featureGroup]) => featureGroup === group);
+    const parentIsHere = (feature) => inGroup.some(([key]) => key === feature[4]);
+    for (const feature of inGroup) {
+      if (parentIsHere(feature)) continue; // rendered under its parent, below
+      addRow(feature, false);
+      for (const child of inGroup.filter(([, , , , parent]) => parent === feature[0])) addRow(child, true);
+    }
+  }
+
+  // A switch whose parent already hides everything it acts on is greyed out
+  // and locked. Its stored value is left alone, so turning the parent off
+  // brings it back exactly as it was.
+  function showState() {
+    for (const { key, box, row, note, indented } of rows) {
+      const moot = isMoot(key, settings);
+      box.checked = settings[key] === true;
+      box.disabled = moot;
+      row.classList.toggle("moot", moot);
+      note.textContent = moot && !indented ? ` — no effect while “${labelOf(parentOf(key))}” is on` : "";
     }
   }
 
   api.storage.sync.get(KEYS).then((stored) => {
-    const settings = { ...defaults(), ...stored };
-    for (const box of form.elements) box.checked = settings[box.name] === true;
+    settings = { ...defaults(), ...stored };
+    showState();
   });
 
   // The dislike count sends the video ID to a third party, which Firefox tracks
@@ -41,6 +73,8 @@
       box.checked = false;
       return;
     }
+    settings[box.name] = box.checked;
     api.storage.sync.set({ [box.name]: box.checked });
+    showState();
   });
 })();

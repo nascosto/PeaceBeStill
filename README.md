@@ -2,7 +2,9 @@
 
 A tiny Firefox and Chromium extension that hides the bits of desktop YouTube
 you never use, opens the video description for you, calms ALL-CAPS titles, and
-can show the dislike count. Every feature is a switch on the options page, grouped by where it acts:
+can show the dislike count. Every feature is a switch on the options page, grouped by where it acts and
+nested under the switch it depends on (hiding the description greys out the
+five switches for things inside it, and so on):
 
 - the Create button in the header
 - the "More from YouTube" sidebar section

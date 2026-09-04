@@ -13,44 +13,130 @@ test("options.html loads tidy-core.js before options.js and has the form", () =>
   assert.match(html, /<form id="features">/);
 });
 
-// A fake DOM just big enough for options.js. The form records every checkbox
-// appended to it, directly or inside a label row.
+// A fake DOM just big enough for options.js: the form records what is appended,
+// and elements carry the few properties the page sets.
 function fakeDocument() {
-  const form = {
-    elements: [],
-    listeners: {},
-    append(...nodes) {
-      this.elements.push(...nodes.flatMap((n) => n.children ?? [n]).filter((n) => n.type === "checkbox"));
+  const element = (tag) => ({
+    tag,
+    children: [],
+    textContent: "",
+    classList: {
+      names: new Set(),
+      toggle(name, on) { on ? this.names.add(name) : this.names.delete(name); },
+      contains(name) { return this.names.has(name); },
     },
+    append(...nodes) { this.children.push(...nodes); },
+  });
+  const form = {
+    appended: [],
+    listeners: {},
+    append(...nodes) { this.appended.push(...nodes); },
     addEventListener(type, fn) { this.listeners[type] = fn; },
+    get elements() { return this.appended.flatMap((n) => n.children ?? []).filter((n) => n.type === "checkbox"); },
+    get rows() {
+      return this.appended
+        .filter((n) => n.children.some((c) => c.type === "checkbox"))
+        .map((n) => ({
+          name: n.children.find((c) => c.type === "checkbox").name,
+          indented: n.classList.contains("child"),
+          moot: n.classList.contains("moot"),
+          disabled: n.children.find((c) => c.type === "checkbox").disabled === true,
+          note: n.children.filter((c) => c.tag === "span").map((c) => c.textContent).join(""),
+        }));
+    },
   };
   const document = {
     getElementById: (id) => (id === "features" ? form : null),
-    createElement: (tag) => ({ tag, children: [], append(...n) { this.children.push(...n); } }),
+    createElement: element,
     createTextNode: (text) => ({ text }),
   };
   return { document, form };
 }
 
-test("options.js builds one checkbox per feature and reflects stored settings over defaults", async () => {
+async function render(stored = {}) {
   const { YtTidy } = loadClassic("src/tidy-core.js");
   const { document, form } = fakeDocument();
   const writes = [];
-  const chrome = { storage: { sync: { get: async () => ({ create: false }), set: async (obj) => writes.push(obj) } } };
+  const chrome = { storage: { sync: { get: async () => stored, set: async (obj) => writes.push(obj) } } };
   loadClassic("src/options.js", { YtTidy, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
+  return { YtTidy, form, writes };
+}
 
-  // Checkboxes come grouped: every feature once, section by section.
-  const grouped = [...YtTidy.GROUPS].flatMap((g) => [...YtTidy.FEATURES].filter((f) => f[3] === g).map((f) => f[0]));
-  assert.deepEqual(form.elements.map((e) => e.name), grouped);
-  assert.deepEqual([...form.elements.map((e) => e.name)].sort(), [...YtTidy.KEYS].sort());
-  const box = (name) => form.elements.find((e) => e.name === name);
-  assert.equal(box("create").checked, false, "stored value wins");
-  assert.equal(box("footer").checked, true, "default on");
-  assert.equal(box("dislikeCount").checked, false, "default off");
+test("every feature gets exactly one checkbox, grouped under its section heading", async () => {
+  const { YtTidy, form } = await render();
+  assert.deepEqual(form.rows.map((r) => r.name).sort(), [...YtTidy.KEYS].sort());
+  assert.deepEqual(form.appended.filter((n) => n.tag === "h2").map((n) => n.textContent), [...YtTidy.GROUPS]);
+});
 
+test("a child is indented directly under its parent when they share a section", async () => {
+  const { form } = await render();
+  const order = form.rows.map((r) => r.name);
+  const at = (name) => order.indexOf(name);
+  for (const [parent, children] of [
+    ["header", ["create", "notifications"]],
+    ["description", ["expandDescription", "descriptionChannelLinks", "descriptionCards", "descriptionChips", "summary"]],
+    ["relatedVideos", ["recommended", "liveChat", "playlistPanel"]],
+    ["comments", ["profilePhotos"]],
+    ["buttonsBar", ["dislikeCount"]],
+    ["subscriptions", ["subscriptionDots"]],
+  ]) {
+    assert.deepEqual(order.slice(at(parent) + 1, at(parent) + 1 + children.length), children, parent);
+    for (const child of children) assert.equal(form.rows[at(child)].indented, true, child);
+    assert.equal(form.rows[at(parent)].indented, false, parent);
+  }
+});
+
+test("a child whose parent is in another section stays at the top level there", async () => {
+  const { form } = await render();
+  for (const key of ["homeToSubscriptions", "upcoming"]) {
+    assert.equal(form.rows.find((r) => r.name === key).indented, false, key);
+  }
+});
+
+test("a switch its parent has made pointless is greyed out and cannot be changed", async () => {
+  const on = await render({ header: true, comments: true });
+  for (const key of ["create", "notifications", "profilePhotos"]) {
+    const row = on.form.rows.find((r) => r.name === key);
+    assert.equal(row.moot, true, key);
+    assert.equal(row.disabled, true, key);
+  }
+  // Its own stored value is untouched, so turning the parent off restores it.
+  assert.equal(on.form.rows.find((r) => r.name === "create").note, "", "the parent is the switch above; no note needed");
+  const strandedNote = on.form.rows.find((r) => r.name === "homeToSubscriptions").note;
+  assert.equal(strandedNote, "", "subscriptions is off, so this one is fine");
+
+  const off = await render({ header: false, comments: false });
+  for (const key of ["create", "notifications", "profilePhotos"]) {
+    assert.equal(off.form.rows.find((r) => r.name === key).disabled, false, key);
+  }
+});
+
+test("a switch stranded by a parent in another section says which one", async () => {
+  const { form } = await render({ subscriptions: true });
+  const row = form.rows.find((r) => r.name === "homeToSubscriptions");
+  assert.equal(row.moot, true);
+  assert.equal(row.disabled, true);
+  assert.match(row.note, /Hide Subscriptions/);
+});
+
+test("checkboxes reflect stored settings over defaults", async () => {
+  const { form } = await render({ create: false });
+  const row = (name) => form.elements.find((e) => e.name === name);
+  assert.equal(row("create").checked, false, "stored value wins");
+  assert.equal(row("footer").checked, true, "default on");
+  assert.equal(row("dislikeCount").checked, false, "default off");
+});
+
+test("a change is written to storage, and the greying is recomputed at once", async () => {
+  const { form, writes } = await render();
   await form.listeners.change({ target: { name: "footer", checked: false } });
   assert.deepEqual(plain(writes), [{ footer: false }]);
+
+  // Switching a parent on greys its children without waiting for a reload.
+  assert.equal(form.rows.find((r) => r.name === "profilePhotos").disabled, false);
+  await form.listeners.change({ target: { name: "comments", checked: true } });
+  assert.equal(form.rows.find((r) => r.name === "profilePhotos").disabled, true);
 });
 
 test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {

@@ -13,8 +13,19 @@ Unhook's options are ported (2026-09-03), so Unhook is dropped from the system-s
 
 ## Features
 
-Every feature is a toggle on the options page, grouped under section
-headings (Header and sidebar, Home and feeds, Watch page, Player, Search,
+Every feature is a toggle on the options page, nested under the switch it
+depends on (a switch that hides the thing a feature acts on makes that feature
+moot: it is indented under it, greyed and locked while the parent is on, its
+stored value untouched; when the parent lives in another section the note names
+it). The parents: `header` over `create` and `notifications`; `subscriptions`
+over `subscriptionDots`, `upcoming` and `homeToSubscriptions`; `description`
+over `expandDescription`, `descriptionChannelLinks`, `descriptionCards`,
+`descriptionChips` and `summary`; `relatedVideos` over `recommended`,
+`liveChat` and `playlistPanel`; `comments` over `profilePhotos`; `buttonsBar`
+over `dislikeCount`. `ask` stays top level: its card is in the description but
+its button is in the buttons row.
+
+Toggles are grouped under section headings (Header and sidebar, Home and feeds, Watch page, Player, Search,
 Channel pages); on by default except `dislikeCount` and the ported Unhook
 options Ben had off. Selectors below
 are the starting point; the audit step (see Workflow) confirms or corrects them

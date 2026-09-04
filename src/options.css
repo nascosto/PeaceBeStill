@@ -1,5 +1,10 @@
-body { font: 13px system-ui, sans-serif; margin: 12px; min-width: 380px; }
+body { font: 13px system-ui, sans-serif; margin: 12px; min-width: 420px; }
 #features { display: grid; gap: 6px; }
 h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin: 14px 0 2px; }
 h2:first-child { margin-top: 0; }
-label { display: flex; align-items: center; gap: 6px; }
+label { display: flex; align-items: baseline; gap: 6px; }
+/* Nested under the switch it depends on. */
+label.child { margin-left: 22px; }
+/* That switch is on, so this one has nothing to act on. */
+label.moot { opacity: 0.45; }
+.why { opacity: 0.8; font-style: italic; }
