@@ -7,11 +7,12 @@ can show the dislike count. Every feature is a switch on the options page:
 - the Create button in the header
 - the "More from YouTube" sidebar section
 - the new-video dot beside channels in the Subscriptions list
-- the description: opened automatically, and its channel row, its
+- the description: opened automatically with its "Show less" button dropped, and its channel row, its
   transcript / podcast / chapters / music cards, and its hashtags and link
   chips, each separately
 - the About / Press / Copyright block under the sidebar
 - YouTube's AI "Ask": the card in the description and the button under the video
+- the AI-generated "Summary" block in the description
 - ALL-CAPS video titles, rewritten in sentence case wherever they appear
 - the dislike count beside the thumbs-down, **off by default**: it comes from
   the Return YouTube Dislike service, so turning it on tells that service

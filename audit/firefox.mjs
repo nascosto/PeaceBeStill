@@ -91,6 +91,8 @@ const SELECTORS = {
   descriptionChips: 'ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]',
   footer: "ytd-guide-renderer #footer",
   ask: "yt-video-description-youchat-section-view-model, ytd-menu-renderer yt-button-view-model:has(.you-chat-entrypoint-button)",
+  summary: "ytd-structured-description-content-renderer #video-summary",
+  expandDescription: "#description-inline-expander #collapse",
 };
 const SURVEY = `
   const selectors = arguments[0]; const out = {};

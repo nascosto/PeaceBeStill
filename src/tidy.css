@@ -13,6 +13,10 @@ html[data-yt-tidy~="moreFromYoutube"] ytd-guide-section-renderer:has(a[href*="mu
    "Subscriptions" is hovered (a list-item "new content indicator") */
 html[data-yt-tidy~="subscriptionDots"] :is(ytd-guide-entry-renderer #newness-dot, yt-list-item-view-model .ytListItemViewModelNewContentIndicator) { display: none !important; }
 
+/* Description: the "Show less" button, pointless once the description opens
+   itself (content.js does the opening) */
+html[data-yt-tidy~="expandDescription"] #description-inline-expander #collapse { display: none !important; }
+
 /* Description: the channel row at the bottom (avatar, subscriber count, links) */
 html[data-yt-tidy~="descriptionChannelLinks"] ytd-video-description-infocards-section-renderer { display: none !important; }
 
@@ -26,6 +30,9 @@ html[data-yt-tidy~="descriptionChips"] :is(ytd-watch-metadata #super-title, #des
    topics, and more" / "Ask questions") and the Ask button in the row of
    actions under the video */
 html[data-yt-tidy~="ask"] :is(yt-video-description-youchat-section-view-model, ytd-menu-renderer yt-button-view-model:has(.you-chat-entrypoint-button)) { display: none !important; }
+
+/* Description: the AI-generated "Summary" block */
+html[data-yt-tidy~="summary"] ytd-structured-description-content-renderer #video-summary { display: none !important; }
 
 /* Sidebar: the About / Press / Copyright block */
 html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }
