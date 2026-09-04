@@ -62,13 +62,39 @@
     return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
   }
 
+  // Stored settings over the defaults. Only booleans count, so a key that is
+  // absent, removed (storage.onChanged reports a removal as undefined) or
+  // junk falls back to its default. That is what lets us store only the
+  // switches you have actually changed, and lets a later version's new
+  // default reach everyone who never touched that switch.
+  function withDefaults(settings) {
+    const merged = defaults();
+    for (const [key, value] of Object.entries(settings || {})) {
+      if (typeof value === "boolean") merged[key] = value;
+    }
+    return merged;
+  }
+
   // Settings -> the value of the root element's data-yt-tidy attribute: the
-  // enabled keys, space separated, so tidy.css can gate on ~="key". A key that
-  // is missing from storage takes its default, so a feature added in a later
-  // version behaves the same for everyone who already installed the extension.
+  // enabled keys, space separated, so tidy.css can gate on ~="key".
   function tokensFor(settings) {
-    const merged = { ...defaults(), ...(settings || {}) };
+    const merged = withDefaults(settings);
     return KEYS.filter((key) => merged[key] === true).join(" ");
+  }
+
+  // True when this value is what the feature would do anyway, so storing it
+  // would be storing nothing. Unknown keys are never redundant: we do not
+  // own them and must not delete them.
+  function isDefaultValue(key, value) {
+    const all = defaults();
+    return Object.prototype.hasOwnProperty.call(all, key) && all[key] === value;
+  }
+
+  // The stored keys worth deleting: everything already equal to its default.
+  function redundantKeys(stored) {
+    return Object.entries(stored || {})
+      .filter(([key, value]) => isDefaultValue(key, value))
+      .map(([key]) => key);
   }
 
   // 1234 -> "1.2K", the way YouTube shows its own counts. Anything that is not
@@ -117,7 +143,7 @@
   // page to the Subscriptions feed (never when that feed is itself hidden),
   // a Short to its ordinary watch page.
   function redirectFor(pathname, settings) {
-    const merged = { ...defaults(), ...(settings || {}) };
+    const merged = withDefaults(settings);
     if (merged.homeToSubscriptions && !merged.subscriptions && pathname === "/") return "/feed/subscriptions";
     const short = /^\/shorts\/([A-Za-z0-9_-]{6,})/.exec(pathname || "");
     if (merged.shorts && short) return "/watch?v=" + short[1];
@@ -155,7 +181,7 @@
   // options page greys such a switch out; its stored value is left alone, so
   // turning the parent off brings it back exactly as it was.
   function isMoot(key, settings) {
-    const merged = { ...defaults(), ...(settings || {}) };
+    const merged = withDefaults(settings);
     const seen = new Set();
     for (let parent = parentOf(key); parent && !seen.has(parent); parent = parentOf(parent)) {
       if (merged[parent] === true) return true;
@@ -164,5 +190,5 @@
     return false;
   }
 
-  root.YtTidy = { GROUPS, FEATURES, KEYS, defaults, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.YtTidy = { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

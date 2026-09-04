@@ -230,7 +230,12 @@
 
   api.storage.onChanged.addListener((changes, area) => {
     if (area !== "sync") return;
-    for (const [key, { newValue }] of Object.entries(changes)) settings[key] = newValue;
+    // A removal arrives as a change with no newValue: drop the key so it
+    // falls back to its default rather than reading as "off".
+    for (const [key, change] of Object.entries(changes)) {
+      if ("newValue" in change) settings[key] = change.newValue;
+      else delete settings[key];
+    }
     refresh();
   });
 

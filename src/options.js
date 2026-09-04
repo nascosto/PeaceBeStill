@@ -4,7 +4,7 @@
 // at once.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, defaults, parentOf, isMoot } = globalThis.YtTidy;
+  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot } = globalThis.YtTidy;
   const form = document.getElementById("features");
   const labelOf = (key) => (FEATURES.find(([featureKey]) => featureKey === key) || [])[1] || key;
 
@@ -54,8 +54,12 @@
   }
 
   api.storage.sync.get(KEYS).then((stored) => {
-    settings = { ...defaults(), ...stored };
+    settings = withDefaults(stored);
     showState();
+    // Anything stored that only repeats a default is dead weight in a synced
+    // store; drop it. Nothing changes on screen, since it was the default.
+    const redundant = redundantKeys(stored);
+    if (redundant.length) api.storage.sync.remove(redundant);
   });
 
   // The dislike count sends the video ID to a third party, which Firefox tracks
@@ -74,7 +78,11 @@
       return;
     }
     settings[box.name] = box.checked;
-    api.storage.sync.set({ [box.name]: box.checked });
+    // Store only what differs from the default: a switch put back where it
+    // started is a key we can delete, and a profile on the defaults stores
+    // nothing at all. tokensFor treats a missing key as its default.
+    if (isDefaultValue(box.name, box.checked)) api.storage.sync.remove(box.name);
+    else api.storage.sync.set({ [box.name]: box.checked });
     showState();
   });
 })();

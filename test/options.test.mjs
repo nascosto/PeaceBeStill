@@ -57,10 +57,15 @@ async function render(stored = {}) {
   const { YtTidy } = loadClassic("src/tidy-core.js");
   const { document, form } = fakeDocument();
   const writes = [];
-  const chrome = { storage: { sync: { get: async () => stored, set: async (obj) => writes.push(obj) } } };
+  const removes = [];
+  const chrome = { storage: { sync: {
+    get: async () => stored,
+    set: async (obj) => writes.push(obj),
+    remove: async (keys) => removes.push(keys),
+  } } };
   loadClassic("src/options.js", { YtTidy, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  return { YtTidy, form, writes };
+  return { YtTidy, form, writes, removes };
 }
 
 test("every feature gets exactly one checkbox, grouped under its section heading", async () => {
@@ -139,14 +144,40 @@ test("a change is written to storage, and the greying is recomputed at once", as
   assert.equal(form.rows.find((r) => r.name === "profilePhotos").disabled, true);
 });
 
+test("only a switch that differs from its default is stored", async () => {
+  const { form, writes, removes } = await render();
+
+  // footer is on by default: switching it off is worth storing.
+  await form.listeners.change({ target: { name: "footer", checked: false } });
+  assert.deepEqual(plain(writes), [{ footer: false }]);
+  assert.deepEqual(plain(removes), []);
+
+  // Switching it back on returns it to the default, so drop the key entirely
+  // rather than storing something the defaults already say.
+  await form.listeners.change({ target: { name: "footer", checked: true } });
+  assert.deepEqual(plain(writes), [{ footer: false }], "nothing more written");
+  assert.deepEqual(plain(removes), ["footer"]);
+});
+
+test("settings already stored that match their default are cleaned up on load", async () => {
+  const { removes } = await render({ footer: true, create: false, dislikeCount: false });
+  assert.deepEqual(plain(removes), [["footer", "dislikeCount"]], "create differs, so it stays");
+});
+
+test("nothing is removed when there is nothing redundant", async () => {
+  const { removes } = await render({ create: false });
+  assert.deepEqual(plain(removes), []);
+});
+
 test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {
   const { YtTidy } = loadClassic("src/tidy-core.js");
   const { document, form } = fakeDocument();
   const writes = [];
   const requests = [];
   let answer = true;
+  const removes = [];
   const browser = {
-    storage: { sync: { get: async () => ({}), set: async (obj) => writes.push(obj) } },
+    storage: { sync: { get: async () => ({}), set: async (obj) => writes.push(obj), remove: async (k) => removes.push(k) } },
     permissions: { request: async (req) => { requests.push(req); return answer; } },
   };
   loadClassic("src/options.js", { YtTidy, document, browser });
@@ -164,5 +195,7 @@ test("ticking the dislike count asks Firefox for the optional data-collection pe
 
   await form.listeners.change({ target: { name: "dislikeCount", checked: false } });
   assert.equal(requests.length, 2, "unticking asks nothing");
-  assert.deepEqual(plain(writes.at(-1)), { dislikeCount: false });
+  // Off is this switch's default, so unticking drops the key rather than storing false.
+  assert.deepEqual(plain(writes), [{ dislikeCount: true }]);
+  assert.deepEqual(plain(removes), ["dislikeCount"]);
 });

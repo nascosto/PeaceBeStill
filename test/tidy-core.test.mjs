@@ -83,8 +83,30 @@ test("tokensFor lists enabled keys in order; a missing key takes its default", (
   assert.equal(YtTidy.tokensFor({ create: false, footer: false }), ON_BY_DEFAULT.filter((k) => k !== "create" && k !== "footer").join(" "));
 });
 
-test("tokensFor ignores unknown keys and non-boolean values", () => {
-  assert.equal(YtTidy.tokensFor({ bogus: true, create: "yes" }), ON_BY_DEFAULT.filter((k) => k !== "create").join(" "));
+test("tokensFor ignores unknown keys, and treats a non-boolean as no answer", () => {
+  // "yes" is not false, so create keeps its default rather than switching off.
+  assert.equal(YtTidy.tokensFor({ bogus: true, create: "yes" }), ON_BY_DEFAULT.join(" "));
+});
+
+test("a key that is absent, or removed while the page is open, falls back to its default", () => {
+  // storage.onChanged reports a removal as a change with no newValue, so the
+  // content script can hand us undefined for a key. That must mean "default".
+  assert.equal(YtTidy.tokensFor({ create: undefined }), ON_BY_DEFAULT.join(" "));
+  assert.equal(YtTidy.tokensFor({ dislikeCount: undefined }), ON_BY_DEFAULT.join(" "));
+  assert.equal(YtTidy.isMoot("profilePhotos", { comments: undefined }), false);
+  assert.equal(YtTidy.redirectFor("/", { homeToSubscriptions: undefined }), "/feed/subscriptions");
+});
+
+test("a value equal to its default is redundant and need not be stored", () => {
+  assert.equal(YtTidy.isDefaultValue("footer", true), true);
+  assert.equal(YtTidy.isDefaultValue("footer", false), false);
+  assert.equal(YtTidy.isDefaultValue("dislikeCount", false), true);
+  assert.equal(YtTidy.isDefaultValue("dislikeCount", true), false);
+  assert.equal(YtTidy.isDefaultValue("bogus", true), false, "unknown keys are never called redundant");
+
+  assert.deepEqual([...YtTidy.redundantKeys({ footer: true, create: false, dislikeCount: false, bogus: 1 })], ["footer", "dislikeCount"]);
+  assert.deepEqual([...YtTidy.redundantKeys({})], []);
+  assert.deepEqual([...YtTidy.redundantKeys(undefined)], []);
 });
 
 test("formatCount is compact and safe", () => {
