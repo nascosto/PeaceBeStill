@@ -14,7 +14,8 @@
     ["ask", "Hide YouTube's AI “Ask” button and card", true],
     ["summary", "Hide the AI-generated video summary", true],
     ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true],
-    ["channelTabs", "Hide a channel's Posts and Store tabs, and send those pages to the channel home", true],
+    ["channelTabs", "Hide a channel's Posts and Store tabs", true],
+    ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", true],
     ["titleCase", "Turn ALL-CAPS titles into sentence case", true],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.

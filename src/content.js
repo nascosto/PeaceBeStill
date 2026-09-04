@@ -145,10 +145,11 @@
   }
 
   // --- Channel Posts / Store pages -------------------------------------------
-  // The tabs are hidden by tidy.css; a direct visit to one of those pages
-  // (a link from elsewhere, a bookmark) goes to the channel home instead.
+  // Hiding the tabs is tidy.css's job (channelTabs); this is the separate
+  // switch that sends a visit to one of those pages (a link from elsewhere, a
+  // bookmark) to the channel home instead.
   function redirectChannelTabs() {
-    if (settings.channelTabs === false) return false;
+    if (settings.channelTabRedirect === false) return false;
     const home = channelHomeFor(location.pathname);
     if (!home) return false;
     location.replace(home);
