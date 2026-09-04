@@ -9,52 +9,57 @@
   // of the data-yt-tidy tokens; the options page groups by the fourth field
   // and nests by the fifth. A parent is a switch that hides the thing its
   // children live inside, so while it is on they cannot matter.
+  //
+  // Every default is false: a fresh install changes nothing about YouTube
+  // until you switch something on. That also means storage holds exactly the
+  // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
-    ["create", "Hide the Create button in the header", true, HEADER, "header"],
-    ["moreFromYoutube", "Hide the “More from YouTube” sidebar section", true, HEADER],
-    ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", true, HEADER, "subscriptions"],
-    ["expandDescription", "Open the video description automatically (and drop its Show less)", true, WATCH, "description"],
-    ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", true, WATCH, "description"],
-    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", true, WATCH, "description"],
-    ["descriptionChips", "Hide hashtags and link chips in the description", true, WATCH, "description"],
-    ["footer", "Hide the About / Press / Copyright block under the sidebar", true, HEADER],
-    ["ask", "Hide YouTube's AI “Ask” button and card", true, WATCH],
-    ["summary", "Hide the AI-generated video summary", true, WATCH, "description"],
-    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true, HOME, "subscriptions"],
-    ["channelTabs", "Hide a channel's Posts and Store tabs", true, CHANNEL],
-    ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", true, CHANNEL],
-    ["stalePlaceholders", "Hide the loading placeholders and spinner left behind at the end of a feed", true, HOME],
-    ["titleCase", "Turn ALL-CAPS titles into sentence case", true, HOME],
-    // Off by default: the count comes from the Return YouTube Dislike service,
-    // which means telling a third party which video you are watching.
+    ["create", "Hide the Create button in the header", false, HEADER, "header"],
+    ["moreFromYoutube", "Hide the “More from YouTube” sidebar section", false, HEADER],
+    ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", false, HEADER, "subscriptions"],
+    ["expandDescription", "Open the video description automatically (and drop its Show less)", false, WATCH, "description"],
+    ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", false, WATCH, "description"],
+    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", false, WATCH, "description"],
+    ["descriptionChips", "Hide hashtags and link chips in the description", false, WATCH, "description"],
+    ["footer", "Hide the About / Press / Copyright block under the sidebar", false, HEADER],
+    ["ask", "Hide YouTube's AI “Ask” button and card", false, WATCH],
+    ["summary", "Hide the AI-generated video summary", false, WATCH, "description"],
+    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", false, HOME, "subscriptions"],
+    ["channelTabs", "Hide a channel's Posts and Store tabs", false, CHANNEL],
+    ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", false, CHANNEL],
+    ["stalePlaceholders", "Hide the loading placeholders and spinner left behind at the end of a feed", false, HOME],
+    ["titleCase", "Turn ALL-CAPS titles into sentence case", false, HOME],
+    // Worth knowing before switching this one on: the count comes from the
+    // Return YouTube Dislike service, which means telling a third party which
+    // video you are watching.
     ["dislikeCount", "Show the dislike count (asks returnyoutubedislike.com for each video)", false, WATCH, "buttonsBar"],
-    // Ported from Unhook; defaults are the values Ben had set there.
+    // Ported from Unhook.
     ["header", "Hide the whole top bar (logo, search, account)", false, HEADER],
-    ["notifications", "Hide the notifications bell and the unread count in the tab title", true, HEADER, "header"],
+    ["notifications", "Hide the notifications bell and the unread count in the tab title", false, HEADER, "header"],
     ["exploreTrending", "Hide the Explore section, Trending, and their pages", false, HEADER],
     ["subscriptions", "Hide Subscriptions (the sidebar entry, the channel list and the feed page)", false, HEADER],
-    ["homeFeed", "Hide the home page feed", true, HOME],
-    ["homeToSubscriptions", "Send the home page to the Subscriptions feed", true, HOME, "subscriptions"],
-    ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", true, HOME],
-    ["mixes", "Hide Mixes (auto-generated playlists)", true, HOME],
-    ["promos", "Hide promo banners, the masthead ad and surveys", true, HOME],
-    ["relatedVideos", "Hide the whole column beside the video (related videos, chat, playlist)", true, WATCH],
-    ["recommended", "Hide the recommended-videos list beside the video and the “More videos” overlay on pause", true, WATCH, "relatedVideos"],
-    ["liveChat", "Hide live chat", true, WATCH, "relatedVideos"],
-    ["playlistPanel", "Hide the playlist panel beside the video", true, WATCH, "relatedVideos"],
-    ["fundraiser", "Hide the fundraiser shelf", true, WATCH],
-    ["merch", "Hide merch, tickets, offers and context boxes under the video", true, WATCH],
+    ["homeFeed", "Hide the home page feed", false, HOME],
+    ["homeToSubscriptions", "Send the home page to the Subscriptions feed", false, HOME, "subscriptions"],
+    ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", false, HOME],
+    ["mixes", "Hide Mixes (auto-generated playlists)", false, HOME],
+    ["promos", "Hide promo banners, the masthead ad and surveys", false, HOME],
+    ["relatedVideos", "Hide the whole column beside the video (related videos, chat, playlist)", false, WATCH],
+    ["recommended", "Hide the recommended-videos list beside the video and the “More videos” overlay on pause", false, WATCH, "relatedVideos"],
+    ["liveChat", "Hide live chat", false, WATCH, "relatedVideos"],
+    ["playlistPanel", "Hide the playlist panel beside the video", false, WATCH, "relatedVideos"],
+    ["fundraiser", "Hide the fundraiser shelf", false, WATCH],
+    ["merch", "Hide merch, tickets, offers and context boxes under the video", false, WATCH],
     ["comments", "Hide comments", false, WATCH],
     ["profilePhotos", "Hide profile photos in comments", false, WATCH, "comments"],
     ["videoInfo", "Hide the views and date line under the video", false, WATCH],
     ["buttonsBar", "Hide the like / share / save row under the video", false, WATCH],
     ["channelRow", "Hide the channel row under the video", false, WATCH],
     ["description", "Hide the description", false, WATCH],
-    ["autoplay", "Switch autoplay off and hide its toggle and countdown", true, PLAYER],
-    ["endScreenFeed", "Hide the video wall when a video ends", true, PLAYER],
-    ["endScreenCards", "Hide end-screen cards", true, PLAYER],
-    ["annotations", "Hide info cards, the cards button and the channel watermark on the player", true, PLAYER],
-    ["searchShelves", "Hide the shelves in search results (For you, People also watched, Latest from…)", true, SEARCH],
+    ["autoplay", "Switch autoplay off and hide its toggle and countdown", false, PLAYER],
+    ["endScreenFeed", "Hide the video wall when a video ends", false, PLAYER],
+    ["endScreenCards", "Hide end-screen cards", false, PLAYER],
+    ["annotations", "Hide info cards, the cards button and the channel watermark on the player", false, PLAYER],
+    ["searchShelves", "Hide the shelves in search results (For you, People also watched, Latest from…)", false, SEARCH],
   ];
   const KEYS = FEATURES.map(([key]) => key);
 

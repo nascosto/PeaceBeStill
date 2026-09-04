@@ -7,19 +7,21 @@ const { YtTidy } = loadClassic("src/tidy-core.js");
 // Every key, in order, with its default. This is the contract the options
 // page, the stylesheet gates and the stored settings all share.
 const DEFAULTS = [
-  ["create", true], ["moreFromYoutube", true], ["subscriptionDots", true], ["expandDescription", true],
-  ["descriptionChannelLinks", true], ["descriptionCards", true], ["descriptionChips", true], ["footer", true],
-  ["ask", true], ["summary", true], ["upcoming", true], ["channelTabs", true], ["channelTabRedirect", true],
-  ["stalePlaceholders", true], ["titleCase", true], ["dislikeCount", false],
-  // Ported from Unhook, defaults as Ben had them set there.
-  ["header", false], ["notifications", true], ["exploreTrending", false], ["subscriptions", false],
-  ["homeFeed", true], ["homeToSubscriptions", true], ["shorts", true], ["mixes", true], ["promos", true],
-  ["relatedVideos", true], ["recommended", true], ["liveChat", true], ["playlistPanel", true],
-  ["fundraiser", true], ["merch", true], ["comments", false], ["profilePhotos", false], ["videoInfo", false],
-  ["buttonsBar", false], ["channelRow", false], ["description", false],
-  ["autoplay", true], ["endScreenFeed", true], ["endScreenCards", true], ["annotations", true],
-  ["searchShelves", true],
-];
+  // Nothing is on out of the box: a fresh install changes nothing about
+  // YouTube until you switch something on.
+  "create", "moreFromYoutube", "subscriptionDots", "expandDescription",
+  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer",
+  "ask", "summary", "upcoming", "channelTabs", "channelTabRedirect",
+  "stalePlaceholders", "titleCase", "dislikeCount",
+  "header", "notifications", "exploreTrending", "subscriptions",
+  "homeFeed", "homeToSubscriptions", "shorts", "mixes", "promos",
+  "relatedVideos", "recommended", "liveChat", "playlistPanel",
+  "fundraiser", "merch", "comments", "profilePhotos", "videoInfo",
+  "buttonsBar", "channelRow", "description",
+  "autoplay", "endScreenFeed", "endScreenCards", "annotations",
+  "searchShelves",
+].map((key) => [key, false]);
+
 const KEYS = DEFAULTS.map(([k]) => k);
 const ON_BY_DEFAULT = DEFAULTS.filter(([, on]) => on).map(([k]) => k);
 const GROUPS = ["Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
@@ -72,8 +74,10 @@ test("a feature is moot while any ancestor of it is switched on", () => {
   assert.equal(moot("bogus", { header: true }), false);
 });
 
-test("defaults are exactly the agreed ones", () => {
+test("nothing is on by default: the extension does nothing until asked", () => {
   assert.deepEqual({ ...YtTidy.defaults() }, Object.fromEntries(DEFAULTS));
+  assert.equal(ON_BY_DEFAULT.length, 0);
+  assert.equal(YtTidy.tokensFor({}), "");
 });
 
 test("tokensFor lists enabled keys in order; a missing key takes its default", () => {
@@ -94,17 +98,17 @@ test("a key that is absent, or removed while the page is open, falls back to its
   assert.equal(YtTidy.tokensFor({ create: undefined }), ON_BY_DEFAULT.join(" "));
   assert.equal(YtTidy.tokensFor({ dislikeCount: undefined }), ON_BY_DEFAULT.join(" "));
   assert.equal(YtTidy.isMoot("profilePhotos", { comments: undefined }), false);
-  assert.equal(YtTidy.redirectFor("/", { homeToSubscriptions: undefined }), "/feed/subscriptions");
+  assert.equal(YtTidy.redirectFor("/", { homeToSubscriptions: undefined }), null, "off by default now");
 });
 
 test("a value equal to its default is redundant and need not be stored", () => {
-  assert.equal(YtTidy.isDefaultValue("footer", true), true);
-  assert.equal(YtTidy.isDefaultValue("footer", false), false);
+  assert.equal(YtTidy.isDefaultValue("footer", false), true);
+  assert.equal(YtTidy.isDefaultValue("footer", true), false);
   assert.equal(YtTidy.isDefaultValue("dislikeCount", false), true);
   assert.equal(YtTidy.isDefaultValue("dislikeCount", true), false);
   assert.equal(YtTidy.isDefaultValue("bogus", true), false, "unknown keys are never called redundant");
 
-  assert.deepEqual([...YtTidy.redundantKeys({ footer: true, create: false, dislikeCount: false, bogus: 1 })], ["footer", "dislikeCount"]);
+  assert.deepEqual([...YtTidy.redundantKeys({ footer: false, create: true, dislikeCount: false, bogus: 1 })], ["footer", "dislikeCount"]);
   assert.deepEqual([...YtTidy.redundantKeys({})], []);
   assert.deepEqual([...YtTidy.redundantKeys(undefined)], []);
 });
@@ -142,8 +146,8 @@ test("redirectFor sends home to the subscriptions feed and a Short to its watch 
   assert.equal(YtTidy.redirectFor("/shorts/abc123DEF45", { homeToSubscriptions: true, shorts: false }), null);
   // Never bounce home to a subscriptions page that is itself hidden.
   assert.equal(YtTidy.redirectFor("/", { homeToSubscriptions: true, subscriptions: true }), null);
-  // Missing keys take their defaults (both on).
-  assert.equal(YtTidy.redirectFor("/", {}), "/feed/subscriptions");
+  // Missing keys take their defaults, and every default is now off.
+  assert.equal(YtTidy.redirectFor("/", {}), null);
 });
 
 test("placeholderVerdict hides a loading block only after it has sat in view with the grid not growing", () => {

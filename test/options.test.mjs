@@ -126,17 +126,17 @@ test("a switch stranded by a parent in another section says which one", async ()
 });
 
 test("checkboxes reflect stored settings over defaults", async () => {
-  const { form } = await render({ create: false });
+  const { form } = await render({ create: true });
   const row = (name) => form.elements.find((e) => e.name === name);
-  assert.equal(row("create").checked, false, "stored value wins");
-  assert.equal(row("footer").checked, true, "default on");
-  assert.equal(row("dislikeCount").checked, false, "default off");
+  assert.equal(row("create").checked, true, "stored value wins");
+  assert.equal(row("footer").checked, false, "everything is off by default");
+  assert.equal(row("dislikeCount").checked, false, "off by default");
 });
 
 test("a change is written to storage, and the greying is recomputed at once", async () => {
   const { form, writes } = await render();
-  await form.listeners.change({ target: { name: "footer", checked: false } });
-  assert.deepEqual(plain(writes), [{ footer: false }]);
+  await form.listeners.change({ target: { name: "footer", checked: true } });
+  assert.deepEqual(plain(writes), [{ footer: true }]);
 
   // Switching a parent on greys its children without waiting for a reload.
   assert.equal(form.rows.find((r) => r.name === "profilePhotos").disabled, false);
@@ -147,25 +147,25 @@ test("a change is written to storage, and the greying is recomputed at once", as
 test("only a switch that differs from its default is stored", async () => {
   const { form, writes, removes } = await render();
 
-  // footer is on by default: switching it off is worth storing.
-  await form.listeners.change({ target: { name: "footer", checked: false } });
-  assert.deepEqual(plain(writes), [{ footer: false }]);
+  // Everything is off by default, so switching footer on is worth storing.
+  await form.listeners.change({ target: { name: "footer", checked: true } });
+  assert.deepEqual(plain(writes), [{ footer: true }]);
   assert.deepEqual(plain(removes), []);
 
-  // Switching it back on returns it to the default, so drop the key entirely
+  // Switching it back off returns it to the default, so drop the key entirely
   // rather than storing something the defaults already say.
-  await form.listeners.change({ target: { name: "footer", checked: true } });
-  assert.deepEqual(plain(writes), [{ footer: false }], "nothing more written");
+  await form.listeners.change({ target: { name: "footer", checked: false } });
+  assert.deepEqual(plain(writes), [{ footer: true }], "nothing more written");
   assert.deepEqual(plain(removes), ["footer"]);
 });
 
 test("settings already stored that match their default are cleaned up on load", async () => {
-  const { removes } = await render({ footer: true, create: false, dislikeCount: false });
+  const { removes } = await render({ footer: false, create: true, dislikeCount: false });
   assert.deepEqual(plain(removes), [["footer", "dislikeCount"]], "create differs, so it stays");
 });
 
 test("nothing is removed when there is nothing redundant", async () => {
-  const { removes } = await render({ create: false });
+  const { removes } = await render({ create: true });
   assert.deepEqual(plain(removes), []);
 });
 

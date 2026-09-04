@@ -83,6 +83,23 @@ const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", 
 
 // Keep in step with src/tidy.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
+const { KEYS, FEATURES } = await (async () => {
+  const vm = await import("node:vm");
+  const context = { URLSearchParams };
+  context.globalThis = context;
+  vm.runInNewContext(readFileSync(new URL("../src/tidy-core.js", import.meta.url), "utf8"), context);
+  return context.YtTidy;
+})();
+
+// A parent switch hides the container its children live in, so with every
+// switch on the children cannot be observed at all (and a hidden top bar even
+// takes the sidebar button with it). So: one pass with the parents off, which
+// exercises every child, then a second with them on, which exercises the
+// parents themselves.
+const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
+const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
+const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
+
 const SELECTORS = {};
 for (const m of readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8").matchAll(/html\[data-yt-tidy~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
   SELECTORS[m[1]] = SELECTORS[m[1]] ? `${SELECTORS[m[1]]}, ${m[2]}` : m[2];
@@ -122,40 +139,62 @@ try {
   await client.send("WebDriver:SetWindowRect", { width: 1400, height: 1000 });
   report.addon = (await client.send("Addon:Install", { path: SRC, temporary: true })).value;
 
-  await client.send("WebDriver:Navigate", { url: VIDEO });
-  report.watchRendered = await waitForWatch(client);
-  await sleep(3000);
-  report.watch = await client.script(SURVEY, [SELECTORS]);
-  await openGuide(client);
-  report.withGuide = await client.script(SURVEY, [SELECTORS]);
-  writeFileSync(OUT + "firefox-watch.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
-
   await client.send("Marionette:SetContext", { value: "chrome" });
   const uuids = JSON.parse(await client.script('return Services.prefs.getStringPref("extensions.webextensions.uuids");'));
   await client.send("Marionette:SetContext", { value: "content" });
   const uuid = uuids["youtube-tidy@peacebestill.fyi"];
-  if (uuid) {
+  report.optionsUuid = uuid ?? null;
+  if (!uuid) throw new Error("the add-on has no internal UUID yet");
+
+  // Writing settings means being on the extension's own origin.
+  async function write(settings) {
     await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
-    await sleep(800);
-    report.optionsBoxes = await client.script('return [...document.querySelectorAll("input[type=checkbox]")].map((b) => `${b.name}=${b.checked}`);');
-    report.storageWrite = await client.asyncScript(`
+    await sleep(600);
+    return client.asyncScript(`
       const done = arguments[arguments.length - 1];
       const w = window.wrappedJSObject ?? window;
       const api = w.browser ?? (typeof browser !== "undefined" ? browser : null);
       if (!api) return done("no browser API in this realm");
-      const value = { footer: false, dislikeCount: true };
-      api.storage.sync.set(typeof cloneInto === "function" ? cloneInto(value, w) : value).then(() => done("ok"), (e) => done(String(e)));`);
+      const value = JSON.parse(arguments[0]);
+      api.storage.sync.set(typeof cloneInto === "function" ? cloneInto(value, w) : value).then(() => done("ok"), (e) => done(String(e)));`,
+      [JSON.stringify(settings)]);
+  }
+
+  async function onWatchPage() {
     await client.send("WebDriver:Navigate", { url: VIDEO });
-    report.watchRenderedAgain = await waitForWatch(client);
+    const rendered = await waitForWatch(client);
     await sleep(3000);
     await openGuide(client);
-    report.afterToggle = await client.script(SURVEY, [SELECTORS]);
-    for (let i = 0; i < 40 && !report.dislikes; i++) {
-      await sleep(500);
-      report.dislikes = await client.script('return document.querySelector(".yt-tidy-dislikes")?.textContent || null;');
-    }
-    writeFileSync(OUT + "firefox-after-toggle.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
+    return rendered;
   }
+
+  await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
+  await sleep(600);
+  report.optionsBoxes = await client.script('return [...document.querySelectorAll("input[type=checkbox]")].map((b) => `${b.name}=${b.checked}`);');
+
+  // Pass one: every child switch on, parents off, so each child has a visible
+  // container to act inside.
+  report.storageWrite = await write(CHILDREN_PASS);
+  report.watchRendered = await onWatchPage();
+  report.children = await client.script(SURVEY, [SELECTORS]);
+  writeFileSync(OUT + "firefox-children.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
+
+  // The dislike count needs the buttons row it attaches to, so it belongs here.
+  for (let i = 0; i < 40 && !report.dislikes; i++) {
+    await sleep(500);
+    report.dislikes = await client.script('return document.querySelector(".yt-tidy-dislikes")?.textContent || null;');
+  }
+
+  // Pass two: the parents as well.
+  await write(EVERYTHING);
+  report.watchRenderedAgain = await onWatchPage();
+  report.parents = await client.script(SURVEY, [SELECTORS]);
+
+  // And switching one back off must bring its target back.
+  await write({ relatedVideos: false });
+  await onWatchPage();
+  report.afterToggle = await client.script(SURVEY, [SELECTORS]);
+  writeFileSync(OUT + "firefox-after-toggle.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
   await client.send("Marionette:Quit", {}).catch(() => {});
 } catch (e) {
   report.error = String(e.stack || e);

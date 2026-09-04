@@ -27,10 +27,27 @@ const EXT_ID = [...createHash("sha256").update(SRC).digest("hex").slice(0, 32)]
 
 // Keep in step with src/tidy.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
+const { KEYS, FEATURES } = await (async () => {
+  const vm = await import("node:vm");
+  const context = { URLSearchParams };
+  context.globalThis = context;
+  vm.runInNewContext(readFileSync(new URL("../src/tidy-core.js", import.meta.url), "utf8"), context);
+  return context.YtTidy;
+})();
+
 const SELECTORS = {};
 for (const m of readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8").matchAll(/html\[data-yt-tidy~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
   SELECTORS[m[1]] = SELECTORS[m[1]] ? `${SELECTORS[m[1]]}, ${m[2]}` : m[2];
 }
+
+// A parent switch hides the container its children live in, so with every
+// switch on the children cannot be observed at all (and a hidden top bar even
+// takes the sidebar button with it). So: one pass with the parents off, which
+// exercises every child, then a second with them on, which exercises the
+// parents themselves.
+const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
+const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
+const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
 
 function survey(selectors) {
   const out = {};
@@ -52,16 +69,24 @@ const browser = await puppeteer.launch({
 });
 const report = { video: VIDEO, extId: EXT_ID };
 try {
+  const options = await browser.newPage();
+  const resp = await options.goto(`chrome-extension://${EXT_ID}/options.html`).catch((e) => ({ error: String(e) }));
+  report.optionsPage = resp?.error ?? resp.status();
+  if (resp?.error) throw new Error("could not open the options page: " + resp.error);
+  report.optionsBoxes = await options.evaluate(() => [...document.querySelectorAll("input[type=checkbox]")].map((b) => `${b.name}=${b.checked}`));
+  const write = (settings) => options.bringToFront().then(() => options.evaluate((s) => chrome.storage.sync.set(s), settings));
+
+  // Pass one: every child switch on, parents off, so each child has a visible
+  // container to act inside.
+  await write(CHILDREN_PASS);
   const page = await browser.newPage();
   await page.goto(VIDEO, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForSelector("ytd-watch-metadata", { timeout: 60000 });
   await sleep(4000);
-  report.watch = await page.evaluate(survey, SELECTORS);
-
   await page.click("#guide-button").catch(() => {});
   await sleep(1500);
-  report.withGuide = await page.evaluate(survey, SELECTORS);
-  await page.screenshot({ path: OUT + "chromium-watch.png" });
+  report.children = await page.evaluate(survey, SELECTORS);
+  await page.screenshot({ path: OUT + "chromium-children.png" });
 
   report.titleCalm = await page.evaluate(async () => {
     const el = document.querySelector("yt-lockup-metadata-view-model h3 a, #video-title");
@@ -73,16 +98,7 @@ try {
     return node.nodeValue;
   });
 
-  const options = await browser.newPage();
-  const resp = await options.goto(`chrome-extension://${EXT_ID}/options.html`).catch((e) => ({ error: String(e) }));
-  report.optionsPage = resp?.error ?? resp.status();
-  if (!resp?.error) {
-    report.optionsBoxes = await options.evaluate(() => [...document.querySelectorAll("input[type=checkbox]")].map((b) => `${b.name}=${b.checked}`));
-    await options.evaluate(() => chrome.storage.sync.set({ footer: false, dislikeCount: true }));
-  }
-  await page.bringToFront();
-  await sleep(800);
-  report.afterToggle = await page.evaluate(survey, SELECTORS);
+  // The dislike count needs the buttons row it attaches to, so it belongs here.
   for (let i = 0; i < 40 && !report.dislikes; i++) {
     await sleep(500);
     report.dislikes = await page.evaluate(() => document.querySelector(".yt-tidy-dislikes")?.textContent || null);
@@ -91,7 +107,19 @@ try {
     const b = [...document.querySelectorAll("dislike-button-view-model button")].find((e) => e.getClientRects().length > 0);
     return b ? { width: Math.round(b.getBoundingClientRect().width), text: b.textContent.trim() } : null;
   });
-  await page.screenshot({ path: OUT + "chromium-after-toggle.png" });
+
+  // Pass two: the parents as well, applied live to the open tab.
+  await write(EVERYTHING);
+  await page.bringToFront();
+  await sleep(1200);
+  report.parents = await page.evaluate(survey, SELECTORS);
+  await page.screenshot({ path: OUT + "chromium-parents.png" });
+
+  // And switching one back off must bring its target back, without a reload.
+  await write({ relatedVideos: false });
+  await page.bringToFront();
+  await sleep(1200);
+  report.afterToggle = await page.evaluate(survey, SELECTORS);
 } catch (e) {
   report.error = String(e.stack || e);
 } finally {

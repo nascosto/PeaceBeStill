@@ -13,8 +13,12 @@ Unhook's options are ported (2026-09-03), so Unhook is dropped from the system-s
 
 ## Features
 
-Every feature is a toggle on the options page, nested under the switch it
-depends on (a switch that hides the thing a feature acts on makes that feature
+Every feature is a toggle on the options page, and **every one is off out of
+the box**: a fresh install changes nothing about YouTube until you switch
+something on. That also keeps the synced settings to exactly the switches you
+turned on, since a value equal to its default is never stored.
+
+Each toggle is nested under the switch it depends on (a switch that hides the thing a feature acts on makes that feature
 moot: it is indented under it, greyed and locked while the parent is on, its
 stored value untouched; when the parent lives in another section the note names
 it). The parents: `header` over `create` and `notifications`; `subscriptions`
@@ -26,8 +30,7 @@ over `dislikeCount`. `ask` stays top level: its card is in the description but
 its button is in the buttons row.
 
 Toggles are grouped under section headings (Header and sidebar, Home and feeds, Watch page, Player, Search,
-Channel pages); on by default except `dislikeCount` and the ported Unhook
-options Ben had off. Selectors below
+Channel pages). Selectors below
 are the starting point; the audit step (see Workflow) confirms or corrects them
 against the live page, because YouTube's DOM is not documented and changes.
 
@@ -83,7 +86,7 @@ results in, so this is the one feature that keeps a `MutationObserver` running
 (debounced, disconnected when the switch is off). It edits text nodes only,
 never replaces elements, so YouTube's own markup is left intact.
 
-`dislikeCount` is the one feature that is off until switched on: YouTube stopped
+`dislikeCount` is worth reading about before switching on: YouTube stopped
 publishing dislikes in 2021, so the number comes from the Return YouTube Dislike
 service, which means telling a third party which video is being watched. The
 service answers JSON (`dislikes`, `likes`, ...) with `Access-Control-Allow-Origin: *`,

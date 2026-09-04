@@ -2,8 +2,9 @@
 
 A tiny Firefox and Chromium extension that hides the bits of desktop YouTube
 you never use, opens the video description for you, calms ALL-CAPS titles, and
-can show the dislike count. Every feature is a switch on the options page, grouped by where it acts and
-nested under the switch it depends on (hiding the description greys out the
+can show the dislike count. **Everything is off until you switch it on**: a fresh install changes nothing
+about YouTube. Each feature is a switch on the options page, grouped by where
+it acts and nested under the switch it depends on (hiding the description greys out the
 five switches for things inside it, and so on):
 
 - the Create button in the header
@@ -32,11 +33,11 @@ five switches for things inside it, and so on):
   channel row and description under the video; autoplay (switched off, toggle
   hidden); the end-screen video wall and cards; info cards and the watermark;
   and the shelves in search results
-- the dislike count beside the thumbs-down, **off by default**: it comes from
-  the Return YouTube Dislike service, so turning it on tells that service
-  which video you are watching. With it off the extension makes no network
-  requests at all. Firefox treats that as an optional data-collection
-  permission and asks you once when you tick the box.
+- the dislike count beside the thumbs-down: it comes from the Return YouTube
+  Dislike service, so turning it on tells that service which video you are
+  watching. It is the only switch that makes a network request, and Firefox
+  treats it as an optional data-collection permission, asking you once when
+  you tick the box.
 
 Manifest V3, one codebase for both browsers, no background script, only the
 `storage` permission, only on `www.youtube.com`.
@@ -70,6 +71,9 @@ rendered (screenshots land in `audit/out/`):
 
     npm run audit:chromium    # puppeteer-core against /usr/bin/chromium-browser
     npm run audit:firefox     # Marionette against /usr/bin/firefox, no driver needed
+
+Both switch every feature on first, since the audit is about whether the
+selectors still find their targets, not about what is on by default.
 
 Then inspect the element, fix the selector in `src/tidy.css` (or the title and
 dislike selectors in `src/content.js`), and re-run. The Create button and the
