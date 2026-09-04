@@ -4,7 +4,7 @@
 // dislike count when asked.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle } = globalThis.YtTidy;
+  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor } = globalThis.YtTidy;
   let settings = {};
 
   // YouTube is a single-page app: the watch page appears after its own
@@ -144,8 +144,20 @@
     titleObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   }
 
+  // --- Channel Posts / Store pages -------------------------------------------
+  // The tabs are hidden by tidy.css; a direct visit to one of those pages
+  // (a link from elsewhere, a bookmark) goes to the channel home instead.
+  function redirectChannelTabs() {
+    if (settings.channelTabs === false) return false;
+    const home = channelHomeFor(location.pathname);
+    if (!home) return false;
+    location.replace(home);
+    return true;
+  }
+
   // --- Wiring ----------------------------------------------------------------
   function refresh() {
+    if (redirectChannelTabs()) return;
     apply();
     expandDescription();
     removeDislikes();

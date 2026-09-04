@@ -41,5 +41,9 @@ html[data-yt-tidy~="summary"] ytd-structured-description-content-renderer #video
    in the media's buttons), so the whole card keys on that. */
 html[data-yt-tidy~="upcoming"] ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer)) { display: none !important; }
 
+/* Channel pages: the Posts and Store tabs (content.js also sends their URLs
+   to the channel home) */
+html[data-yt-tidy~="channelTabs"] yt-tab-shape:is([tab-title="Posts"], [tab-title="Store"]) { display: none !important; }
+
 /* Sidebar: the About / Press / Copyright block */
 html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }

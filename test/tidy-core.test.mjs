@@ -5,13 +5,13 @@ import { loadClassic } from "./helpers/load-classic.mjs";
 const { YtTidy } = loadClassic("src/tidy-core.js");
 const KEYS = [
   "create", "moreFromYoutube", "subscriptionDots", "expandDescription",
-  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "ask", "summary", "upcoming", "titleCase", "dislikeCount",
+  "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "ask", "summary", "upcoming", "channelTabs", "titleCase", "dislikeCount",
 ];
 const ON_BY_DEFAULT = KEYS.filter((k) => k !== "dislikeCount");
 
 // YtTidy comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
-test("the feature keys are the agreed thirteen, in order, each with a label and a default", () => {
+test("the feature keys are the agreed fourteen, in order, each with a label and a default", () => {
   assert.deepEqual([...YtTidy.KEYS], KEYS);
   for (const [key, label, defaultOn] of YtTidy.FEATURES) {
     assert.ok(KEYS.includes(key));
@@ -30,7 +30,7 @@ test("tokensFor lists enabled keys in order; a missing key takes its default", (
   assert.equal(YtTidy.tokensFor({ dislikeCount: true }), KEYS.join(" "));
   assert.equal(
     YtTidy.tokensFor({ create: false, footer: false }),
-    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips ask summary upcoming titleCase",
+    "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips ask summary upcoming channelTabs titleCase",
   );
 });
 
@@ -48,6 +48,17 @@ test("videoIdFrom reads the v parameter", () => {
   assert.equal(YtTidy.videoIdFrom("?v=jNQXAC9IVRw&t=1s"), "jNQXAC9IVRw");
   assert.equal(YtTidy.videoIdFrom("?list=abc"), null);
   assert.equal(YtTidy.videoIdFrom(""), null);
+});
+
+test("channelHomeFor maps a channel's posts/store/community URL to its home, and nothing else", () => {
+  assert.equal(YtTidy.channelHomeFor("/@MarkRober/posts"), "/@MarkRober");
+  assert.equal(YtTidy.channelHomeFor("/@MarkRober/store/"), "/@MarkRober");
+  assert.equal(YtTidy.channelHomeFor("/@MarkRober/community"), "/@MarkRober");
+  assert.equal(YtTidy.channelHomeFor("/channel/UCY1kMZp36IQSyNx_9h4mpCg/posts"), "/channel/UCY1kMZp36IQSyNx_9h4mpCg");
+  assert.equal(YtTidy.channelHomeFor("/c/markrober/store"), "/c/markrober");
+  for (const other of ["/@MarkRober", "/@MarkRober/videos", "/@MarkRober/featured", "/watch", "/feed/subscriptions", "/posts", ""]) {
+    assert.equal(YtTidy.channelHomeFor(other), null, other);
+  }
 });
 
 test("calmTitle rewrites a shouting title in sentence case and leaves everything else alone", () => {

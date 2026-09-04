@@ -14,6 +14,7 @@
     ["ask", "Hide YouTube's AI “Ask” button and card", true],
     ["summary", "Hide the AI-generated video summary", true],
     ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", true],
+    ["channelTabs", "Hide a channel's Posts and Store tabs, and send those pages to the channel home", true],
     ["titleCase", "Turn ALL-CAPS titles into sentence case", true],
     // Off by default: the count comes from the Return YouTube Dislike service,
     // which means telling a third party which video you are watching.
@@ -68,5 +69,13 @@
       .replace(/\bi\b/g, "I");
   }
 
-  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle };
+  // "/@MarkRober/posts" -> "/@MarkRober"; any other path -> null. Channel
+  // pages come as /@handle, /channel/ID, /c/name or /user/name; the tabs this
+  // covers are posts (also its old name, community) and store.
+  function channelHomeFor(pathname) {
+    const match = /^(\/(?:@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+))\/(?:posts|community|store)\/?$/.exec(pathname || "");
+    return match ? match[1] : null;
+  }
+
+  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor };
 })(globalThis);

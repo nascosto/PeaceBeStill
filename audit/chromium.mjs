@@ -38,6 +38,7 @@ const SELECTORS = {
   summary: "ytd-structured-description-content-renderer #video-summary",
   upcoming: 'ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer))',
   expandDescription: "#description-inline-expander #collapse",
+  channelTabs: 'yt-tab-shape:is([tab-title="Posts"], [tab-title="Store"])',
 };
 
 function survey(selectors) {
