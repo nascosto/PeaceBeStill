@@ -8,8 +8,10 @@ html[data-yt-tidy~="create"] ytd-masthead #buttons :is(ytd-button-renderer, ytd-
 /* Sidebar: the "More from YouTube" section (Premium, Music, Kids, ...) */
 html[data-yt-tidy~="moreFromYoutube"] ytd-guide-section-renderer:has(a[href*="music.youtube.com"]) { display: none !important; }
 
-/* Sidebar: the new-video dot beside a subscribed channel */
-html[data-yt-tidy~="subscriptionDots"] ytd-guide-entry-renderer #newness-dot { display: none !important; }
+/* Sidebar: the new-video dot beside a subscribed channel, in the expanded
+   sidebar (#newness-dot) and in the flyout the mini sidebar shows when
+   "Subscriptions" is hovered (a list-item "new content indicator") */
+html[data-yt-tidy~="subscriptionDots"] :is(ytd-guide-entry-renderer #newness-dot, yt-list-item-view-model .ytListItemViewModelNewContentIndicator) { display: none !important; }
 
 /* Description: the channel row at the bottom (avatar, subscriber count, links) */
 html[data-yt-tidy~="descriptionChannelLinks"] ytd-video-description-infocards-section-renderer { display: none !important; }

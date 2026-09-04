@@ -85,7 +85,7 @@ const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", 
 const SELECTORS = {
   create: 'ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"])',
   moreFromYoutube: 'ytd-guide-section-renderer:has(a[href*="music.youtube.com"])',
-  subscriptionDots: "ytd-guide-entry-renderer #newness-dot",
+  subscriptionDots: "ytd-guide-entry-renderer #newness-dot, yt-list-item-view-model .ytListItemViewModelNewContentIndicator",
   descriptionChannelLinks: "ytd-video-description-infocards-section-renderer",
   descriptionCards: "ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer",
   descriptionChips: 'ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]',
