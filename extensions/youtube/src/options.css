@@ -1,10 +1,48 @@
-body { font: 13px system-ui, sans-serif; margin: 12px; min-width: 420px; }
-#features { display: grid; gap: 6px; }
-h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin: 14px 0 2px; }
-h2:first-child { margin-top: 0; }
-label { display: flex; align-items: baseline; gap: 6px; }
+/* The page lives inside the browser's add-on manager, which is narrow and may
+   be dark, so: no fixed minimum width, and colours stated for both schemes
+   rather than left to chance. Muted text is a colour, never a stacked
+   opacity, so nothing drops below a readable contrast. */
+:root {
+  color-scheme: light dark;
+  --ink: light-dark(#1b1b1f, #ececed);
+  --muted: light-dark(#55555c, #b6b6bd);
+  --edge: light-dark(#d5d5db, #45454d);
+  --page: light-dark(#ffffff, #1c1b22);
+}
+
+body {
+  font: 13px/1.45 system-ui, sans-serif;
+  margin: 12px;
+  color: var(--ink);
+  background: var(--page);
+}
+
+h1 { font-size: 15px; margin: 0 0 2px; }
+h1 small { font-weight: 400; color: var(--muted); }
+
+#summary { margin: 0 0 8px; color: var(--muted); }
+#status { margin: 0 0 8px; color: light-dark(#a4262c, #ff9aa0); }
+#status:empty { display: none; }
+
+#filter { width: 100%; box-sizing: border-box; padding: 5px 7px; margin-bottom: 6px;
+          border: 1px solid var(--edge); border-radius: 5px; background: var(--page); color: var(--ink); font: inherit; }
+#all-off { margin-bottom: 10px; padding: 4px 9px; border: 1px solid var(--edge); border-radius: 5px;
+           background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
+
+fieldset { border: 0; border-top: 1px solid var(--edge); margin: 0 0 10px; padding: 8px 0 0; }
+fieldset[hidden] { display: none; }
+legend { padding: 0 6px 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+
+/* Two columns, so a label that runs to several lines keeps its text beside
+   the checkbox instead of pushing it onto a line of its own, and the note
+   sits under the text rather than under the box. */
+label { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 7px; padding: 2px 0; }
+label[hidden] { display: none; }
 /* Nested under the switch it depends on. */
 label.child { margin-left: 22px; }
-/* That switch is on, so this one has nothing to act on. */
-label.moot { opacity: 0.45; }
-.why { opacity: 0.8; font-style: italic; }
+/* That switch is on, so this one has nothing to act on. Colour, not opacity,
+   so the explanation stays readable. */
+label.moot { color: var(--muted); }
+input[type="checkbox"] { margin: 0; }
+.why { grid-column: 2; color: var(--muted); font-style: italic; }
+.why:empty { display: none; }

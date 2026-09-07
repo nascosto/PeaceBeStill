@@ -7,76 +7,104 @@ import { loadClassic } from "../../../test/helpers/load-classic.mjs";
 // prototypes; compare plain copies.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test("options.html loads core.js before options.js and has the form", () => {
+test("options.html is a real document: language, a heading, and core.js before options.js", () => {
   const html = readFileSync(new URL("../src/options.html", import.meta.url), "utf8");
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<h1[^>]*>/);
   assert.ok(html.indexOf('src="core.js"') < html.indexOf('src="options.js"'));
-  assert.match(html, /<form id="features">/);
+  for (const id of ["features", "filter", "summary", "all-off", "status"]) {
+    assert.match(html, new RegExp(`id="${id}"`), id);
+  }
 });
 
-// A fake DOM just big enough for options.js: the form records what is appended,
-// and elements carry the few properties the page sets.
+// A fake DOM just big enough for options.js.
 function fakeDocument() {
-  const element = (tag) => ({
-    tag,
-    children: [],
-    textContent: "",
-    classList: {
-      names: new Set(),
-      toggle(name, on) { on ? this.names.add(name) : this.names.delete(name); },
-      contains(name) { return this.names.has(name); },
-    },
-    append(...nodes) { this.children.push(...nodes); },
-  });
-  const form = {
-    appended: [],
-    listeners: {},
-    append(...nodes) { this.appended.push(...nodes); },
-    addEventListener(type, fn) { this.listeners[type] = fn; },
-    get elements() { return this.appended.flatMap((n) => n.children ?? []).filter((n) => n.type === "checkbox"); },
-    get rows() {
-      return this.appended
-        .filter((n) => n.children.some((c) => c.type === "checkbox"))
-        .map((n) => ({
-          name: n.children.find((c) => c.type === "checkbox").name,
-          indented: n.classList.contains("child"),
-          moot: n.classList.contains("moot"),
-          disabled: n.children.find((c) => c.type === "checkbox").disabled === true,
-          note: n.children.filter((c) => c.tag === "span").map((c) => c.textContent).join(""),
-        }));
-    },
+  const element = (tag) => {
+    const node = {
+      tag, children: [], attrs: {}, textContent: "", value: "", hidden: false, listeners: {},
+      classList: {
+        names: new Set(),
+        add(n) { this.names.add(n); },
+        toggle(n, on) { on ? this.names.add(n) : this.names.delete(n); },
+        contains(n) { return this.names.has(n); },
+      },
+      append(...nodes) { this.children.push(...nodes); },
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      removeAttribute(k) { delete this.attrs[k]; },
+      getAttribute(k) { return this.attrs[k] ?? null; },
+      addEventListener(type, fn) { this.listeners[type] = fn; },
+    };
+    return node;
   };
+  const byId = {};
+  for (const id of ["features", "filter", "summary", "all-off", "status"]) byId[id] = element(id === "features" ? "form" : "div");
   const document = {
-    getElementById: (id) => (id === "features" ? form : null),
+    byId,
+    getElementById: (id) => byId[id] ?? null,
     createElement: element,
-    createTextNode: (text) => ({ text }),
+    createTextNode: (text) => ({ tag: "#text", text, children: [] }),
   };
-  return { document, form };
+  return { document, byId };
 }
 
-async function render(stored = {}) {
+// Every checkbox in the tree, with the label row that holds it.
+function rowsOf(root) {
+  const out = [];
+  const walk = (node, label) => {
+    for (const child of node.children ?? []) {
+      if (child.type === "checkbox") out.push({ box: child, row: label, node });
+      walk(child, child.tag === "label" ? child : label);
+    }
+  };
+  walk(root, null);
+  return out.map(({ box, row }) => ({
+    name: box.name,
+    box,
+    row,
+    checked: box.checked === true,
+    indented: !!row?.classList.contains("child"),
+    moot: !!row?.classList.contains("moot"),
+    ariaDisabled: box.getAttribute("aria-disabled"),
+    reallyDisabled: box.disabled === true,
+    note: (row?.children ?? []).filter((c) => c.tag === "span").map((c) => c.textContent).join(""),
+    hidden: row?.hidden === true,
+  }));
+}
+
+async function render(stored = {}, { failWrites = false } = {}) {
   const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
-  const { document, form } = fakeDocument();
+  const { document, byId } = fakeDocument();
   const writes = [];
   const removes = [];
+  const reject = () => Promise.reject(new Error("quota"));
   const chrome = { storage: { sync: {
     get: async () => stored,
-    set: async (obj) => writes.push(obj),
-    remove: async (keys) => removes.push(keys),
+    set: failWrites ? reject : async (obj) => { writes.push(obj); },
+    remove: failWrites ? reject : async (keys) => { removes.push(keys); },
   } } };
   loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  return { PeaceBeStill, form, writes, removes };
+  const change = async (name, checked) => {
+    const row = rowsOf(byId.features).find((r) => r.name === name);
+    row.box.checked = checked;
+    await byId.features.listeners.change({ target: row.box });
+  };
+  return { PeaceBeStill, byId, writes, removes, change, rows: () => rowsOf(byId.features) };
 }
 
-test("every feature gets exactly one checkbox, grouped under its section heading", async () => {
-  const { PeaceBeStill, form } = await render();
-  assert.deepEqual(form.rows.map((r) => r.name).sort(), [...PeaceBeStill.KEYS].sort());
-  assert.deepEqual(form.appended.filter((n) => n.tag === "h2").map((n) => n.textContent), [...PeaceBeStill.GROUPS]);
+test("every feature gets one checkbox, inside a fieldset with its section as the legend", async () => {
+  const { PeaceBeStill, byId, rows } = await render();
+  assert.deepEqual(rows().map((r) => r.name).sort(), [...PeaceBeStill.KEYS].sort());
+  const fieldsets = byId.features.children.filter((c) => c.tag === "fieldset");
+  assert.deepEqual(
+    fieldsets.map((f) => f.children.find((c) => c.tag === "legend").textContent),
+    [...PeaceBeStill.GROUPS],
+  );
 });
 
 test("a child is indented directly under its parent when they share a section", async () => {
-  const { form } = await render();
-  const order = form.rows.map((r) => r.name);
+  const { rows } = await render();
+  const order = rows().map((r) => r.name);
   const at = (name) => order.indexOf(name);
   for (const [parent, children] of [
     ["header", ["create", "notifications"]],
@@ -87,74 +115,37 @@ test("a child is indented directly under its parent when they share a section", 
     ["subscriptions", ["subscriptionDots"]],
   ]) {
     assert.deepEqual(order.slice(at(parent) + 1, at(parent) + 1 + children.length), children, parent);
-    for (const child of children) assert.equal(form.rows[at(child)].indented, true, child);
-    assert.equal(form.rows[at(parent)].indented, false, parent);
+    for (const child of children) assert.equal(rows()[at(child)].indented, true, child);
   }
 });
 
-test("a child whose parent is in another section stays at the top level there", async () => {
-  const { form } = await render();
-  for (const key of ["homeToSubscriptions", "upcoming"]) {
-    assert.equal(form.rows.find((r) => r.name === key).indented, false, key);
-  }
-});
-
-test("a switch its parent has made pointless is greyed out and cannot be changed", async () => {
-  const on = await render({ header: true, comments: true });
-  for (const key of ["create", "notifications", "profilePhotos"]) {
-    const row = on.form.rows.find((r) => r.name === key);
+test("a switch its parent made pointless says so, stays reachable by keyboard, and cannot be changed", async () => {
+  const { rows, change, writes, removes } = await render({ header: true, comments: true, relatedVideos: true });
+  for (const key of ["create", "notifications", "profilePhotos", "liveChat"]) {
+    const row = rows().find((r) => r.name === key);
     assert.equal(row.moot, true, key);
-    assert.equal(row.disabled, true, key);
+    assert.equal(row.ariaDisabled, "true", `${key} is announced as disabled`);
+    assert.equal(row.reallyDisabled, false, `${key} must stay in the tab order`);
+    assert.match(row.note, /no effect while/, `${key} explains itself`);
   }
-  // Its own stored value is untouched, so turning the parent off restores it.
-  assert.equal(on.form.rows.find((r) => r.name === "create").note, "", "the parent is the switch above; no note needed");
-  const strandedNote = on.form.rows.find((r) => r.name === "homeToSubscriptions").note;
-  assert.equal(strandedNote, "", "subscriptions is off, so this one is fine");
+  // An indented switch points at the row above; one locked from another
+  // section has to name the switch that locked it.
+  assert.equal(rows().find((r) => r.name === "liveChat").note, "no effect while the switch above is on");
+  const stranded = await render({ subscriptions: true });
+  assert.match(stranded.rows().find((r) => r.name === "homeToSubscriptions").note, /Hide Subscriptions/);
 
-  const off = await render({ header: false, comments: false });
-  for (const key of ["create", "notifications", "profilePhotos"]) {
-    assert.equal(off.form.rows.find((r) => r.name === key).disabled, false, key);
-  }
-});
-
-test("a switch stranded by a parent in another section says which one", async () => {
-  const { form } = await render({ subscriptions: true });
-  const row = form.rows.find((r) => r.name === "homeToSubscriptions");
-  assert.equal(row.moot, true);
-  assert.equal(row.disabled, true);
-  assert.match(row.note, /Hide Subscriptions/);
-});
-
-test("checkboxes reflect stored settings over defaults", async () => {
-  const { form } = await render({ create: true });
-  const row = (name) => form.elements.find((e) => e.name === name);
-  assert.equal(row("create").checked, true, "stored value wins");
-  assert.equal(row("footer").checked, false, "everything is off by default");
-  assert.equal(row("dislikeCount").checked, false, "off by default");
-});
-
-test("a change is written to storage, and the greying is recomputed at once", async () => {
-  const { form, writes } = await render();
-  await form.listeners.change({ target: { name: "footer", checked: true } });
-  assert.deepEqual(plain(writes), [{ footer: true }]);
-
-  // Switching a parent on greys its children without waiting for a reload.
-  assert.equal(form.rows.find((r) => r.name === "profilePhotos").disabled, false);
-  await form.listeners.change({ target: { name: "comments", checked: true } });
-  assert.equal(form.rows.find((r) => r.name === "profilePhotos").disabled, true);
+  // Clicking one changes nothing.
+  await change("liveChat", true);
+  assert.deepEqual(plain(writes), []);
+  assert.deepEqual(plain(removes), []);
+  assert.equal(rows().find((r) => r.name === "liveChat").checked, false, "the tick is put back");
 });
 
 test("only a switch that differs from its default is stored", async () => {
-  const { form, writes, removes } = await render();
-
-  // Everything is off by default, so switching footer on is worth storing.
-  await form.listeners.change({ target: { name: "footer", checked: true } });
+  const { change, writes, removes } = await render();
+  await change("footer", true);
   assert.deepEqual(plain(writes), [{ footer: true }]);
-  assert.deepEqual(plain(removes), []);
-
-  // Switching it back off returns it to the default, so drop the key entirely
-  // rather than storing something the defaults already say.
-  await form.listeners.change({ target: { name: "footer", checked: false } });
+  await change("footer", false);
   assert.deepEqual(plain(writes), [{ footer: true }], "nothing more written");
   assert.deepEqual(plain(removes), ["footer"]);
 });
@@ -164,38 +155,80 @@ test("settings already stored that match their default are cleaned up on load", 
   assert.deepEqual(plain(removes), [["footer", "dislikeCount"]], "create differs, so it stays");
 });
 
-test("nothing is removed when there is nothing redundant", async () => {
-  const { removes } = await render({ create: true });
-  assert.deepEqual(plain(removes), []);
+test("the summary counts what is on, and turning everything off clears the lot", async () => {
+  const { byId, rows, removes } = await render({ footer: true, create: true });
+  assert.match(byId.summary.textContent, /2 of 43/);
+
+  await byId["all-off"].listeners.click();
+  assert.deepEqual(plain(removes.at(-1)), ["footer", "create"], "every stored key is dropped");
+  assert.equal(rows().every((r) => !r.checked), true);
+  assert.match(byId.summary.textContent, /0 of 43/);
+});
+
+test("the filter narrows the list to matching switches", async () => {
+  const { byId, rows } = await render();
+  byId.filter.value = "dislike";
+  await byId.filter.listeners.input();
+  const shown = rows().filter((r) => !r.hidden).map((r) => r.name);
+  assert.deepEqual(shown, ["dislikeCount"]);
+
+  byId.filter.value = "";
+  await byId.filter.listeners.input();
+  assert.equal(rows().filter((r) => r.hidden).length, 0, "clearing the filter shows everything again");
+});
+
+test("a storage failure is reported rather than silently pretended", async () => {
+  const { byId, change } = await render({}, { failWrites: true });
+  await change("footer", true);
+  assert.match(byId.status.textContent, /could not be saved/i);
 });
 
 test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {
   const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
-  const { document, form } = fakeDocument();
+  const { document, byId } = fakeDocument();
   const writes = [];
+  const removes = [];
   const requests = [];
   let answer = true;
-  const removes = [];
   const browser = {
-    storage: { sync: { get: async () => ({}), set: async (obj) => writes.push(obj), remove: async (k) => removes.push(k) } },
+    storage: { sync: { get: async () => ({}), set: async (o) => { writes.push(o); }, remove: async (k) => { removes.push(k); } } },
     permissions: { request: async (req) => { requests.push(req); return answer; } },
   };
   loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, browser });
   await new Promise((resolve) => setTimeout(resolve, 0));
+  const change = async (name, checked) => {
+    const row = rowsOf(byId.features).find((r) => r.name === name);
+    row.box.checked = checked;
+    await byId.features.listeners.change({ target: row.box });
+  };
 
-  await form.listeners.change({ target: { name: "dislikeCount", checked: true } });
+  await change("dislikeCount", true);
   assert.deepEqual(plain(requests), [{ data_collection: ["browsingActivity"] }]);
   assert.deepEqual(plain(writes), [{ dislikeCount: true }]);
 
   answer = false;
-  const refused = { name: "dislikeCount", checked: true };
-  await form.listeners.change({ target: refused });
-  assert.equal(refused.checked, false, "declined: the box unticks");
+  await change("dislikeCount", true);
+  assert.equal(rowsOf(byId.features).find((r) => r.name === "dislikeCount").checked, false, "declined: the box unticks");
   assert.deepEqual(plain(writes), [{ dislikeCount: true }], "declined: nothing written");
 
-  await form.listeners.change({ target: { name: "dislikeCount", checked: false } });
+  await change("dislikeCount", false);
   assert.equal(requests.length, 2, "unticking asks nothing");
-  // Off is this switch's default, so unticking drops the key rather than storing false.
+  assert.deepEqual(plain(removes.at(-1)), "dislikeCount");
+});
+
+test("a browser without the data-collection permission API still stores the choice", async () => {
+  const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+  const { document, byId } = fakeDocument();
+  const writes = [];
+  // Chromium: permissions.request exists but rejects an unknown key.
+  const chrome = {
+    storage: { sync: { get: async () => ({}), set: async (o) => { writes.push(o); }, remove: async () => {} } },
+    permissions: { request: async () => { throw new TypeError("Unexpected property: 'data_collection'"); } },
+  };
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const row = rowsOf(byId.features).find((r) => r.name === "dislikeCount");
+  row.box.checked = true;
+  await byId.features.listeners.change({ target: row.box });
   assert.deepEqual(plain(writes), [{ dislikeCount: true }]);
-  assert.deepEqual(plain(removes), ["dislikeCount"]);
 });

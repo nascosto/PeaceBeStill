@@ -17,9 +17,9 @@
     ["create", "Hide the Create button in the header", false, HEADER, "header"],
     ["moreFromYoutube", "Hide the “More from YouTube” sidebar section", false, HEADER],
     ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", false, HEADER, "subscriptions"],
-    ["expandDescription", "Open the video description automatically (and drop its Show less)", false, WATCH, "description"],
+    ["expandDescription", "Always show the full description", false, WATCH, "description"],
     ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", false, WATCH, "description"],
-    ["descriptionCards", "Hide the transcript, podcast, chapters, music and “How this was made” cards in the description", false, WATCH, "description"],
+    ["descriptionCards", "Hide the extra cards in the description (transcript, podcast, chapters, music)", false, WATCH, "description"],
     ["descriptionChips", "Hide hashtags and link chips in the description", false, WATCH, "description"],
     ["footer", "Hide the About / Press / Copyright block under the sidebar", false, HEADER],
     ["ask", "Hide YouTube's AI “Ask” button and card", false, WATCH],
@@ -32,7 +32,7 @@
     // Worth knowing before switching this one on: the count comes from the
     // Return YouTube Dislike service, which means telling a third party which
     // video you are watching.
-    ["dislikeCount", "Show the dislike count (asks returnyoutubedislike.com for each video)", false, WATCH, "buttonsBar"],
+    ["dislikeCount", "Show the dislike count (asks the Return YouTube Dislike service about each video)", false, WATCH, "buttonsBar"],
     // Ported from Unhook.
     ["header", "Hide the whole top bar (logo, search, account)", false, HEADER],
     ["notifications", "Hide the notifications bell and the unread count in the tab title", false, HEADER, "header"],
@@ -42,12 +42,12 @@
     ["homeToSubscriptions", "Send the home page to the Subscriptions feed", false, HOME, "subscriptions"],
     ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", false, HOME],
     ["mixes", "Hide Mixes (auto-generated playlists)", false, HOME],
-    ["promos", "Hide promo banners, the masthead ad and surveys", false, HOME],
+    ["promos", "Hide YouTube's own promos and surveys", false, HOME],
     ["relatedVideos", "Hide the whole column beside the video (related videos, chat, playlist)", false, WATCH],
     ["recommended", "Hide the recommended-videos list beside the video and the “More videos” overlay on pause", false, WATCH, "relatedVideos"],
     ["liveChat", "Hide live chat", false, WATCH, "relatedVideos"],
     ["playlistPanel", "Hide the playlist panel beside the video", false, WATCH, "relatedVideos"],
-    ["fundraiser", "Hide the fundraiser shelf", false, WATCH],
+    ["fundraiser", "Hide the fundraiser banner", false, WATCH],
     ["merch", "Hide merch, tickets, offers and context boxes under the video", false, WATCH],
     ["comments", "Hide comments", false, WATCH],
     ["profilePhotos", "Hide profile photos in comments", false, WATCH, "comments"],
@@ -59,10 +59,10 @@
     ["endScreenFeed", "Hide the video wall when a video ends", false, PLAYER],
     ["endScreenCards", "Hide end-screen cards", false, PLAYER],
     ["annotations", "Hide info cards, the cards button and the channel watermark on the player", false, PLAYER],
-    ["searchShelves", "Hide the shelves in search results (For you, People also watched, Latest from…)", false, SEARCH],
+    ["searchShelves", "Hide the extra rows in search results (For you, People also watched)", false, SEARCH],
     // Ads in the page only. Ads inside the video are a different problem, and
     // a filter list maintained daily beats anything hand-written here.
-    ["ads", "Hide ads in the page: feed slots, promoted results, display and companion ads", false, ADS],
+    ["ads", "Hide ads around the video (this does not skip ads inside the video)", false, ADS],
   ];
   const KEYS = FEATURES.map(([key]) => key);
 
