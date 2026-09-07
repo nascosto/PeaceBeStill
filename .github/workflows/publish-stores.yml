@@ -25,11 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
       CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
       YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
     steps:
       - name: At least one store has to be configured
-        if: env.AMO_JWT_ISSUER == '' && env.CWS_CLIENT_ID == ''
+        if: (env.AMO_JWT_ISSUER == '' || env.YOUTUBE_AMO_SLUG == '') && (env.CWS_CLIENT_ID == '' || env.YOUTUBE_CWS_ITEM_ID == '')
         run: |
           echo "::error::No store credentials are set, so this run would publish nothing."
           exit 1
@@ -52,7 +53,7 @@ jobs:
         run: npm run build
 
       - name: Submit to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != ''
+        if: env.AMO_JWT_ISSUER != '' && env.YOUTUBE_AMO_SLUG != ''
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
