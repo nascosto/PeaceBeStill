@@ -112,9 +112,17 @@ report, per switch, how many targets exist and how many are still rendered
 
     npm run audit:chromium    # puppeteer-core against /usr/bin/chromium-browser
     npm run audit:firefox     # Marionette against /usr/bin/firefox, no driver needed
+    npm run audit:mobile      # m.youtube.com, Chromium emulating a phone
 
-Both run two passes: first every child switch on with the parents off, so each
-child has a visible container to act inside, then the parents as well. Turning
+`audit:mobile` covers the Firefox for Android surface, exercising only the
+`ytm-*` rules and checking the desktop ones stay inert there; Chromium stands
+in for Firefox because it emulates a phone with no device attached, and what is
+under test is the stylesheet against the mobile DOM. On mobile the Create
+button, the notifications bell and the Subscriptions pivot item are all
+signed-in only, so those three are the ones to check by hand.
+
+All three run two passes: first every child switch on with the parents off, so
+each child has a visible container to act inside, then the parents as well. Turning
 everything on at once tells you nothing, because a parent hides the container
 its children live in. The Create button and the subscription dots only exist
 signed in, so those two are checked by hand.
