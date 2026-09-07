@@ -16,7 +16,8 @@
     "start:firefox": "web-ext run --source-dir extensions/youtube/src --start-url https://www.youtube.com",
     "start:chromium": "web-ext run --source-dir extensions/youtube/src --target chromium --start-url https://www.youtube.com",
     "audit:chromium": "node extensions/youtube/audit/chromium.mjs",
-    "audit:firefox": "node extensions/youtube/audit/firefox.mjs"
+    "audit:firefox": "node extensions/youtube/audit/firefox.mjs",
+    "audit:mobile": "node extensions/youtube/audit/mobile.mjs"
   },
   "engines": {
     "node": ">=20"

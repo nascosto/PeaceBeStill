@@ -53,6 +53,30 @@ five switches for things inside it.
 The options page has a filter box, a count of what is on, a button that turns
 everything off, and a note that settings follow your browser account.
 
+### Firefox for Android
+
+The extension declares `gecko_android` and its content script matches
+`m.youtube.com`, so it installs and runs on Firefox for Android. Chrome for
+Android supports no extensions at all, so Android means Firefox.
+
+Mobile YouTube is a separate application, not a narrow desktop one: `ytm-*`
+components, a bottom pivot bar in place of the sidebar, and the video's
+metadata inline under the player rather than in a column beside it. So the
+desktop rules match nothing there and `hide.css` carries a second set. Thirteen
+switches work on mobile: the top bar, Create, notifications, Subscriptions,
+Shorts, the home feed, promos, the recommendations and the videos in them, the
+views line, the buttons row, the channel row, and in-page ads.
+
+The rest do nothing on a phone, which costs nothing, since an unmatched
+selector hides nothing and every switch is off until you turn it on. They fall
+into three groups: those needing a sidebar mobile does not have ("More from
+YouTube", the About/Press/Copyright block, Explore and Trending, the
+subscription dots); those inside the player, whose mobile controls are a
+different component (autoplay, the end-screen wall and cards, info cards); and
+those whose mobile equivalent is not yet written -- comments and their photos,
+the description's sub-switches, mixes, upcoming videos, search shelves,
+fundraisers, merch, live chat and the playlist panel.
+
 ### How it works
 
 `content.js` keeps a `data-peacebestill` attribute on `<html>` equal to the
@@ -88,9 +112,17 @@ report, per switch, how many targets exist and how many are still rendered
 
     npm run audit:chromium    # puppeteer-core against /usr/bin/chromium-browser
     npm run audit:firefox     # Marionette against /usr/bin/firefox, no driver needed
+    npm run audit:mobile      # m.youtube.com, Chromium emulating a phone
 
-Both run two passes: first every child switch on with the parents off, so each
-child has a visible container to act inside, then the parents as well. Turning
+`audit:mobile` covers the Firefox for Android surface, exercising only the
+`ytm-*` rules and checking the desktop ones stay inert there; Chromium stands
+in for Firefox because it emulates a phone with no device attached, and what is
+under test is the stylesheet against the mobile DOM. On mobile the Create
+button, the notifications bell and the Subscriptions pivot item are all
+signed-in only, so those three are the ones to check by hand.
+
+All three run two passes: first every child switch on with the parents off, so
+each child has a visible container to act inside, then the parents as well. Turning
 everything on at once tells you nothing, because a parent hides the container
 its children live in. The Create button and the subscription dots only exist
 signed in, so those two are checked by hand.
