@@ -19,16 +19,16 @@ const DEFAULTS = [
   "fundraiser", "merch", "comments", "profilePhotos", "videoInfo",
   "buttonsBar", "channelRow", "description",
   "autoplay", "endScreenFeed", "endScreenCards", "annotations",
-  "searchShelves",
+  "searchShelves", "ads",
 ].map((key) => [key, false]);
 
 const KEYS = DEFAULTS.map(([k]) => k);
 const ON_BY_DEFAULT = DEFAULTS.filter(([, on]) => on).map(([k]) => k);
-const GROUPS = ["Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
+const GROUPS = ["Ads", "Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
 
 // PeaceBeStill comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
-test("the feature keys are the agreed forty-two, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed forty-three, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key));

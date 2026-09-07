@@ -47,14 +47,25 @@ html[data-peacebestill~="shorts"] :is(ytd-rich-shelf-renderer[is-shorts], ytd-re
 /* Mixes: auto-generated playlists, wherever they are offered */
 html[data-peacebestill~="mixes"] :is(ytd-rich-item-renderer:has(a[href*="start_radio=1"], a[href*="list=RD"]), ytd-compact-radio-renderer, ytd-radio-renderer, yt-lockup-view-model:has(a[href*="list=RD"]), .ytp-videowall-still[data-is-mix="true"]) { display: none !important; }
 
-/* Promos: the masthead ad, promo bars, surveys */
-html[data-peacebestill~="promos"] :is(#masthead-ad, ytd-mealbar-promo-renderer, ytd-primetime-promo-renderer, ytd-statement-banner-renderer, #surveys, ytd-single-option-survey-renderer, ytd-inline-survey-renderer) { display: none !important; }
+/* Promos: YouTube selling you YouTube, and its surveys. Third-party ads are
+   the separate "ads" switch below. */
+html[data-peacebestill~="promos"] :is(ytd-mealbar-promo-renderer, ytd-primetime-promo-renderer, ytd-statement-banner-renderer, ytd-banner-promo-renderer, #surveys, ytd-single-option-survey-renderer, ytd-inline-survey-renderer) { display: none !important; }
 
 /* Subscriptions feed: upcoming videos. Their "Upcoming" badge and "Scheduled
    for" line are plain text, but only they carry a Notify me toggle in the
    card's attachments (or, in the older grid markup, a toggle-button renderer
    in the media's buttons), so the whole card keys on that. */
 html[data-peacebestill~="upcoming"] ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer:is(:has(lockup-attachments-view-model toggle-button-view-model), :has(ytd-rich-grid-media ytd-toggle-button-renderer)) { display: none !important; }
+
+/* ---- Ads ---------------------------------------------------------------- */
+
+/* Ads in the page, not ads inside the video. The first six were seen rendering
+   on live search, home and watch pages; the promoted-* and display-ad
+   renderers are the long-standing names for promoted results, kept for the
+   contexts this pass did not reach. Note what is deliberately absent:
+   #sponsor-button and #sponsor-comment-badge are channel memberships, which
+   YouTube also calls sponsorship, and have nothing to do with advertising. */
+html[data-peacebestill~="ads"] :is(ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer, ytd-companion-slot-renderer, ytd-player-legacy-desktop-watch-ads-renderer, ytd-ads-engagement-panel-content-renderer, #player-ads, #masthead-ad, ytd-promoted-sparkles-web-renderer, ytd-promoted-sparkles-text-search-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer) { display: none !important; }
 
 /* ---- Watch page --------------------------------------------------------- */
 

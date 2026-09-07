@@ -2,8 +2,8 @@
 // be ES modules, so this is a classic script that publishes one global.
 (function (root) {
   // Options-page sections, in display order.
-  const GROUPS = ["Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
-  const [HEADER, HOME, WATCH, PLAYER, SEARCH, CHANNEL] = GROUPS;
+  const GROUPS = ["Ads", "Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
+  const [ADS, HEADER, HOME, WATCH, PLAYER, SEARCH, CHANNEL] = GROUPS;
 
   // [key, label, on by default, group, parent?]. The order here is the order
   // of the data-peacebestill tokens; the options page groups by the fourth field
@@ -60,6 +60,9 @@
     ["endScreenCards", "Hide end-screen cards", false, PLAYER],
     ["annotations", "Hide info cards, the cards button and the channel watermark on the player", false, PLAYER],
     ["searchShelves", "Hide the shelves in search results (For you, People also watched, Latest from…)", false, SEARCH],
+    // Ads in the page only. Ads inside the video are a different problem, and
+    // a filter list maintained daily beats anything hand-written here.
+    ["ads", "Hide ads in the page: feed slots, promoted results, display and companion ads", false, ADS],
   ];
   const KEYS = FEATURES.map(([key]) => key);
 

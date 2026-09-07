@@ -39,6 +39,11 @@ five switches for things inside it.
 - channel pages: the Posts and Store tabs, and landing on one of those pages
   goes to the channel home instead
 - ALL-CAPS titles rewritten in sentence case
+- ads in the page: feed slots, promoted results, display and companion ads.
+  Ads *inside* the video are out of scope, since a pre-roll is the same video
+  element playing other content and a daily-updated filter list beats anything
+  hand-written; keep uBlock Origin for those. Channel memberships, which
+  YouTube also calls sponsorships, are deliberately left alone.
 - the dislike count beside the thumbs-down: it comes from the Return YouTube
   Dislike service, so turning it on tells that service which video you are
   watching. It is the only switch that makes a network request, and Firefox
