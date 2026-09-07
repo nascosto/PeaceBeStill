@@ -198,5 +198,18 @@
     return false;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  // What the content script should actually do, given what is stored: the
+  // defaults filled in, and any switch its parent has made moot forced off.
+  // Everything downstream reads this and tests each key for truth, so a key
+  // that is absent -- which is every key on a fresh install, since only
+  // non-default values are stored -- can never be mistaken for "on".
+  function effective(stored) {
+    const merged = withDefaults(stored);
+    for (const key of KEYS) {
+      if (merged[key] && isMoot(key, merged)) merged[key] = false;
+    }
+    return merged;
+  }
+
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

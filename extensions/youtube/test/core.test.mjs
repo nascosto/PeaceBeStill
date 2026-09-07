@@ -150,6 +150,34 @@ test("redirectFor sends home to the subscriptions feed and a Short to its watch 
   assert.equal(PeaceBeStill.redirectFor("/", {}), null);
 });
 
+test("effective settings: a missing key is off, and a switch its parent made moot is off too", () => {
+  const eff = PeaceBeStill.effective;
+
+  // The bug this exists to prevent: nothing stored must mean nothing runs.
+  // Storage holds only what differs from a default, and every default is off,
+  // so a fresh install stores {} and every feature must read as off.
+  const fresh = eff({});
+  assert.deepEqual(Object.entries(fresh).filter(([, on]) => on), [], "a fresh install runs nothing");
+  assert.deepEqual({ ...fresh }, { ...PeaceBeStill.defaults() });
+
+  // What the user actually turned on is on.
+  assert.equal(eff({ titleCase: true }).titleCase, true);
+  assert.equal(eff({ titleCase: false }).titleCase, false);
+
+  // A switch whose parent hides the thing it acts on is forced off, so the
+  // content script never works on something already hidden.
+  assert.equal(eff({ dislikeCount: true, buttonsBar: true }).dislikeCount, false, "no request for a hidden buttons row");
+  assert.equal(eff({ dislikeCount: true }).dislikeCount, true);
+  assert.equal(eff({ expandDescription: true, description: true }).expandDescription, false);
+  assert.equal(eff({ liveChat: true, relatedVideos: true }).liveChat, false);
+  assert.equal(eff({ homeToSubscriptions: true, subscriptions: true }).homeToSubscriptions, false);
+
+  // The parent itself stays on, and junk is ignored.
+  assert.equal(eff({ buttonsBar: true }).buttonsBar, true);
+  assert.equal(eff({ titleCase: "yes" }).titleCase, false);
+  assert.equal(eff(undefined).titleCase, false);
+});
+
 test("placeholderVerdict hides a loading block only after it has sat in view with the grid not growing", () => {
   const verdict = PeaceBeStill.placeholderVerdict;
   let { record, hide } = verdict(undefined, 1000, 20, true, 6000);
