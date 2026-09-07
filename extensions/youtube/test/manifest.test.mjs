@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 
 const manifest = JSON.parse(readFileSync(new URL("../src/manifest.json", import.meta.url), "utf8"));
 
@@ -33,6 +33,16 @@ test("declares data collection: none required, browsing activity optional (the d
     required: ["none"],
     optional: ["browsingActivity"],
   });
+});
+
+test("icons are declared at every size a browser asks for, and the files exist", () => {
+  const sizes = ["16", "32", "48", "96", "128"];
+  assert.deepEqual(Object.keys(manifest.icons ?? {}), sizes);
+  for (const size of sizes) {
+    assert.equal(manifest.icons[size], `icons/icon-${size}.png`);
+    const file = new URL(`../src/${manifest.icons[size]}`, import.meta.url);
+    assert.ok(statSync(file).size > 0, `icons/icon-${size}.png is missing or empty`);
+  }
 });
 
 test("update URLs point at the constant latest-release assets", () => {
