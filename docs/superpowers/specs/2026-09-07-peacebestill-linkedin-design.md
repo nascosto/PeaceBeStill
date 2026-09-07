@@ -1,0 +1,239 @@
+# PeaceBeStill - LinkedIn — design
+
+Date: 2026-09-07. Status: approved in conversation, awaiting implementation plan.
+
+## Goal
+
+A second extension in this repo, `PeaceBeStill - LinkedIn`, built on the same
+switch-driven chassis as the YouTube one: Manifest V3, one codebase for Firefox
+and Chromium, no background script, `storage` and nothing else, and **every
+switch off out of the box** so a fresh install changes nothing.
+
+The motivation is a particular kind of reluctant use — needing LinkedIn for the
+network without wanting LinkedIn — but the extension itself takes no view on
+that. Like the YouTube one, it is general purpose: everything it can do is a
+switch, and which of them are on is the user's business.
+
+Its centrepiece, and the first thing it ships, is a switch that turns the whole
+site off.
+
+## The blackout switch
+
+`blackout` — *"Replace LinkedIn with a better idea"* — replaces every
+`linkedin.com` page with regular-size text reading **"You made the right
+choice."** It covers the whole site with no exceptions: it is a deliberately
+blunt, faintly snarky switch, not an everyday setting. To use LinkedIn again you
+turn it off.
+
+**Nesting.** `blackout` sits alone in its own group, first on the options page,
+and every other top-level switch declares it as its parent. This needs no new
+logic: `isMoot` already walks the entire parent chain, so a switch nested two
+deep (a child of a child of `blackout`) resolves correctly, and `options.js`
+only renders a feature under its parent when both are in the same group — so a
+parent living in a different group leaves every other switch rendered exactly
+where it was. With `blackout` on, every other switch greys out and reads *"no
+effect while 'Replace LinkedIn with a better idea' is on"*, `effective()` forces
+them all off, and `data-peacebestill` reads exactly `blackout`. Stored values are
+untouched, so turning it back off restores the page exactly as it was.
+
+**Hiding.** CSS, so it applies at `document_start` without waiting on
+LinkedIn's own rendering:
+
+    html[data-peacebestill~="blackout"] body { display: none !important; }
+    html[data-peacebestill~="blackout"]::before { content: "You made the right choice."; … }
+
+The generated text is `1rem` in a system font stack, centred, with colour and
+background set explicitly rather than inherited — LinkedIn ships a dark mode,
+and inheriting would risk dark text on a dark ground.
+
+**Tab title.** `blackout` also sets `document.title` to the same sentence: a tab
+reading "(3) Feed | LinkedIn" behind a blank page undercuts the whole point.
+LinkedIn is a single-page app and rewrites the title as it navigates, so this is
+re-applied from the same MutationObserver that serves the other title work,
+rather than set once.
+
+**Not in scope for this switch.** Hiding `body` does not stop LinkedIn's
+scripts, polling or telemetry — they carry on behind a blank page. A
+`window.stop()` would genuinely halt the load, but it is a much blunter
+instrument with more ways to misbehave, and interacts awkwardly with an
+attribute that is only set after an asynchronous storage read. v1 hides; if
+stopping the page outright turns out to matter, it is a later, separate switch.
+
+**A test convention changes.** `hide-css.test.mjs` asserts that every
+declaration in the stylesheet is `display: none !important`, which the generated
+text breaks. The LinkedIn copy of that test exempts the `blackout` gate **by
+name** and holds every other gate to the hiding-only rule. An exemption naming
+one gate keeps the guard meaningful; widening the allowed-declarations list
+would quietly permit anything anywhere.
+
+Two more details of that test do not carry over and must not be copied
+unthinkingly: its floor of at least 30 declarations, which a stylesheet with
+two rules would fail, and its `SCRIPT_ONLY` list, which here is the three
+redirects and `notificationCount` — `blackout` is the one feature that is both
+a stylesheet rule and a script.
+
+## Features
+
+`blackout` aside, v1.0 ships only what needs no knowledge of LinkedIn's markup.
+This is deliberate. LinkedIn's class names are largely hashed, its pages are
+almost entirely behind a login, and — unlike the YouTube extension — there is no
+live-page audit to confirm a selector (see Verification). A selector guessed and
+never checked is worse than an absent switch: it looks like a working feature
+and silently matches nothing.
+
+| Key                   | Group          | Hides / does                                                                 | How |
+| --------------------- | -------------- | ---------------------------------------------------------------------------- | --- |
+| `blackout`            | The whole site | replaces every LinkedIn page with "You made the right choice."               | `hide.css` hides `body` and generates the text on `html`; `content.js` keeps the tab title in step |
+| `homeToMessaging`     | Home and feed  | the home page opens Messaging instead of the feed                            | `content.js` `redirectFor`: `/` and `/feed/` → `/messaging/` |
+| `homeToNotifications` | Home and feed  | the home page opens Notifications instead of the feed                        | same, → `/notifications/` |
+| `homeToJobs`          | Home and feed  | the home page opens Jobs instead of the feed                                 | same, → `/jobs/` |
+| `notificationCount`   | Notifications  | the unread count LinkedIn prepends to the tab title                          | `content.js` strips `^\(\d+\)\s+` from `document.title` (`untitled`, ported unchanged from the YouTube extension) |
+
+The three redirect switches are independent rather than a parent with a choice
+of destinations, because the switch machinery has no notion of mutual
+exclusion and inventing one for three rows is not worth it. If more than one is
+on, the first in table order wins; the tie-break is documented in `core.js` and
+asserted in the tests, so it is defined behaviour rather than an accident of
+iteration.
+
+**Growth.** Every further switch arrives from a page pasted into a working
+session: the markup is read, the switches it supports are added as rows in
+`FEATURES` and rules in `hide.css`, a new group is declared if the page needs
+one, and the result is checked in a real browser before it is committed. Each
+page is one self-contained commit that cannot break the ones before it. Groups
+are declared only as they are populated, since `options.js` renders a fieldset
+per declared group and an empty one would show as an empty box.
+
+## Architecture
+
+`extensions/linkedin/`, the same shape as `extensions/youtube/` less the
+`audit/` directory:
+
+    extensions/linkedin/src     the extension
+    extensions/linkedin/test    its unit tests
+
+- `manifest.json` — MV3; `permissions: ["storage"]` and no `host_permissions`;
+  one content script on `*://www.linkedin.com/*` at `document_start` loading
+  `hide.css` and then `core.js`, `content.js`; embedded `options_ui`;
+  `browser_specific_settings.gecko` with `id: linkedin@peacebestill.fyi`,
+  `strict_min_version: "142.0"` and the Firefox `update_url`; a top-level
+  `update_url` for Chromium; `minimum_chrome_version: "120"`.
+  `data_collection_permissions` is `required: ["none"]` with **no** optional
+  entry: this extension makes no network requests of any kind.
+- `core.js` — a new file following the YouTube one's structure, not a copy of
+  it. Same published surface (`GROUPS`, `FEATURES`, `KEYS`, `defaults`,
+  `withDefaults`, `effective`, `isDefaultValue`, `redundantKeys`, `parentOf`,
+  `isMoot`, `tokensFor`, `redirectFor`, `untitled`) minus the YouTube-specific
+  helpers — `formatCount`, `videoIdFrom`, `calmTitle`, `channelHomeFor`,
+  `placeholderVerdict` — which have no LinkedIn counterpart.
+- `hide.css` — one rule per feature, gated on a token in `data-peacebestill` on
+  the root element, so the stylesheet is fully static and a toggle reaches open
+  tabs without a reload. Rules only hide, except `blackout` as described above.
+- `content.js` — reads `storage.sync`, writes the enabled keys to
+  `document.documentElement.dataset.peacebestill`, re-applies on
+  `storage.onChanged`, performs any redirect, and runs one debounced
+  MutationObserver for the tab-title work (`blackout` and `notificationCount`),
+  started only when a switch that needs it is on. No dislike-count fetch, no
+  consent flow, no placeholder pruning.
+- `options.html` / `options.js` / `options.css` — one checkbox per key, grouped
+  and nested exactly as the YouTube page does, with the same filter box, on-count,
+  "turn all off" button and storage-failure status line. `options.js` drops the
+  `consentFor` / `permissions.request` block entirely, since nothing here needs
+  an optional data-collection permission.
+- `icons/` — its own SVG-derived PNG set at 16/32/48/96/128.
+
+**Known limitation, shared with the YouTube extension.** The attribute is set
+after an asynchronous storage read, so a fast connection can render a frame of
+LinkedIn before it applies. Accepted for consistency rather than solved with a
+mechanism this one extension would not share.
+
+## Verification
+
+The YouTube extension confirms its selectors by driving a signed-out headless
+browser through live pages and reporting, per switch, how many targets exist and
+how many are still rendered. LinkedIn puts essentially everything behind a
+login, so that audit cannot exist here, and there is no substitute for it.
+
+Pasted markup is treated as throwaway research: it is read in the session that
+needs it and is **not** committed, in any form, scrubbed or synthetic. A
+signed-in LinkedIn page carries real names, real posts, profile URNs and
+tracking identifiers, and this repository is public. The regression net a
+committed fixture would buy is not worth a scrubbing step that has to be perfect
+every single time.
+
+What this means in practice, and what the README must say plainly so the missing
+`audit/` directory does not read as an oversight:
+
+- Unit tests cover the feature table, the CSS gates, the manifest and the
+  options page — the extension's own logic.
+- Selector correctness is confirmed by hand, in a real signed-in browser, at the
+  time each switch is written.
+- When LinkedIn changes its markup, a switch stops working silently. The fix is
+  a fresh paste of the page and a corrected rule.
+
+## Distribution
+
+Every extension in this repo shares the repo's version, and one tag releases
+them all, so adding a second extension means the existing release path grows
+rather than forks.
+
+- `package.json` — adds `lint:linkedin` and `build:linkedin`; `lint` and
+  `build` run both extensions. The unprefixed `start:firefox` and
+  `start:chromium` become `:youtube` and `:linkedin` variants, which is a
+  break to the documented developer commands, so the README changes with them.
+  No `audit:*` scripts for LinkedIn.
+- `release.yml` — a `web-ext sign` step and a CRX pack step for the new
+  extension, `extensions/linkedin/src` added to the `check-version.mjs`
+  arguments, and four more assets on the release:
+  `peacebestill-linkedin.{xpi,crx}` and
+  `peacebestill-linkedin-updates.{json,xml}`.
+- A new repository secret, `LINKEDIN_CRX_PRIVATE_KEY`, from a PEM generated
+  locally the way the README already documents. Each extension needs its own
+  key, since the Chromium ID derives from it and two extensions cannot share an
+  ID.
+- A new shared test in `test/`: every `extensions/*/src/manifest.json` version
+  equals `package.json`'s. Keeping versions in step by hand was a one-file job
+  with one extension and is a two-file job now.
+- `README.md` — a row in the extensions table, a section describing the
+  switches, the Verification note above, and the updated developer commands.
+
+## Out of scope
+
+- **system-setups.** Adding `PeaceBeStill - LinkedIn` to the Firefox and
+  Chromium enterprise policy lists is a separate job in a separate repository,
+  taken up once this extension has shipped a release with assets to point at.
+- **Live-page audits and committed fixtures.** As above.
+- **Guessed selectors.** No switch ships against markup that has not been read
+  and then checked in a browser.
+
+## Workflow
+
+1. Build the chassis: manifest, `core.js`, `content.js`, `hide.css`, options
+   page, icons, unit tests, the `package.json` and `release.yml` wiring, and
+   the README changes. `web-ext lint` clean, `npm test` green.
+2. Check `blackout` and the redirects by hand in both browsers — Firefox
+   `about:debugging` → Load Temporary Add-on, Chromium `chrome://extensions` →
+   Load unpacked.
+3. Generate the CRX key, add `LINKEDIN_CRX_PRIVATE_KEY`, tag a release, and
+   confirm it carries eight assets and that both new update manifests parse.
+4. Thereafter, one pasted page at a time: read the markup, add the switches,
+   check them in a browser, commit.
+
+## Acceptance
+
+- A fresh install changes nothing about LinkedIn, and stores nothing.
+- With `blackout` on, every LinkedIn page shows only "You made the right
+  choice." in regular-size text, readable in both light and dark mode, and the
+  tab title says the same; turning it off restores the site with every other
+  switch exactly as it was left.
+- With `blackout` on, every other switch on the options page is greyed out,
+  keeps its tick, stays in the tab order, refuses changes, and names the switch
+  that locked it; `data-peacebestill` reads exactly `blackout`.
+- Each redirect switch sends the home page to its destination and leaves every
+  other page alone; with more than one on, the first in table order wins.
+- With `notificationCount` on, the tab title loses its leading "(3) " and keeps
+  it off as LinkedIn navigates.
+- The extension makes no network requests at all, in any configuration.
+- Toggling on the options page changes open tabs without a reload.
+- A tagged release yields a Mozilla-signed XPI, a CRX with a stable ID, and two
+  valid update manifests for **each** extension, all at constant URLs.
