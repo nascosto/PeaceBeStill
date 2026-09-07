@@ -19,3 +19,15 @@ test("rejects any other tag, naming both", () => {
   assert.match(result.stderr, /v0\.0\.1/);
   assert.match(result.stderr, new RegExp(version.replace(/\./g, "\\.")));
 });
+
+test("checks package.json too, not only the extension", () => {
+  const root = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  assert.equal(root, version, "the repo and the extension share one version");
+  assert.match(run(`v${version}`).stdout, /package\.json/);
+});
+
+test("rejects a tag that is not a version at all", () => {
+  const result = run("nightly");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /vX\.Y\.Z/);
+});

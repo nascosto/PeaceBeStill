@@ -19,9 +19,20 @@ something on. That also keeps the synced settings to exactly the switches you
 turned on, since a value equal to its default is never stored.
 
 Each toggle is nested under the switch it depends on (a switch that hides the thing a feature acts on makes that feature
-moot: it is indented under it, greyed and locked while the parent is on, its
-stored value untouched; when the parent lives in another section the note names
-it). The parents: `header` over `create` and `notifications`; `subscriptions`
+moot: it is indented under it, muted and locked while the parent is on, its
+stored value untouched, and a note names the switch that locked it). A locked
+switch is marked `aria-disabled` rather than `disabled`, so it stays in the tab
+order and can still be read; a change to one is refused and the tick put back.
+
+The page also carries a filter box, a count of how many switches are on, a note
+that settings follow the browser account, a button that turns everything off,
+and a status line that says so when a write to storage fails rather than
+looking saved.
+
+The content script never reads stored settings directly. `effective()` fills in
+the defaults and forces off anything a parent has made moot, and every guard
+tests for truth, so an absent key -- which is every key on a fresh install,
+since only non-default values are stored -- can never be mistaken for on. The parents: `header` over `create` and `notifications`; `subscriptions`
 over `subscriptionDots`, `upcoming` and `homeToSubscriptions`; `description`
 over `expandDescription`, `descriptionChannelLinks`, `descriptionCards`,
 `descriptionChips` and `summary`; `relatedVideos` over `recommended`,

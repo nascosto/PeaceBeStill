@@ -15,7 +15,7 @@ export function firefoxUpdates({ id, version, xpiUrl }) {
   return JSON.stringify({ addons: { [id]: { updates: [{ version, update_link: xpiUrl }] } } }, null, 2) + "\n";
 }
 
-const escapeXml = (s) => s.replace(/&/g, "&amp;").replace(/'/g, "&apos;").replace(/</g, "&lt;");
+const escapeXml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 
 export function chromiumUpdates({ id, version, crxUrl }) {
   return [

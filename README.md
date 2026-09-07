@@ -50,6 +50,9 @@ five switches for things inside it.
   treats it as an optional data-collection permission, asking you once when
   you tick the box.
 
+The options page has a filter box, a count of what is on, a button that turns
+everything off, and a note that settings follow your browser account.
+
 ### How it works
 
 `content.js` keeps a `data-peacebestill` attribute on `<html>` equal to the
@@ -133,6 +136,11 @@ the newest version:
 Each extension needs its own key, since the Chromium ID is derived from it and
 two extensions cannot share an ID. Keep the PEMs out of the repo (`.gitignore`
 already excludes `*.pem`).
+
+## Licence and security
+
+MIT, see [LICENSE](LICENSE). To report a security issue, see
+[SECURITY.md](SECURITY.md) — please do it privately rather than in an issue.
 
 ## Installing on your machines
 

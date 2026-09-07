@@ -22,7 +22,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm test
       - run: npm run lint
 
