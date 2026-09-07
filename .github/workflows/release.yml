@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
       CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
       YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
     steps:
@@ -74,8 +75,11 @@ jobs:
 
       # Listed on AMO, so the package must be the source tree: a listed add-on
       # may not carry an update_url, and Mozilla distributes and updates it.
+      # Gated on the slug, not the credentials: those also sign the self-hosted
+      # build, so their presence says nothing about whether a listing exists to
+      # receive a version. Set the variable once the listing has been created.
       - name: Submit to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != ''
+        if: env.AMO_JWT_ISSUER != '' && env.YOUTUBE_AMO_SLUG != ''
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}

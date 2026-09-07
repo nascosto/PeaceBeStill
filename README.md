@@ -162,7 +162,10 @@ way back from a rejection — fix the listing, dispatch the same tag again.
 
 - **addons.mozilla.org** — submit `dist/peacebestill-youtube-store.zip` as a
   *listed* add-on, with <https://github.com/nascosto/PeaceBeStill/blob/main/PRIVACY.md>
-  as the privacy policy.
+  as the privacy policy. Then put its slug in the repository variable
+  `YOUTUBE_AMO_SLUG`. The AMO credentials alone cannot gate that step, since
+  they are also what signs the self-hosted build; the slug is what says a
+  listing exists to receive a version.
 - **Chrome Web Store** — a one-off $5 developer registration, then create the
   item, and put the ID it assigns in the repository variable
   `YOUTUBE_CWS_ITEM_ID`. The listing must answer the data-use questions: the
@@ -177,8 +180,9 @@ way back from a rejection — fix the listing, dispatch the same tag again.
 | `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` | a Google Cloud OAuth client with the Chrome Web Store API enabled, authorised once against the developer account |
 | `YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the self-hosted Chromium ID is derived from it, so it must never change |
 
-And one variable, not a secret: `YOUTUBE_CWS_ITEM_ID`, the store's ID for the
-item.
+And two variables, not secrets: `YOUTUBE_AMO_SLUG` and `YOUTUBE_CWS_ITEM_ID`.
+Each names a listing that exists, and each gates its own store's step, so a
+release before either listing simply skips it.
 
     mkdir -p ~/.config/peacebestill
     openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
