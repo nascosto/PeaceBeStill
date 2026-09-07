@@ -26,7 +26,7 @@
 - Firefox `strict_min_version` is `142.0`: the first Firefox, desktop and Android alike, that knows `data_collection_permissions`, so lint is warning-free (MV3 and CSS `:has()` need less).
 - Only `storage` in `permissions`; the content script matches `*://www.youtube.com/*` only; no `host_permissions`.
 - No icons in 1.0.0 (both browsers fall back to a default icon); no background script; no bundler.
-- Secrets (set by Ben in the public repo, never committed): `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`, `YOUTUBE_YOUTUBE_CRX_PRIVATE_KEY`. The CRX key lives locally at `~/.config/peacebestill/youtube-crx-key.pem`, outside the repo.
+- Secrets (set by Ben in the public repo, never committed): `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`, `YOUTUBE_CRX_PRIVATE_KEY`. The CRX key lives locally at `~/.config/peacebestill/youtube-crx-key.pem`, outside the repo.
 - Commit after every task with the trailers `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_013WyRMaKvftCxvgV2KCEt2R`.
 - Nothing is signed or uploaded before Task 5 (the audit) is complete.
 
@@ -386,7 +386,7 @@ git commit -m "Add the feature list, defaults, and the pure helpers"
 ### Task 3: Stylesheet and content script
 
 **Files:**
-- Create: `src/hide.css`, `src/content.js`, `test/tidy-css.test.mjs`
+- Create: `src/hide.css`, `src/content.js`, `test/hide-css.test.mjs`
 
 **Interfaces:**
 - Consumes `globalThis.PeaceBeStill.{KEYS, tokensFor, formatCount, videoIdFrom, calmTitle}` from Task 2.
@@ -395,7 +395,7 @@ git commit -m "Add the feature list, defaults, and the pure helpers"
 
 - [ ] **Step 1: Write the failing test** — every CSS gate is a real key, every hiding key has a gate, and the two script-only keys have none:
 
-`test/tidy-css.test.mjs`:
+`test/hide-css.test.mjs`:
 
 ```js
 import test from "node:test";
@@ -426,7 +426,7 @@ test("rules only ever hide; nothing is styled beyond display:none", () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `node --test test/tidy-css.test.mjs`
+Run: `node --test test/hide-css.test.mjs`
 Expected: FAIL with `ENOENT ... src/hide.css`.
 
 - [ ] **Step 3: Sanity-check the element names against a live page** (no login needed; YouTube embeds the renderer names it will build the DOM from):
@@ -620,7 +620,7 @@ Expected: all PASS; lint 0 errors.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/hide.css src/content.js test/tidy-css.test.mjs
+git add src/hide.css src/content.js test/hide-css.test.mjs
 git commit -m "Add the gated stylesheet and the content script that drives it"
 ```
 
@@ -843,7 +843,7 @@ git commit -m "Add the options page: one switch per feature"
   | Toggles are live | options page | unticking a box restores the element in the open tab without a reload; ticking hides it again |
   | Console clean | devtools console on a watch page | no errors from content.js |
 
-- [ ] **Step 3: For every failed row, find the real element** — Ben right-clicks the still-visible element → Inspect, and pastes the element's tag, `id`, and the nearest `ytd-*` ancestor. Replace the selector in `src/hide.css` (or `#description-inline-expander` / `#expand` / `is-expanded` / `dislike-button-view-model button` in `src/content.js`), reload the temporary add-on, re-check that row. Keep rules `display: none !important` only, so `test/tidy-css.test.mjs` keeps passing.
+- [ ] **Step 3: For every failed row, find the real element** — Ben right-clicks the still-visible element → Inspect, and pastes the element's tag, `id`, and the nearest `ytd-*` ancestor. Replace the selector in `src/hide.css` (or `#description-inline-expander` / `#expand` / `is-expanded` / `dislike-button-view-model button` in `src/content.js`), reload the temporary add-on, re-check that row. Keep rules `display: none !important` only, so `test/hide-css.test.mjs` keeps passing.
 
 - [ ] **Step 4: Record what was verified** — update the selector column in the spec's Features table to the working selectors, and note the date and browser versions under the table.
 
@@ -1368,7 +1368,7 @@ always the newest version:
 | Secret | Where it comes from |
 | --- | --- |
 | `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account) |
-| `YOUTUBE_YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the Chromium extension ID is derived from it, so it must never change |
+| `YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the Chromium extension ID is derived from it, so it must never change |
 
     mkdir -p ~/.config/peacebestill
     openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
