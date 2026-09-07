@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Packs a zip into a CRX3 with an RSA private key, using only node:crypto.
 //
-//   node scripts/pack-crx.mjs --key key.pem --zip dist/youtube-tidy.zip --out dist/youtube-tidy.crx
+//   node scripts/pack-crx.mjs --key key.pem --zip dist/peacebestill-youtube.zip --out dist/peacebestill-youtube.crx
 //   node scripts/pack-crx.mjs --key key.pem --id        # print the extension ID and exit
 //
 // Format: "Cr24", uint32 LE 3, uint32 LE header length, CrxFileHeader, zip.
