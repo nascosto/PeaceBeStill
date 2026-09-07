@@ -132,3 +132,54 @@ html[data-peacebestill~="searchShelves"] ytd-two-column-search-results-renderer 
 /* The Posts and Store tabs (the separate channelTabRedirect switch, in
    content.js, sends their URLs to the channel home) */
 html[data-peacebestill~="channelTabs"] yt-tab-shape:is([tab-title="Posts"], [tab-title="Store"]) { display: none !important; }
+
+/* ---- Firefox for Android (m.youtube.com) --------------------------------- */
+
+/* Mobile YouTube is a different application: ytm-* components, a bottom pivot
+   bar instead of a sidebar, and the video's metadata inline under the player
+   rather than in a column beside it. The rules above match nothing there, so
+   each switch that has a mobile counterpart gets one here. Switches whose
+   subject does not exist on mobile -- the sidebar's "More from YouTube" and
+   its About/Press/Copyright block, both of which need a sidebar -- simply do
+   nothing, which is what an unmatched selector already does. */
+
+/* Header: the whole top bar */
+html[data-peacebestill~="header"] ytm-mobile-topbar-renderer { display: none !important; }
+
+/* Header: the Create button, which lives in the bottom pivot bar on mobile.
+   Signed in only, like its desktop counterpart. */
+html[data-peacebestill~="create"] ytm-pivot-bar-item-renderer:has(.pivot-create) { display: none !important; }
+
+/* Header: the notifications bell. Signed in only. */
+html[data-peacebestill~="notifications"] ytm-mobile-topbar-renderer button[aria-label*="Notification" i] { display: none !important; }
+
+/* Sidebar: Subscriptions is a pivot-bar item on mobile. Signed in only. */
+html[data-peacebestill~="subscriptions"] ytm-pivot-bar-item-renderer:has(.pivot-subscriptions) { display: none !important; }
+
+/* Feeds: Shorts, including the pivot-bar entry that has no desktop equivalent */
+html[data-peacebestill~="shorts"] :is(ytm-pivot-bar-item-renderer:has(.pivot-shorts), ytm-shorts-lockup-view-model, ytm-reel-shelf-renderer, ytm-video-with-context-renderer:has(a[href*="/shorts/"]), ytm-compact-video-renderer:has(a[href*="/shorts/"])) { display: none !important; }
+
+/* Feeds: the home feed itself */
+html[data-peacebestill~="homeFeed"] ytm-browse ytm-rich-grid-renderer { display: none !important; }
+
+/* Feeds: promo banners and the survey/search nudges YouTube seeds a feed with */
+html[data-peacebestill~="promos"] :is(ytm-feed-nudge-renderer, ytm-rich-section-renderer:has(ytm-search-bar-entry-point-view-model)) { display: none !important; }
+
+/* Watch: the recommendations under the player, mobile having no column beside
+   the video. Scoped to section-identifier="related-items" because the comments
+   are a sibling section with the same class, and they belong to their own
+   switch: matching on the class alone hides both. */
+html[data-peacebestill~="relatedVideos"] ytm-item-section-renderer.scwnr-content[section-identifier="related-items"] { display: none !important; }
+html[data-peacebestill~="recommended"] ytm-item-section-renderer.scwnr-content[section-identifier="related-items"] ytm-video-with-context-renderer { display: none !important; }
+
+/* Watch: the title and views line */
+html[data-peacebestill~="videoInfo"] ytm-slim-video-information-renderer { display: none !important; }
+
+/* Watch: the like / dislike / share row */
+html[data-peacebestill~="buttonsBar"] ytm-slim-video-action-bar-renderer { display: none !important; }
+
+/* Watch: the channel avatar and subscribe button in that row */
+html[data-peacebestill~="channelRow"] ytm-slim-video-action-bar-renderer :is(.slim-video-owner-icon, .slim-subscribe-button) { display: none !important; }
+
+/* Ads: the companion slot under the mobile player */
+html[data-peacebestill~="ads"] ytm-companion-slot { display: none !important; }

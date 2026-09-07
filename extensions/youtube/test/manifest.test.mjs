@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, statSync } from "node:fs";
 import { selfHostedManifest } from "../../../scripts/variant.mjs";
+import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+
+const { KEYS } = loadClassic(new URL("../src/core.js", import.meta.url)).PeaceBeStill;
 
 const manifest = JSON.parse(readFileSync(new URL("../src/manifest.json", import.meta.url), "utf8"));
 
@@ -18,7 +21,7 @@ test("manifest is MV3 with the agreed identity", () => {
 test("manifest asks for nothing beyond storage and youtube.com", () => {
   assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
-  assert.deepEqual(manifest.content_scripts.map((c) => c.matches), [["*://www.youtube.com/*"]]);
+  assert.deepEqual(manifest.content_scripts.map((c) => c.matches), [["*://www.youtube.com/*", "*://m.youtube.com/*"]]);
   assert.equal(manifest.background, undefined);
 });
 
@@ -27,6 +30,23 @@ test("content script loads the core before the script that uses it, at document_
   assert.deepEqual(cs.js, ["core.js", "content.js"]);
   assert.deepEqual(cs.css, ["hide.css"]);
   assert.equal(cs.run_at, "document_start");
+});
+
+// Firefox for Android needs an explicit opt-in; without gecko_android AMO
+// lists the add-on as desktop-only and Android never offers it. The mobile
+// site is a separate application (ytm-* components), so the content script has
+// to match m.youtube.com as well or it never runs on a phone at all.
+test("opts in to Firefox for Android, and runs on the mobile site", () => {
+  assert.deepEqual(manifest.browser_specific_settings.gecko_android, { strict_min_version: "142.0" });
+  assert.ok(manifest.content_scripts[0].matches.includes("*://m.youtube.com/*"));
+});
+
+test("every mobile rule is gated on a real feature key", () => {
+  const css = readFileSync(new URL("../src/hide.css", import.meta.url), "utf8");
+  const mobile = [...css.matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{/g)]
+    .filter((m) => m[2].includes("ytm-"));
+  assert.ok(mobile.length >= 12, `expected mobile rules, found ${mobile.length}`);
+  for (const [, key] of mobile) assert.ok(KEYS.includes(key), `${key} is not a feature`);
 });
 
 test("declares data collection: none required, browsing activity optional (the dislike count)", () => {
