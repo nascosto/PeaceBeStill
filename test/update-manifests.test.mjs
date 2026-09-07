@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { firefoxUpdates, chromiumUpdates } from "../scripts/update-manifests.mjs";
 
 test("Firefox update manifest has the addon, version and versioned link", () => {
-  const text = firefoxUpdates({ id: "youtube@peacebestill.fyi", version: "1.2.3", xpiUrl: "https://example.test/releases/download/v1.2.3/peacebestill-youtube.xpi" });
+  const text = firefoxUpdates({ id: "youtube-selfhosted@example.invalid", version: "1.2.3", xpiUrl: "https://example.test/releases/download/v1.2.3/peacebestill-youtube.xpi" });
   assert.deepEqual(JSON.parse(text), {
-    addons: { "youtube@peacebestill.fyi": { updates: [{ version: "1.2.3", update_link: "https://example.test/releases/download/v1.2.3/peacebestill-youtube.xpi" }] } },
+    addons: { "youtube-selfhosted@example.invalid": { updates: [{ version: "1.2.3", update_link: "https://example.test/releases/download/v1.2.3/peacebestill-youtube.xpi" }] } },
   });
   assert.ok(text.endsWith("\n"));
 });

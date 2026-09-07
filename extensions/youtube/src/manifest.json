@@ -36,7 +36,6 @@
     "gecko": {
       "id": "youtube@peacebestill.fyi",
       "strict_min_version": "142.0",
-      "update_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json",
       "data_collection_permissions": {
         "required": [
           "none"
@@ -47,6 +46,5 @@
       }
     }
   },
-  "update_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml",
   "minimum_chrome_version": "120"
 }

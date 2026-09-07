@@ -4,6 +4,7 @@ These extensions run on pages you are signed in to, so a flaw here matters.
 If you find one, please report it privately rather than opening an issue:
 
 - Use GitHub's [private vulnerability reporting](https://github.com/nascosto/PeaceBeStill/security/advisories/new).
+- Or email <contact@peacebestill.fyi>, if you would rather not need an account.
 
 What is in scope: anything that lets a web page reach the extension's storage
 or privileges, anything that sends browsing data anywhere it should not, and

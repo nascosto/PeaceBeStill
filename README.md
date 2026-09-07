@@ -70,7 +70,9 @@ defaults stores nothing at all.
 
     npm install
     npm test                 # node --test, across the shared tooling and every extension
-    npm run lint             # web-ext lint (self-hosted rules)
+    npm run lint             # web-ext lint
+    npm run build            # both packages per extension, into dist/
+    npm run bump patch       # one version across package.json and every manifest
     npm run start:firefox    # throwaway Firefox profile with the extension loaded
     npm run start:chromium
 
@@ -109,25 +111,74 @@ Releases are built by `.github/workflows/release.yml` from a version tag. Every
 extension in the repo shares the repo's version, and one release carries them
 all, so the tag must equal `v` + the version in each `manifest.json`.
 
-    # bump "version" in package.json and every extensions/*/src/manifest.json, commit, then:
+    npm run bump patch      # or minor, major, or an exact 1.2.3
+    git commit -am "Release 1.0.1"
     git tag v1.0.1 && git push origin main v1.0.1
 
-The workflow signs each XPI through Mozilla's self-distribution channel, packs
-each CRX with that extension's fixed key, writes the two update manifests, and
-attaches them all under constant, per-extension names, so these URLs are always
-the newest version:
+`npm run bump` writes the new version to `package.json` and to every
+extension's manifest at once, which is the one part of a release that reliably
+goes wrong by hand; `scripts/check-version.mjs` then refuses any tag that
+disagrees with them.
+
+Each extension goes out down four channels, built from two packages:
+
+| Channel | Package | Add-on ID | Updates come from |
+| --- | --- | --- | --- |
+| addons.mozilla.org | the source tree | `youtube@peacebestill.fyi` | Mozilla |
+| Chrome Web Store | the source tree | assigned by Google | Google |
+| Self-hosted Firefox | + `update_url`s, own ID | `youtube-selfhosted@peacebestill.fyi` | the `.json` below |
+| Self-hosted Chromium | + `update_url`s | derived from the CRX key | the `.xml` below |
+
+Both stores reject a package that names its own update service, so the source
+tree carries no `update_url` at all and `scripts/variant.mjs` adds the two keys
+back for the self-hosted build. That build also takes its own Firefox ID,
+because AMO holds a version number once per add-on across its listed and
+unlisted channels and a release publishes the same version to both. Chromium
+needs no such split: the store assigns its own ID there, and the self-hosted
+one comes from the signing key rather than the manifest.
+
+The GitHub release is created before either store submission, so a queued or
+rejected review never costs the self-hosted channel. Its four assets keep
+constant names, so these URLs are always the newest version:
 
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.xpi
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.crx
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml
 
-### Secrets (set once: repository settings → Secrets and variables → Actions)
+### First listing on each store, by hand
+
+Neither store's API can create a listing: the first submission carries the
+description, screenshots, category and data-use answers, and only the web UI
+asks for those. Do each one once, then CI handles every version after it. Both
+listings take <contact@peacebestill.fyi> as the contact address and
+[PRIVACY.md](PRIVACY.md) as the privacy policy. A
+store step whose credentials are missing is skipped rather than failed, so
+tagging works before either listing exists. To publish a version that shipped
+before its listing did, run the **publish-stores** workflow from the Actions
+tab with that tag: it submits an existing tag to whichever stores are
+configured, without inventing a version number nobody needed. It is also the
+way back from a rejection — fix the listing, dispatch the same tag again.
+
+- **addons.mozilla.org** — submit `dist/peacebestill-youtube-store.zip` as a
+  *listed* add-on, with <https://github.com/nascosto/PeaceBeStill/blob/main/PRIVACY.md>
+  as the privacy policy.
+- **Chrome Web Store** — a one-off $5 developer registration, then create the
+  item, and put the ID it assigns in the repository variable
+  `YOUTUBE_CWS_ITEM_ID`. The listing must answer the data-use questions: the
+  dislike count is the only outbound request, it is off by default, and
+  `PRIVACY.md` is the policy to link.
+
+### Secrets (repository settings → Secrets and variables → Actions)
 
 | Secret | Where it comes from |
 | --- | --- |
-| `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account, and one pair signs every extension) |
-| `YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the Chromium extension ID is derived from it, so it must never change |
+| `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account, and one pair signs every extension on both channels) |
+| `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` | a Google Cloud OAuth client with the Chrome Web Store API enabled, authorised once against the developer account |
+| `YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the self-hosted Chromium ID is derived from it, so it must never change |
+
+And one variable, not a secret: `YOUTUBE_CWS_ITEM_ID`, the store's ID for the
+item.
 
     mkdir -p ~/.config/peacebestill
     openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
@@ -137,16 +188,23 @@ Each extension needs its own key, since the Chromium ID is derived from it and
 two extensions cannot share an ID. Keep the PEMs out of the repo (`.gitignore`
 already excludes `*.pem`).
 
-## Licence and security
+## Licence and privacy
 
-MIT, see [LICENSE](LICENSE). To report a security issue, see
-[SECURITY.md](SECURITY.md) — please do it privately rather than in an issue.
+MIT, see [LICENSE](LICENSE). Nothing is collected: see [PRIVACY.md](PRIVACY.md).
+To report a security issue, see [SECURITY.md](SECURITY.md) — please do it
+privately rather than in an issue.
 
-## Installing on your machines
+## Installing
 
-[system-setups](https://github.com/nascosto/system-setups) installs these
-through Firefox's and Chromium's enterprise policies: Firefox everywhere and
-Chromium on Linux fetch them from the URLs above and keep them updated. Chromium
-on Windows only allows them, because Chromium there refuses to force-install
-anything from outside the Web Store on an unmanaged machine: drop the `.crx`
-onto `chrome://extensions` once and it updates itself afterwards.
+From the stores, once the listings are up, or straight from a release. A
+store copy and a self-hosted copy are different add-ons to the browser and can
+be installed at the same time, so pick one: everything being off by default,
+two copies do nothing visible but waste effort.
+
+Firefox will install the self-hosted `.xpi` from its URL above. Chrome and
+Edge will not — off-store installs are blocked outside a managed machine — so
+on Chromium the self-hosted `.crx` is really for machines you administer.
+
+[system-setups](https://github.com/nascosto/system-setups) does that
+administering: it installs these through Firefox's and Chromium's enterprise
+policies, so every profile on the machine gets them without being asked.

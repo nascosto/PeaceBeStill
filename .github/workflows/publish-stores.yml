@@ -1,0 +1,71 @@
+name: publish-stores
+
+# Publishes an existing tag to the two stores, by hand, from the Actions tab.
+#
+# The release workflow already does this on the tag itself, but it skips a
+# store whose credentials are not set yet -- which is the normal state before
+# each listing has been created, since neither store's API can create one. This
+# is how a version that shipped self-hosted catches up with a store afterwards,
+# without inventing a version number nobody needed.
+#
+# It is also the way back from a store rejection: fix the listing, dispatch the
+# same tag again.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The version tag to publish, e.g. v1.0.0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
+    steps:
+      - name: At least one store has to be configured
+        if: env.AMO_JWT_ISSUER == '' && env.CWS_CLIENT_ID == ''
+        run: |
+          echo "::error::No store credentials are set, so this run would publish nothing."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run lint
+
+      # Guards against dispatching a tag whose manifests say something else,
+      # which would put the wrong version number on a store listing.
+      - name: The tag must match every extension's manifest version
+        run: node scripts/check-version.mjs "${{ inputs.tag }}" extensions/youtube/src
+
+      - name: Build the store package
+        run: npm run build
+
+      - name: Submit to addons.mozilla.org (listed)
+        if: env.AMO_JWT_ISSUER != ''
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx web-ext sign --source-dir extensions/youtube/src \
+            --artifacts-dir dist/amo --channel listed
+
+      - name: Publish to the Chrome Web Store
+        if: env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != ''
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          node scripts/publish-cws.mjs --item "$YOUTUBE_CWS_ITEM_ID" \
+            --zip dist/peacebestill-youtube-store.zip
