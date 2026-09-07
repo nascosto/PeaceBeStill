@@ -14,6 +14,8 @@ and runs only on its own site.
 
 ## PeaceBeStill - YouTube
 
+> Make YouTube "Be Still". Fully configurable with 43 switches.
+
 Every feature is a switch on the options page, grouped by where it acts and
 nested under the switch it depends on, so hiding the description greys out the
 five switches for things inside it.
