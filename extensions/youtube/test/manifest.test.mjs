@@ -6,9 +6,9 @@ const manifest = JSON.parse(readFileSync(new URL("../src/manifest.json", import.
 
 test("manifest is MV3 with the agreed identity", () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.name, "YouTube Tidy");
+  assert.equal(manifest.name, "PeaceBeStill - YouTube");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
-  assert.equal(manifest.browser_specific_settings.gecko.id, "youtube-tidy@peacebestill.fyi");
+  assert.equal(manifest.browser_specific_settings.gecko.id, "youtube@peacebestill.fyi");
   // 142 is the first Firefox, desktop and Android alike, that knows
   // data_collection_permissions; below it the linter warns.
   assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "142.0");
@@ -23,8 +23,8 @@ test("manifest asks for nothing beyond storage and youtube.com", () => {
 
 test("content script loads the core before the script that uses it, at document_start", () => {
   const [cs] = manifest.content_scripts;
-  assert.deepEqual(cs.js, ["tidy-core.js", "content.js"]);
-  assert.deepEqual(cs.css, ["tidy.css"]);
+  assert.deepEqual(cs.js, ["core.js", "content.js"]);
+  assert.deepEqual(cs.css, ["hide.css"]);
   assert.equal(cs.run_at, "document_start");
 });
 
@@ -36,7 +36,7 @@ test("declares data collection: none required, browsing activity optional (the d
 });
 
 test("update URLs point at the constant latest-release assets", () => {
-  const base = "https://github.com/nascosto/youtube-tidy/releases/latest/download/";
-  assert.equal(manifest.browser_specific_settings.gecko.update_url, base + "updates.json");
-  assert.equal(manifest.update_url, base + "updates.xml");
+  const base = "https://github.com/nascosto/PeaceBeStill/releases/latest/download/";
+  assert.equal(manifest.browser_specific_settings.gecko.update_url, base + "peacebestill-youtube-updates.json");
+  assert.equal(manifest.update_url, base + "peacebestill-youtube-updates.xml");
 });

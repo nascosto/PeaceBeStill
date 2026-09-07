@@ -4,9 +4,10 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const version = JSON.parse(readFileSync(new URL("../src/manifest.json", import.meta.url), "utf8")).version;
+const SRC = fileURLToPath(new URL("../extensions/youtube/src", import.meta.url));
+const version = JSON.parse(readFileSync(`${SRC}/manifest.json`, "utf8")).version;
 const script = fileURLToPath(new URL("../scripts/check-version.mjs", import.meta.url));
-const run = (tag) => spawnSync(process.execPath, [script, tag], { encoding: "utf8" });
+const run = (tag) => spawnSync(process.execPath, [script, tag, SRC], { encoding: "utf8" });
 
 test("accepts the tag that matches the manifest", () => {
   assert.equal(run(`v${version}`).status, 0);

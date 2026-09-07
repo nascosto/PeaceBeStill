@@ -4,7 +4,7 @@
 // at once.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot } = globalThis.YtTidy;
+  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot } = globalThis.PeaceBeStill;
   const form = document.getElementById("features");
   const labelOf = (key) => (FEATURES.find(([featureKey]) => featureKey === key) || [])[1] || key;
 

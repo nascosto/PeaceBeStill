@@ -1,4 +1,4 @@
-# YouTube Tidy — design
+# PeaceBeStill - YouTube — design
 
 Date: 2026-09-02. Status: approved in conversation, awaiting implementation plan.
 
@@ -117,13 +117,13 @@ Manifest V3, one codebase for Firefox and Chromium, no background script, no
 build step for the extension files themselves.
 
 - `manifest.json` — `permissions: ["storage"]`; one content script on
-  `*://www.youtube.com/*` at `document_start` with `tidy.css` and `content.js`;
+  `*://www.youtube.com/*` at `document_start` with `hide.css` and `content.js`;
   `options_ui` (embedded, not a tab); `browser_specific_settings.gecko`
-  with `id: youtube-tidy@peacebestill.fyi`, `strict_min_version` for MV3, and
+  with `id: youtube@peacebestill.fyi`, `strict_min_version` for MV3, and
   `update_url` pointing at the release manifest below; a top-level `update_url`
   for Chromium.
-- `tidy.css` — one rule per feature, each gated on a token in a single attribute
-  on the root element, e.g. `html[data-yt-tidy~="create"] … { display: none !important }`.
+- `hide.css` — one rule per feature, each gated on a token in a single attribute
+  on the root element, e.g. `html[data-peacebestill~="create"] … { display: none !important }`.
   Gating on the root element means a toggle takes effect in open tabs instantly
   and the stylesheet ships fully static.
 - `content.js` — reads the settings from `storage.sync` (missing key = that
@@ -144,7 +144,7 @@ build step for the extension files themselves.
 
 ## Distribution
 
-A public GitHub repository, `nascosto/youtube-tidy`, so the browsers can fetch
+A public GitHub repository, `nascosto/PeaceBeStill`, so the browsers can fetch
 release assets anonymously (`system-setups` is private, so it cannot host them).
 
 A GitHub Actions workflow runs on a `v*` tag and fails unless the tag equals the
@@ -158,16 +158,16 @@ manifest version. It:
 4. generates the two update manifests — `updates.json` for Firefox and
    `updates.xml` for Chromium — pointing at that release's assets;
 5. creates the GitHub release for the tag with four assets under constant
-   names: `youtube-tidy.xpi`, `youtube-tidy.crx`, `updates.json`, `updates.xml`.
+   names: `peacebestill-youtube.xpi`, `peacebestill-youtube.crx`, `updates.json`, `updates.xml`.
 
 Constant names give stable "latest" URLs of the form
-`https://github.com/nascosto/youtube-tidy/releases/latest/download/<asset>`,
+`https://github.com/nascosto/PeaceBeStill/releases/latest/download/<asset>`,
 which is what the policies and the manifest `update_url`s use; the update
 manifests inside a release point at that release's own versioned URLs
 (`releases/download/<tag>/<asset>`).
 
 Secrets, set once: the Mozilla add-ons API key pair (`AMO_JWT_ISSUER`,
-`AMO_JWT_SECRET`) and the CRX private key (`CRX_PRIVATE_KEY`, PEM).
+`AMO_JWT_SECRET`) and the CRX private key (`YOUTUBE_YOUTUBE_CRX_PRIVATE_KEY`, PEM).
 
 The CRX packing tool is decided in the implementation plan (Chromium's own
 `--pack-extension` on the runner versus a pinned packing library); the
@@ -175,12 +175,12 @@ constraint is a stable ID from the same key on every release.
 
 ## Integration with system-setups
 
-Chromium ID (derived from the CRX signing key, `~/.config/youtube-tidy/crx-key.pem`): `pdhfbnmgmbemgfeeeojggeejahfaaijn`
+Chromium ID (derived from the CRX signing key, `~/.config/peacebestill/youtube-crx-key.pem`): `pdhfbnmgmbemgfeeeojggeejahfaaijn`
 
 One entry per browser list, the same shape as Bypass Paywalls Clean:
 
-- Firefox (Linux and Windows): `youtube-tidy@peacebestill.fyi`, `normal_installed`,
-  `install_url` = the latest `youtube-tidy.xpi` URL.
+- Firefox (Linux and Windows): `youtube@peacebestill.fyi`, `normal_installed`,
+  `install_url` = the latest `peacebestill-youtube.xpi` URL.
 - Chromium on Linux: the derived ID, `normal_installed`, `update_url` = the
   latest `updates.xml` URL. Windows: `allowed` only, hand-installed once, as
   Chromium there refuses off-store force-installs on an unmanaged machine; the

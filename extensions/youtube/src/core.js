@@ -6,7 +6,7 @@
   const [HEADER, HOME, WATCH, PLAYER, SEARCH, CHANNEL] = GROUPS;
 
   // [key, label, on by default, group, parent?]. The order here is the order
-  // of the data-yt-tidy tokens; the options page groups by the fourth field
+  // of the data-peacebestill tokens; the options page groups by the fourth field
   // and nests by the fifth. A parent is a switch that hides the thing its
   // children live inside, so while it is on they cannot matter.
   //
@@ -80,8 +80,8 @@
     return merged;
   }
 
-  // Settings -> the value of the root element's data-yt-tidy attribute: the
-  // enabled keys, space separated, so tidy.css can gate on ~="key".
+  // Settings -> the value of the root element's data-peacebestill attribute: the
+  // enabled keys, space separated, so hide.css can gate on ~="key".
   function tokensFor(settings) {
     const merged = withDefaults(settings);
     return KEYS.filter((key) => merged[key] === true).join(" ");
@@ -195,5 +195,5 @@
     return false;
   }
 
-  root.YtTidy = { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

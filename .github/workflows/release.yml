@@ -1,9 +1,12 @@
 name: release
 
-# A v* tag becomes a GitHub release with four constant-named assets: the
-# Mozilla-signed XPI, the CRX packed with the repo's fixed key, and the two
-# update manifests the browsers poll. system-setups points at
-# .../releases/latest/download/<asset> for all four.
+# A v* tag becomes a GitHub release carrying every extension in the repo, each
+# with four constant-named assets: the Mozilla-signed XPI, the CRX packed with
+# that extension's fixed key, and the two update manifests the browsers poll.
+# Asset names are prefixed per extension, so one release holds them all, and
+# .../releases/latest/download/<asset> stays a stable URL for each.
+#
+# Every extension shares the repo's version, so a release re-publishes them all.
 on:
   push:
     tags: ['v*']
@@ -22,31 +25,37 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run lint
-      - run: node scripts/check-version.mjs "$GITHUB_REF_NAME"
+
+      - name: The tag must match every extension's manifest version
+        run: node scripts/check-version.mjs "$GITHUB_REF_NAME" extensions/youtube/src
 
       - name: Sign for Firefox (Mozilla self-distribution channel)
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
-          npx web-ext sign --source-dir src --artifacts-dir dist --channel unlisted
-          mv dist/*.xpi dist/youtube-tidy.xpi
+          npx web-ext sign --source-dir extensions/youtube/src --artifacts-dir dist --channel unlisted
+          mv dist/*.xpi dist/peacebestill-youtube.xpi
 
       - name: Pack for Chromium and write the update manifests
         env:
-          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+          YOUTUBE_CRX_PRIVATE_KEY: ${{ secrets.YOUTUBE_CRX_PRIVATE_KEY }}
         run: |
-          printf '%s\n' "$CRX_PRIVATE_KEY" > "$RUNNER_TEMP/key.pem"
-          npm run build
-          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/key.pem" --zip dist/youtube-tidy.zip --out dist/youtube-tidy.crx
-          node scripts/update-manifests.mjs --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --key "$RUNNER_TEMP/key.pem" --out dist
-          rm -f "$RUNNER_TEMP/key.pem"
+          printf '%s\n' "$YOUTUBE_CRX_PRIVATE_KEY" > "$RUNNER_TEMP/youtube.pem"
+          npm run build:youtube
+          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/youtube.pem" \
+            --zip dist/peacebestill-youtube.zip --out dist/peacebestill-youtube.crx
+          node scripts/update-manifests.mjs --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" \
+            --key "$RUNNER_TEMP/youtube.pem" --src extensions/youtube/src \
+            --assets peacebestill-youtube --out dist
+          rm -f "$RUNNER_TEMP/youtube.pem"
 
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            dist/youtube-tidy.xpi dist/youtube-tidy.crx dist/updates.json dist/updates.xml \
+            dist/peacebestill-youtube.xpi dist/peacebestill-youtube.crx \
+            dist/peacebestill-youtube-updates.json dist/peacebestill-youtube-updates.xml \
             --title "$GITHUB_REF_NAME" \
-            --notes "YouTube Tidy $GITHUB_REF_NAME. Installed through system-setups; the assets below are what its browser policies fetch."
+            --notes "PeaceBeStill $GITHUB_REF_NAME. Installed through system-setups; the assets below are what its browser policies fetch."

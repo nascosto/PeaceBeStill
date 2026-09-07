@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Writes the two update manifests the browsers poll, for one release:
-//   node scripts/update-manifests.mjs --repo nascosto/youtube-tidy --tag v1.0.0 --key key.pem --out dist
-// Firefox reads updates.json (its ID comes from src/manifest.json); Chromium
-// reads updates.xml (its ID is derived from the CRX signing key). Both point at
-// that release's own versioned asset URLs, while the browsers fetch the
-// manifests themselves from the constant "latest" URLs in the manifest.
+//   node scripts/update-manifests.mjs --repo nascosto/PeaceBeStill --tag v1.0.0 \
+//     --key key.pem --src extensions/youtube/src --assets peacebestill-youtube --out dist
+// Firefox reads the .json (its ID comes from the extension's manifest);
+// Chromium reads the .xml (its ID is derived from the CRX signing key). Both
+// point at that release's own versioned asset URLs, while the browsers fetch
+// the manifests themselves from the constant "latest" URLs in the manifest.
+// Assets are prefixed per extension, so one release can carry several.
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { crxId, publicKeyDer } from "./pack-crx.mjs";
@@ -36,22 +38,24 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const repo = arg("--repo");
   const tag = arg("--tag");
   const keyPath = arg("--key");
+  const src = arg("--src");
+  const assets = arg("--assets");
   const out = arg("--out");
-  if (!repo || !tag || !keyPath || !out) {
-    console.error("usage: update-manifests.mjs --repo owner/name --tag vX.Y.Z --key key.pem --out dir");
+  if (!repo || !tag || !keyPath || !src || !assets || !out) {
+    console.error("usage: update-manifests.mjs --repo owner/name --tag vX.Y.Z --key key.pem --src dir --assets base-name --out dir");
     process.exit(2);
   }
-  const manifest = JSON.parse(readFileSync(new URL("../src/manifest.json", import.meta.url), "utf8"));
+  const manifest = JSON.parse(readFileSync(`${src}/manifest.json`, "utf8"));
   const base = `https://github.com/${repo}/releases/download/${tag}/`;
-  writeFileSync(`${out}/updates.json`, firefoxUpdates({
+  writeFileSync(`${out}/${assets}-updates.json`, firefoxUpdates({
     id: manifest.browser_specific_settings.gecko.id,
     version: manifest.version,
-    xpiUrl: base + "youtube-tidy.xpi",
+    xpiUrl: `${base}${assets}.xpi`,
   }));
-  writeFileSync(`${out}/updates.xml`, chromiumUpdates({
+  writeFileSync(`${out}/${assets}-updates.xml`, chromiumUpdates({
     id: crxId(publicKeyDer(readFileSync(keyPath, "utf8"))),
     version: manifest.version,
-    crxUrl: base + "youtube-tidy.crx",
+    crxUrl: `${base}${assets}.crx`,
   }));
-  console.log(`${out}/updates.json and ${out}/updates.xml for ${tag}`);
+  console.log(`${out}/${assets}-updates.json and ${out}/${assets}-updates.xml for ${tag}`);
 }

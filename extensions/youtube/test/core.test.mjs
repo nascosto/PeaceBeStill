@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadClassic } from "./helpers/load-classic.mjs";
+import { loadClassic } from "../../../test/helpers/load-classic.mjs";
 
-const { YtTidy } = loadClassic("src/tidy-core.js");
+const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
 
 // Every key, in order, with its default. This is the contract the options
 // page, the stylesheet gates and the stored settings all share.
@@ -26,25 +26,25 @@ const KEYS = DEFAULTS.map(([k]) => k);
 const ON_BY_DEFAULT = DEFAULTS.filter(([, on]) => on).map(([k]) => k);
 const GROUPS = ["Header and sidebar", "Home and feeds", "Watch page", "Player", "Search", "Channel pages"];
 
-// YtTidy comes from another vm realm, so its arrays and objects have foreign
+// PeaceBeStill comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
 test("the feature keys are the agreed forty-two, in order, each with a label, a default and a group", () => {
-  assert.deepEqual([...YtTidy.KEYS], KEYS);
-  for (const [key, label, defaultOn, group] of YtTidy.FEATURES) {
+  assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
+  for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key));
     assert.ok(label.length > 10, `label for ${key}`);
     assert.equal(typeof defaultOn, "boolean", `default for ${key}`);
     assert.ok(GROUPS.includes(group), `group for ${key}: ${group}`);
   }
-  assert.deepEqual([...YtTidy.GROUPS], GROUPS);
+  assert.deepEqual([...PeaceBeStill.GROUPS], GROUPS);
 });
 
 test("every parent named is a real key, and no feature is its own ancestor", () => {
-  for (const [key, , , , parent] of YtTidy.FEATURES) {
+  for (const [key, , , , parent] of PeaceBeStill.FEATURES) {
     if (parent === undefined) continue;
     assert.ok(KEYS.includes(parent), `${key} names unknown parent ${parent}`);
     const seen = new Set([key]);
-    for (let p = parent; p; p = YtTidy.parentOf(p)) {
+    for (let p = parent; p; p = PeaceBeStill.parentOf(p)) {
       assert.ok(!seen.has(p), `cycle through ${p}`);
       seen.add(p);
     }
@@ -52,7 +52,7 @@ test("every parent named is a real key, and no feature is its own ancestor", () 
 });
 
 test("a feature is moot while any ancestor of it is switched on", () => {
-  const moot = YtTidy.isMoot;
+  const moot = PeaceBeStill.isMoot;
   // Hiding the whole top bar makes its parts moot.
   assert.equal(moot("create", { header: true }), true);
   assert.equal(moot("notifications", { header: true }), true);
@@ -75,83 +75,83 @@ test("a feature is moot while any ancestor of it is switched on", () => {
 });
 
 test("nothing is on by default: the extension does nothing until asked", () => {
-  assert.deepEqual({ ...YtTidy.defaults() }, Object.fromEntries(DEFAULTS));
+  assert.deepEqual({ ...PeaceBeStill.defaults() }, Object.fromEntries(DEFAULTS));
   assert.equal(ON_BY_DEFAULT.length, 0);
-  assert.equal(YtTidy.tokensFor({}), "");
+  assert.equal(PeaceBeStill.tokensFor({}), "");
 });
 
 test("tokensFor lists enabled keys in order; a missing key takes its default", () => {
-  assert.equal(YtTidy.tokensFor(undefined), ON_BY_DEFAULT.join(" "));
-  assert.equal(YtTidy.tokensFor({}), ON_BY_DEFAULT.join(" "));
-  assert.equal(YtTidy.tokensFor({ dislikeCount: true, header: true }), KEYS.filter((k) => ON_BY_DEFAULT.includes(k) || k === "dislikeCount" || k === "header").join(" "));
-  assert.equal(YtTidy.tokensFor({ create: false, footer: false }), ON_BY_DEFAULT.filter((k) => k !== "create" && k !== "footer").join(" "));
+  assert.equal(PeaceBeStill.tokensFor(undefined), ON_BY_DEFAULT.join(" "));
+  assert.equal(PeaceBeStill.tokensFor({}), ON_BY_DEFAULT.join(" "));
+  assert.equal(PeaceBeStill.tokensFor({ dislikeCount: true, header: true }), KEYS.filter((k) => ON_BY_DEFAULT.includes(k) || k === "dislikeCount" || k === "header").join(" "));
+  assert.equal(PeaceBeStill.tokensFor({ create: false, footer: false }), ON_BY_DEFAULT.filter((k) => k !== "create" && k !== "footer").join(" "));
 });
 
 test("tokensFor ignores unknown keys, and treats a non-boolean as no answer", () => {
   // "yes" is not false, so create keeps its default rather than switching off.
-  assert.equal(YtTidy.tokensFor({ bogus: true, create: "yes" }), ON_BY_DEFAULT.join(" "));
+  assert.equal(PeaceBeStill.tokensFor({ bogus: true, create: "yes" }), ON_BY_DEFAULT.join(" "));
 });
 
 test("a key that is absent, or removed while the page is open, falls back to its default", () => {
   // storage.onChanged reports a removal as a change with no newValue, so the
   // content script can hand us undefined for a key. That must mean "default".
-  assert.equal(YtTidy.tokensFor({ create: undefined }), ON_BY_DEFAULT.join(" "));
-  assert.equal(YtTidy.tokensFor({ dislikeCount: undefined }), ON_BY_DEFAULT.join(" "));
-  assert.equal(YtTidy.isMoot("profilePhotos", { comments: undefined }), false);
-  assert.equal(YtTidy.redirectFor("/", { homeToSubscriptions: undefined }), null, "off by default now");
+  assert.equal(PeaceBeStill.tokensFor({ create: undefined }), ON_BY_DEFAULT.join(" "));
+  assert.equal(PeaceBeStill.tokensFor({ dislikeCount: undefined }), ON_BY_DEFAULT.join(" "));
+  assert.equal(PeaceBeStill.isMoot("profilePhotos", { comments: undefined }), false);
+  assert.equal(PeaceBeStill.redirectFor("/", { homeToSubscriptions: undefined }), null, "off by default now");
 });
 
 test("a value equal to its default is redundant and need not be stored", () => {
-  assert.equal(YtTidy.isDefaultValue("footer", false), true);
-  assert.equal(YtTidy.isDefaultValue("footer", true), false);
-  assert.equal(YtTidy.isDefaultValue("dislikeCount", false), true);
-  assert.equal(YtTidy.isDefaultValue("dislikeCount", true), false);
-  assert.equal(YtTidy.isDefaultValue("bogus", true), false, "unknown keys are never called redundant");
+  assert.equal(PeaceBeStill.isDefaultValue("footer", false), true);
+  assert.equal(PeaceBeStill.isDefaultValue("footer", true), false);
+  assert.equal(PeaceBeStill.isDefaultValue("dislikeCount", false), true);
+  assert.equal(PeaceBeStill.isDefaultValue("dislikeCount", true), false);
+  assert.equal(PeaceBeStill.isDefaultValue("bogus", true), false, "unknown keys are never called redundant");
 
-  assert.deepEqual([...YtTidy.redundantKeys({ footer: false, create: true, dislikeCount: false, bogus: 1 })], ["footer", "dislikeCount"]);
-  assert.deepEqual([...YtTidy.redundantKeys({})], []);
-  assert.deepEqual([...YtTidy.redundantKeys(undefined)], []);
+  assert.deepEqual([...PeaceBeStill.redundantKeys({ footer: false, create: true, dislikeCount: false, bogus: 1 })], ["footer", "dislikeCount"]);
+  assert.deepEqual([...PeaceBeStill.redundantKeys({})], []);
+  assert.deepEqual([...PeaceBeStill.redundantKeys(undefined)], []);
 });
 
 test("formatCount is compact and safe", () => {
   const cases = [[0, "0"], [999, "999"], [1000, "1K"], [1234, "1.2K"], [12345, "12K"], [1500000, "1.5M"], [2000000000, "2B"]];
-  for (const [n, expected] of cases) assert.equal(YtTidy.formatCount(n), expected, String(n));
-  for (const bad of [-1, NaN, Infinity, undefined, null, "12"]) assert.equal(YtTidy.formatCount(bad), "");
+  for (const [n, expected] of cases) assert.equal(PeaceBeStill.formatCount(n), expected, String(n));
+  for (const bad of [-1, NaN, Infinity, undefined, null, "12"]) assert.equal(PeaceBeStill.formatCount(bad), "");
 });
 
 test("videoIdFrom reads the v parameter", () => {
-  assert.equal(YtTidy.videoIdFrom("?v=jNQXAC9IVRw&t=1s"), "jNQXAC9IVRw");
-  assert.equal(YtTidy.videoIdFrom("?list=abc"), null);
-  assert.equal(YtTidy.videoIdFrom(""), null);
+  assert.equal(PeaceBeStill.videoIdFrom("?v=jNQXAC9IVRw&t=1s"), "jNQXAC9IVRw");
+  assert.equal(PeaceBeStill.videoIdFrom("?list=abc"), null);
+  assert.equal(PeaceBeStill.videoIdFrom(""), null);
 });
 
 test("channelHomeFor maps a channel's posts/store/community URL to its home, and nothing else", () => {
-  assert.equal(YtTidy.channelHomeFor("/@MarkRober/posts"), "/@MarkRober");
-  assert.equal(YtTidy.channelHomeFor("/@MarkRober/store/"), "/@MarkRober");
-  assert.equal(YtTidy.channelHomeFor("/@MarkRober/community"), "/@MarkRober");
-  assert.equal(YtTidy.channelHomeFor("/channel/UCY1kMZp36IQSyNx_9h4mpCg/posts"), "/channel/UCY1kMZp36IQSyNx_9h4mpCg");
-  assert.equal(YtTidy.channelHomeFor("/c/markrober/store"), "/c/markrober");
+  assert.equal(PeaceBeStill.channelHomeFor("/@MarkRober/posts"), "/@MarkRober");
+  assert.equal(PeaceBeStill.channelHomeFor("/@MarkRober/store/"), "/@MarkRober");
+  assert.equal(PeaceBeStill.channelHomeFor("/@MarkRober/community"), "/@MarkRober");
+  assert.equal(PeaceBeStill.channelHomeFor("/channel/UCY1kMZp36IQSyNx_9h4mpCg/posts"), "/channel/UCY1kMZp36IQSyNx_9h4mpCg");
+  assert.equal(PeaceBeStill.channelHomeFor("/c/markrober/store"), "/c/markrober");
   for (const other of ["/@MarkRober", "/@MarkRober/videos", "/@MarkRober/featured", "/watch", "/feed/subscriptions", "/posts", ""]) {
-    assert.equal(YtTidy.channelHomeFor(other), null, other);
+    assert.equal(PeaceBeStill.channelHomeFor(other), null, other);
   }
 });
 
 test("redirectFor sends home to the subscriptions feed and a Short to its watch page, as asked", () => {
   const on = { homeToSubscriptions: true, shorts: true };
-  assert.equal(YtTidy.redirectFor("/", on), "/feed/subscriptions");
-  assert.equal(YtTidy.redirectFor("/shorts/abc123DEF45", on), "/watch?v=abc123DEF45");
-  assert.equal(YtTidy.redirectFor("/watch", on), null);
-  assert.equal(YtTidy.redirectFor("/feed/subscriptions", on), null);
-  assert.equal(YtTidy.redirectFor("/", { homeToSubscriptions: false, shorts: true }), null);
-  assert.equal(YtTidy.redirectFor("/shorts/abc123DEF45", { homeToSubscriptions: true, shorts: false }), null);
+  assert.equal(PeaceBeStill.redirectFor("/", on), "/feed/subscriptions");
+  assert.equal(PeaceBeStill.redirectFor("/shorts/abc123DEF45", on), "/watch?v=abc123DEF45");
+  assert.equal(PeaceBeStill.redirectFor("/watch", on), null);
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions", on), null);
+  assert.equal(PeaceBeStill.redirectFor("/", { homeToSubscriptions: false, shorts: true }), null);
+  assert.equal(PeaceBeStill.redirectFor("/shorts/abc123DEF45", { homeToSubscriptions: true, shorts: false }), null);
   // Never bounce home to a subscriptions page that is itself hidden.
-  assert.equal(YtTidy.redirectFor("/", { homeToSubscriptions: true, subscriptions: true }), null);
+  assert.equal(PeaceBeStill.redirectFor("/", { homeToSubscriptions: true, subscriptions: true }), null);
   // Missing keys take their defaults, and every default is now off.
-  assert.equal(YtTidy.redirectFor("/", {}), null);
+  assert.equal(PeaceBeStill.redirectFor("/", {}), null);
 });
 
 test("placeholderVerdict hides a loading block only after it has sat in view with the grid not growing", () => {
-  const verdict = YtTidy.placeholderVerdict;
+  const verdict = PeaceBeStill.placeholderVerdict;
   let { record, hide } = verdict(undefined, 1000, 20, true, 6000);
   assert.equal(hide, false);
   assert.deepEqual({ ...record }, { since: 1000, items: 20 });
@@ -173,18 +173,18 @@ test("placeholderVerdict hides a loading block only after it has sat in view wit
 });
 
 test("calmTitle rewrites a shouting title in sentence case and leaves everything else alone", () => {
-  assert.equal(YtTidy.calmTitle("I BUILT A PC IN 24 HOURS"), "I built a pc in 24 hours");
-  assert.equal(YtTidy.calmTitle("HELLO WORLD. IT WORKS? I THINK SO! i'm sure"), "Hello world. It works? I think so! I'm sure");
-  assert.equal(YtTidy.calmTitle("Normal Title Here"), "Normal Title Here");
-  assert.equal(YtTidy.calmTitle("WOW!! THIS IS INSANE. you won't believe what happened"), "WOW!! THIS IS INSANE. you won't believe what happened", "under 80 % upper case");
-  assert.equal(YtTidy.calmTitle("NASA"), "NASA", "too short to judge");
-  assert.equal(YtTidy.calmTitle(""), "");
-  assert.equal(YtTidy.calmTitle(undefined), undefined);
+  assert.equal(PeaceBeStill.calmTitle("I BUILT A PC IN 24 HOURS"), "I built a pc in 24 hours");
+  assert.equal(PeaceBeStill.calmTitle("HELLO WORLD. IT WORKS? I THINK SO! i'm sure"), "Hello world. It works? I think so! I'm sure");
+  assert.equal(PeaceBeStill.calmTitle("Normal Title Here"), "Normal Title Here");
+  assert.equal(PeaceBeStill.calmTitle("WOW!! THIS IS INSANE. you won't believe what happened"), "WOW!! THIS IS INSANE. you won't believe what happened", "under 80 % upper case");
+  assert.equal(PeaceBeStill.calmTitle("NASA"), "NASA", "too short to judge");
+  assert.equal(PeaceBeStill.calmTitle(""), "");
+  assert.equal(PeaceBeStill.calmTitle(undefined), undefined);
 });
 
 test("untitled strips the unread count YouTube prepends to the tab title", () => {
-  assert.equal(YtTidy.untitled("(3) Some video - YouTube"), "Some video - YouTube");
-  assert.equal(YtTidy.untitled("(12) YouTube"), "YouTube");
-  assert.equal(YtTidy.untitled("Some video - YouTube"), "Some video - YouTube");
-  assert.equal(YtTidy.untitled("(Live) Concert - YouTube"), "(Live) Concert - YouTube");
+  assert.equal(PeaceBeStill.untitled("(3) Some video - YouTube"), "Some video - YouTube");
+  assert.equal(PeaceBeStill.untitled("(12) YouTube"), "YouTube");
+  assert.equal(PeaceBeStill.untitled("Some video - YouTube"), "Some video - YouTube");
+  assert.equal(PeaceBeStill.untitled("(Live) Concert - YouTube"), "(Live) Concert - YouTube");
 });

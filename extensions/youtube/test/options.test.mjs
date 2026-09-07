@@ -1,15 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadClassic } from "./helpers/load-classic.mjs";
+import { loadClassic } from "../../../test/helpers/load-classic.mjs";
 
 // options.js runs in another vm realm, so objects it creates have foreign
 // prototypes; compare plain copies.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test("options.html loads tidy-core.js before options.js and has the form", () => {
+test("options.html loads core.js before options.js and has the form", () => {
   const html = readFileSync(new URL("../src/options.html", import.meta.url), "utf8");
-  assert.ok(html.indexOf('src="tidy-core.js"') < html.indexOf('src="options.js"'));
+  assert.ok(html.indexOf('src="core.js"') < html.indexOf('src="options.js"'));
   assert.match(html, /<form id="features">/);
 });
 
@@ -54,7 +54,7 @@ function fakeDocument() {
 }
 
 async function render(stored = {}) {
-  const { YtTidy } = loadClassic("src/tidy-core.js");
+  const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
   const { document, form } = fakeDocument();
   const writes = [];
   const removes = [];
@@ -63,15 +63,15 @@ async function render(stored = {}) {
     set: async (obj) => writes.push(obj),
     remove: async (keys) => removes.push(keys),
   } } };
-  loadClassic("src/options.js", { YtTidy, document, chrome });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  return { YtTidy, form, writes, removes };
+  return { PeaceBeStill, form, writes, removes };
 }
 
 test("every feature gets exactly one checkbox, grouped under its section heading", async () => {
-  const { YtTidy, form } = await render();
-  assert.deepEqual(form.rows.map((r) => r.name).sort(), [...YtTidy.KEYS].sort());
-  assert.deepEqual(form.appended.filter((n) => n.tag === "h2").map((n) => n.textContent), [...YtTidy.GROUPS]);
+  const { PeaceBeStill, form } = await render();
+  assert.deepEqual(form.rows.map((r) => r.name).sort(), [...PeaceBeStill.KEYS].sort());
+  assert.deepEqual(form.appended.filter((n) => n.tag === "h2").map((n) => n.textContent), [...PeaceBeStill.GROUPS]);
 });
 
 test("a child is indented directly under its parent when they share a section", async () => {
@@ -170,7 +170,7 @@ test("nothing is removed when there is nothing redundant", async () => {
 });
 
 test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {
-  const { YtTidy } = loadClassic("src/tidy-core.js");
+  const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
   const { document, form } = fakeDocument();
   const writes = [];
   const requests = [];
@@ -180,7 +180,7 @@ test("ticking the dislike count asks Firefox for the optional data-collection pe
     storage: { sync: { get: async () => ({}), set: async (obj) => writes.push(obj), remove: async (k) => removes.push(k) } },
     permissions: { request: async (req) => { requests.push(req); return answer; } },
   };
-  loadClassic("src/options.js", { YtTidy, document, browser });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, browser });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   await form.listeners.change({ target: { name: "dislikeCount", checked: true } });

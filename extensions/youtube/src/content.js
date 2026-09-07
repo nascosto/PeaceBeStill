@@ -1,10 +1,10 @@
-// Runs at document_start on youtube.com. Keeps the root element's data-yt-tidy
-// attribute equal to the enabled feature keys (tidy.css does the hiding), opens
+// Runs at document_start on youtube.com. Keeps the root element's data-peacebestill
+// attribute equal to the enabled feature keys (hide.css does the hiding), opens
 // the description on each watch page, calms ALL-CAPS titles, and shows the
 // dislike count when asked.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled } = globalThis.YtTidy;
+  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled } = globalThis.PeaceBeStill;
   let settings = {};
 
   // YouTube is a single-page app: the watch page appears after its own
@@ -26,7 +26,7 @@
   }
 
   function apply() {
-    document.documentElement.dataset.ytTidy = tokensFor(settings);
+    document.documentElement.dataset.peacebestill = tokensFor(settings);
   }
 
   function onWatchPage() {
@@ -44,13 +44,13 @@
   // --- Dislike count -------------------------------------------------------
   // YouTube stopped publishing dislikes in 2021. Return YouTube Dislike keeps
   // an estimate per video and serves it with open CORS, so a content-script
-  // fetch needs no extra permission. Off by default (see tidy-core.js).
+  // fetch needs no extra permission. Off by default (see core.js).
   const RYD = "https://returnyoutubedislikeapi.com/votes?videoId=";
   let currentVideo = null;
 
   function removeDislikes() {
     currentVideo = null;
-    document.querySelector(".yt-tidy-dislikes")?.remove();
+    document.querySelector(".peacebestill-dislikes")?.remove();
   }
 
   async function showDislikes() {
@@ -68,10 +68,10 @@
     if (currentVideo !== videoId) return; // navigated away while waiting
     whenPresent("dislike-button-view-model button", (button) => {
       if (currentVideo !== videoId) return;
-      let span = button.querySelector(".yt-tidy-dislikes");
+      let span = button.querySelector(".peacebestill-dislikes");
       if (!span) {
         span = document.createElement("span");
-        span.className = "yt-tidy-dislikes";
+        span.className = "peacebestill-dislikes";
         span.style.marginLeft = "6px";
         button.append(span);
         // The dislike button is an icon-only shape with a fixed width, so the
@@ -205,7 +205,7 @@
 
   // --- Autoplay --------------------------------------------------------------
   // YouTube remembers the autoplay toggle, so switching it off once (via its
-  // own button, which tidy.css hides but keeps in the page) sticks. Only ever
+  // own button, which hide.css hides but keeps in the page) sticks. Only ever
   // switches it off; turning the feature off leaves YouTube's setting alone.
   function switchAutoplayOff() {
     if (settings.autoplay === false || !onWatchPage()) return;

@@ -1,19 +1,24 @@
-# YouTube Tidy Implementation Plan
+# PeaceBeStill - YouTube Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A tiny Manifest V3 extension for Firefox and Chromium that hides eight things on desktop YouTube behind per-feature switches, opens the video description, and can show the dislike count, released from a public GitHub repo as signed assets that `system-setups` installs everywhere through its browser policies.
 
-**Architecture:** One static content script + stylesheet gated on a `data-yt-tidy` attribute the script keeps on `<html>`; an options page that writes `storage.sync`; no background script. Release tooling is three small Node scripts (CRX packing with built-in crypto, update manifests, tag/version check) driven by one GitHub Actions workflow that signs through Mozilla's self-distribution channel and attaches four constant-named assets to a GitHub release.
+**Architecture:** One static content script + stylesheet gated on a `data-peacebestill` attribute the script keeps on `<html>`; an options page that writes `storage.sync`; no background script. Release tooling is three small Node scripts (CRX packing with built-in crypto, update manifests, tag/version check) driven by one GitHub Actions workflow that signs through Mozilla's self-distribution channel and attaches four constant-named assets to a GitHub release.
 
 **Tech Stack:** Plain JS/CSS/HTML extension files under `src/`; Node 24 (`node --test`, `node:crypto`) for tests and scripts; `web-ext` (dev dependency, via npm + `package-lock.json`) for lint, build, run, sign; GitHub Actions + `gh` for releases.
 
-**Spec:** `docs/superpowers/specs/2026-09-02-youtube-tidy-design.md`
+> Written while the project was called YouTube Tidy and laid out with a
+> single `src/`. It was renamed to PeaceBeStill and moved to
+> `extensions/youtube/` on 2026-09-07; names and paths here have been updated
+> to match, so it still reads against the current tree.
+
+**Spec:** `docs/superpowers/specs/2026-09-02-peacebestill-youtube-design.md`
 
 ## Global Constraints
 
-- Firefox ID is exactly `youtube-tidy@peacebestill.fyi`; extension name is `YouTube Tidy`; first version is `1.0.0`.
-- Public repo is `nascosto/youtube-tidy`; asset names are constant: `youtube-tidy.xpi`, `youtube-tidy.crx`, `updates.json`, `updates.xml`; "latest" URLs are `https://github.com/nascosto/youtube-tidy/releases/latest/download/<asset>`; per-release URLs are `https://github.com/nascosto/youtube-tidy/releases/download/<tag>/<asset>`.
+- Firefox ID is exactly `youtube@peacebestill.fyi`; extension name is `PeaceBeStill - YouTube`; first version is `1.0.0`.
+- Public repo is `nascosto/PeaceBeStill`; asset names are constant: `peacebestill-youtube.xpi`, `peacebestill-youtube.crx`, `updates.json`, `updates.xml`; "latest" URLs are `https://github.com/nascosto/PeaceBeStill/releases/latest/download/<asset>`; per-release URLs are `https://github.com/nascosto/PeaceBeStill/releases/download/<tag>/<asset>`.
 - Feature keys, in this order, everywhere: `create`, `moreFromYoutube`, `subscriptionDots`, `expandDescription`, `descriptionChannelLinks`, `descriptionCards`, `descriptionChips`, `footer`, `ask`, `summary`, `upcoming`, `channelTabs`, `channelTabRedirect`, `stalePlaceholders`, `titleCase`, `dislikeCount`, plus the 26 Unhook ports listed in the spec. A key missing from storage means that feature's default: **on** for all but `dislikeCount`, which is **off**.
 - `dislikeCount` fetches `https://returnyoutubedislikeapi.com/votes?videoId=<id>` (JSON with a `dislikes` number; the service sends `Access-Control-Allow-Origin: *`, verified 2026-09-02). With it off the extension makes no network requests.
 - The manifest declares `browser_specific_settings.gecko.data_collection_permissions` as `{ "required": ["none"], "optional": ["browsingActivity"] }` (Mozilla requires the declaration in new extensions). Ticking `dislikeCount` on the options page requests that optional data-collection permission in Firefox (`permissions.request({ data_collection: ["browsingActivity"] })`; Chromium has no such API and skips it) and unticks itself if declined.
@@ -21,7 +26,7 @@
 - Firefox `strict_min_version` is `142.0`: the first Firefox, desktop and Android alike, that knows `data_collection_permissions`, so lint is warning-free (MV3 and CSS `:has()` need less).
 - Only `storage` in `permissions`; the content script matches `*://www.youtube.com/*` only; no `host_permissions`.
 - No icons in 1.0.0 (both browsers fall back to a default icon); no background script; no bundler.
-- Secrets (set by Ben in the public repo, never committed): `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`, `CRX_PRIVATE_KEY`. The CRX key lives locally at `~/.config/youtube-tidy/crx-key.pem`, outside the repo.
+- Secrets (set by Ben in the public repo, never committed): `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`, `YOUTUBE_YOUTUBE_CRX_PRIVATE_KEY`. The CRX key lives locally at `~/.config/peacebestill/youtube-crx-key.pem`, outside the repo.
 - Commit after every task with the trailers `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_013WyRMaKvftCxvgV2KCEt2R`.
 - Nothing is signed or uploaded before Task 5 (the audit) is complete.
 
@@ -29,9 +34,9 @@
 
 ```
 src/manifest.json          extension manifest (both browsers)
-src/tidy-core.js           feature list with defaults, tokensFor(), formatCount(), videoIdFrom() — classic script, one global `YtTidy`
+src/core.js           feature list with defaults, tokensFor(), formatCount(), videoIdFrom() — classic script, one global `PeaceBeStill`
 src/content.js             applies tokens to <html>, expands the description, shows the dislike count
-src/tidy.css               one hiding rule per hiding feature, gated on html[data-yt-tidy~="key"]
+src/hide.css               one hiding rule per hiding feature, gated on html[data-peacebestill~="key"]
 src/options.html/.js/.css  one checkbox per feature bound to storage.sync
 scripts/pack-crx.mjs       zip + RSA PEM -> CRX3; --id prints the extension ID
 scripts/update-manifests.mjs  writes updates.json (Firefox) and updates.xml (Chromium) for a release
@@ -66,9 +71,9 @@ const manifest = JSON.parse(readFileSync(new URL("../src/manifest.json", import.
 
 test("manifest is MV3 with the agreed identity", () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.name, "YouTube Tidy");
+  assert.equal(manifest.name, "PeaceBeStill - YouTube");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
-  assert.equal(manifest.browser_specific_settings.gecko.id, "youtube-tidy@peacebestill.fyi");
+  assert.equal(manifest.browser_specific_settings.gecko.id, "youtube@peacebestill.fyi");
   // 142 is the first Firefox, desktop and Android alike, that knows
   // data_collection_permissions; below it the linter warns.
   assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "142.0");
@@ -96,7 +101,7 @@ test("declares data collection: none required, browsing activity optional (the d
 });
 
 test("update URLs point at the constant latest-release assets", () => {
-  const base = "https://github.com/nascosto/youtube-tidy/releases/latest/download/";
+  const base = "https://github.com/nascosto/PeaceBeStill/releases/latest/download/";
   assert.equal(manifest.browser_specific_settings.gecko.update_url, base + "updates.json");
   assert.equal(manifest.update_url, base + "updates.xml");
 });
@@ -114,7 +119,7 @@ Expected: FAIL with `ENOENT ... src/manifest.json`.
 ```json
 {
   "manifest_version": 3,
-  "name": "YouTube Tidy",
+  "name": "PeaceBeStill - YouTube",
   "version": "1.0.0",
   "description": "Hides the bits of YouTube you never use and opens the description for you. Each one is a switch.",
   "permissions": ["storage"],
@@ -132,16 +137,16 @@ Expected: FAIL with `ENOENT ... src/manifest.json`.
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "youtube-tidy@peacebestill.fyi",
+      "id": "youtube@peacebestill.fyi",
       "strict_min_version": "142.0",
-      "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json",
+      "update_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json",
       "data_collection_permissions": {
         "required": ["none"],
         "optional": ["browsingActivity"]
       }
     }
   },
-  "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.xml"
+  "update_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml"
 }
 ```
 
@@ -149,7 +154,7 @@ Expected: FAIL with `ENOENT ... src/manifest.json`.
 
 ```json
 {
-  "name": "youtube-tidy",
+  "name": "peacebestill",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -157,7 +162,7 @@ Expected: FAIL with `ENOENT ... src/manifest.json`.
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "lint": "web-ext lint --source-dir src --self-hosted",
-    "build": "web-ext build --source-dir src --artifacts-dir dist --overwrite-dest --filename youtube-tidy.zip",
+    "build": "web-ext build --source-dir src --artifacts-dir dist --overwrite-dest --filename peacebestill-youtube.zip",
     "start:firefox": "web-ext run --source-dir src --start-url https://www.youtube.com",
     "start:chromium": "web-ext run --source-dir src --target chromium --start-url https://www.youtube.com"
   },
@@ -182,7 +187,7 @@ Then: `npm install --save-dev web-ext` (adds the dependency and `package-lock.js
 - [ ] **Step 4: Run the tests and lint**
 
 Run: `npm test && npm run lint`
-Expected: manifest tests PASS. `web-ext lint` reports exactly three errors, all `MANIFEST_CONTENT_SCRIPT_FILE_NOT_FOUND` for `tidy-core.js`, `content.js` and `tidy.css`, which Tasks 2–3 create; lint is clean from Task 3 on. A `MANIFEST_UNUSED_UPDATE` notice is expected (Firefox ignores the top-level `update_url`; it is Chromium's). If lint reports an error about `update_url` itself, the `--self-hosted` flag is missing from the `lint` script.
+Expected: manifest tests PASS. `web-ext lint` reports exactly three errors, all `MANIFEST_CONTENT_SCRIPT_FILE_NOT_FOUND` for `core.js`, `content.js` and `hide.css`, which Tasks 2–3 create; lint is clean from Task 3 on. A `MANIFEST_UNUSED_UPDATE` notice is expected (Firefox ignores the top-level `update_url`; it is Chromium's). If lint reports an error about `update_url` itself, the `--self-hosted` flag is missing from the `lint` script.
 
 - [ ] **Step 5: Commit**
 
@@ -193,14 +198,14 @@ git commit -m "Scaffold the extension: manifest, npm scripts, web-ext"
 
 ---
 
-### Task 2: Feature list and pure helpers (`tidy-core.js`)
+### Task 2: Feature list and pure helpers (`core.js`)
 
 **Files:**
-- Create: `src/tidy-core.js`, `test/tidy-core.test.mjs`, `test/helpers/load-classic.mjs`
+- Create: `src/core.js`, `test/tidy-core.test.mjs`, `test/helpers/load-classic.mjs`
 
 **Interfaces:**
-- Produces global `YtTidy` with: `FEATURES: Array<[key: string, label: string, defaultOn: boolean]>`; `KEYS: string[]`; `defaults(): Record<string, boolean>`; `tokensFor(settings: Record<string, boolean> | undefined): string` (space-separated enabled keys, in `KEYS` order); `formatCount(n: unknown): string` (`1234` → `"1.2K"`, non-numbers → `""`); `videoIdFrom(search: string): string | null` (the `v` query parameter); `calmTitle(text: unknown): unknown` (an ALL-CAPS title in sentence case; anything else returned unchanged).
-- Used by `content.js` (Task 3) and `options.js` (Task 4) as `globalThis.YtTidy`.
+- Produces global `PeaceBeStill` with: `FEATURES: Array<[key: string, label: string, defaultOn: boolean]>`; `KEYS: string[]`; `defaults(): Record<string, boolean>`; `tokensFor(settings: Record<string, boolean> | undefined): string` (space-separated enabled keys, in `KEYS` order); `formatCount(n: unknown): string` (`1234` → `"1.2K"`, non-numbers → `""`); `videoIdFrom(search: string): string | null` (the `v` query parameter); `calmTitle(text: unknown): unknown` (an ALL-CAPS title in sentence case; anything else returned unchanged).
+- Used by `content.js` (Task 3) and `options.js` (Task 4) as `globalThis.PeaceBeStill`.
 
 - [ ] **Step 1: Write the loader helper and the failing test**
 
@@ -226,18 +231,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadClassic } from "./helpers/load-classic.mjs";
 
-const { YtTidy } = loadClassic("src/tidy-core.js");
+const { PeaceBeStill } = loadClassic("src/core.js");
 const KEYS = [
   "create", "moreFromYoutube", "subscriptionDots", "expandDescription",
   "descriptionChannelLinks", "descriptionCards", "descriptionChips", "footer", "titleCase", "dislikeCount",
 ];
 const ON_BY_DEFAULT = KEYS.filter((k) => k !== "dislikeCount");
 
-// YtTidy comes from another vm realm, so its arrays and objects have foreign
+// PeaceBeStill comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
 test("the feature keys are the agreed ten, in order, each with a label and a default", () => {
-  assert.deepEqual([...YtTidy.KEYS], KEYS);
-  for (const [key, label, defaultOn] of YtTidy.FEATURES) {
+  assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
+  for (const [key, label, defaultOn] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key));
     assert.ok(label.length > 10, `label for ${key}`);
     assert.equal(typeof defaultOn, "boolean", `default for ${key}`);
@@ -245,52 +250,52 @@ test("the feature keys are the agreed ten, in order, each with a label and a def
 });
 
 test("everything is on by default except the dislike count", () => {
-  assert.deepEqual({ ...YtTidy.defaults() }, { ...Object.fromEntries(KEYS.map((k) => [k, true])), dislikeCount: false });
+  assert.deepEqual({ ...PeaceBeStill.defaults() }, { ...Object.fromEntries(KEYS.map((k) => [k, true])), dislikeCount: false });
 });
 
 test("tokensFor lists enabled keys in order; a missing key takes its default", () => {
-  assert.equal(YtTidy.tokensFor(undefined), ON_BY_DEFAULT.join(" "));
-  assert.equal(YtTidy.tokensFor({}), ON_BY_DEFAULT.join(" "));
-  assert.equal(YtTidy.tokensFor({ dislikeCount: true }), KEYS.join(" "));
+  assert.equal(PeaceBeStill.tokensFor(undefined), ON_BY_DEFAULT.join(" "));
+  assert.equal(PeaceBeStill.tokensFor({}), ON_BY_DEFAULT.join(" "));
+  assert.equal(PeaceBeStill.tokensFor({ dislikeCount: true }), KEYS.join(" "));
   assert.equal(
-    YtTidy.tokensFor({ create: false, footer: false }),
+    PeaceBeStill.tokensFor({ create: false, footer: false }),
     "moreFromYoutube subscriptionDots expandDescription descriptionChannelLinks descriptionCards descriptionChips titleCase",
   );
 });
 
 test("tokensFor ignores unknown keys and non-boolean values", () => {
-  assert.equal(YtTidy.tokensFor({ bogus: true, create: "yes" }), ON_BY_DEFAULT.filter((k) => k !== "create").join(" "));
+  assert.equal(PeaceBeStill.tokensFor({ bogus: true, create: "yes" }), ON_BY_DEFAULT.filter((k) => k !== "create").join(" "));
 });
 
 test("formatCount is compact and safe", () => {
   const cases = [[0, "0"], [999, "999"], [1000, "1K"], [1234, "1.2K"], [12345, "12K"], [1500000, "1.5M"], [2000000000, "2B"]];
-  for (const [n, expected] of cases) assert.equal(YtTidy.formatCount(n), expected, String(n));
-  for (const bad of [-1, NaN, Infinity, undefined, null, "12"]) assert.equal(YtTidy.formatCount(bad), "");
+  for (const [n, expected] of cases) assert.equal(PeaceBeStill.formatCount(n), expected, String(n));
+  for (const bad of [-1, NaN, Infinity, undefined, null, "12"]) assert.equal(PeaceBeStill.formatCount(bad), "");
 });
 
 test("videoIdFrom reads the v parameter", () => {
-  assert.equal(YtTidy.videoIdFrom("?v=jNQXAC9IVRw&t=1s"), "jNQXAC9IVRw");
-  assert.equal(YtTidy.videoIdFrom("?list=abc"), null);
-  assert.equal(YtTidy.videoIdFrom(""), null);
+  assert.equal(PeaceBeStill.videoIdFrom("?v=jNQXAC9IVRw&t=1s"), "jNQXAC9IVRw");
+  assert.equal(PeaceBeStill.videoIdFrom("?list=abc"), null);
+  assert.equal(PeaceBeStill.videoIdFrom(""), null);
 });
 
 test("calmTitle rewrites a shouting title in sentence case and leaves everything else alone", () => {
-  assert.equal(YtTidy.calmTitle("I BUILT A PC IN 24 HOURS"), "I built a pc in 24 hours");
-  assert.equal(YtTidy.calmTitle("HELLO WORLD. IT WORKS? I THINK SO! i'm sure"), "Hello world. It works? I think so! I'm sure");
-  assert.equal(YtTidy.calmTitle("Normal Title Here"), "Normal Title Here");
-  assert.equal(YtTidy.calmTitle("WOW!! THIS IS INSANE. you won't believe what happened"), "WOW!! THIS IS INSANE. you won't believe what happened", "under 80 % upper case");
-  assert.equal(YtTidy.calmTitle("NASA"), "NASA", "too short to judge");
-  assert.equal(YtTidy.calmTitle(""), "");
-  assert.equal(YtTidy.calmTitle(undefined), undefined);
+  assert.equal(PeaceBeStill.calmTitle("I BUILT A PC IN 24 HOURS"), "I built a pc in 24 hours");
+  assert.equal(PeaceBeStill.calmTitle("HELLO WORLD. IT WORKS? I THINK SO! i'm sure"), "Hello world. It works? I think so! I'm sure");
+  assert.equal(PeaceBeStill.calmTitle("Normal Title Here"), "Normal Title Here");
+  assert.equal(PeaceBeStill.calmTitle("WOW!! THIS IS INSANE. you won't believe what happened"), "WOW!! THIS IS INSANE. you won't believe what happened", "under 80 % upper case");
+  assert.equal(PeaceBeStill.calmTitle("NASA"), "NASA", "too short to judge");
+  assert.equal(PeaceBeStill.calmTitle(""), "");
+  assert.equal(PeaceBeStill.calmTitle(undefined), undefined);
 });
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `node --test test/tidy-core.test.mjs`
-Expected: FAIL with `ENOENT ... src/tidy-core.js`.
+Expected: FAIL with `ENOENT ... src/core.js`.
 
-- [ ] **Step 3: Write `src/tidy-core.js`**
+- [ ] **Step 3: Write `src/core.js`**
 
 ```js
 // Shared by the content script and the options page. Content scripts cannot
@@ -317,7 +322,7 @@ Expected: FAIL with `ENOENT ... src/tidy-core.js`.
     return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
   }
 
-  // Settings -> the value of the root element's data-yt-tidy attribute: the
+  // Settings -> the value of the root element's data-peacebestill attribute: the
   // enabled keys, space separated, so tidy.css can gate on ~="key". A key that
   // is missing from storage takes its default, so a feature added in a later
   // version behaves the same for everyone who already installed the extension.
@@ -360,7 +365,7 @@ Expected: FAIL with `ENOENT ... src/tidy-core.js`.
       .replace(/\bi\b/g, "I");
   }
 
-  root.YtTidy = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle };
+  root.PeaceBeStill = { FEATURES, KEYS, defaults, tokensFor, formatCount, videoIdFrom, calmTitle };
 })(globalThis);
 ```
 
@@ -372,7 +377,7 @@ Expected: all PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/tidy-core.js test/tidy-core.test.mjs test/helpers/load-classic.mjs
+git add src/core.js test/tidy-core.test.mjs test/helpers/load-classic.mjs
 git commit -m "Add the feature list, defaults, and the pure helpers"
 ```
 
@@ -381,12 +386,12 @@ git commit -m "Add the feature list, defaults, and the pure helpers"
 ### Task 3: Stylesheet and content script
 
 **Files:**
-- Create: `src/tidy.css`, `src/content.js`, `test/tidy-css.test.mjs`
+- Create: `src/hide.css`, `src/content.js`, `test/tidy-css.test.mjs`
 
 **Interfaces:**
-- Consumes `globalThis.YtTidy.{KEYS, tokensFor, formatCount, videoIdFrom, calmTitle}` from Task 2.
+- Consumes `globalThis.PeaceBeStill.{KEYS, tokensFor, formatCount, videoIdFrom, calmTitle}` from Task 2.
 - Consumes `browser.storage.sync` / `chrome.storage.sync` (promise-returning `get(keys)` in both browsers' MV3) and `fetch`.
-- Produces: the root attribute `data-yt-tidy` on `<html>`; every `tidy.css` rule is `html[data-yt-tidy~="<key>"] <selector> { display: none !important; }`; a `<span class="yt-tidy-dislikes">` inside the dislike button when `dislikeCount` is on.
+- Produces: the root attribute `data-peacebestill` on `<html>`; every `hide.css` rule is `html[data-peacebestill~="<key>"] <selector> { display: none !important; }`; a `<span class="peacebestill-dislikes">` inside the dislike button when `dislikeCount` is on.
 
 - [ ] **Step 1: Write the failing test** — every CSS gate is a real key, every hiding key has a gate, and the two script-only keys have none:
 
@@ -398,17 +403,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { loadClassic } from "./helpers/load-classic.mjs";
 
-const css = readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8");
-const { YtTidy } = loadClassic("src/tidy-core.js");
+const css = readFileSync(new URL("../src/hide.css", import.meta.url), "utf8");
+const { PeaceBeStill } = loadClassic("src/core.js");
 const SCRIPT_ONLY = ["expandDescription", "titleCase", "dislikeCount"];
-const gates = [...css.matchAll(/html\[data-yt-tidy~="([^"]+)"\]/g)].map((m) => m[1]);
+const gates = [...css.matchAll(/html\[data-peacebestill~="([^"]+)"\]/g)].map((m) => m[1]);
 
 test("every gate in tidy.css is a known feature key", () => {
-  for (const gate of gates) assert.ok(YtTidy.KEYS.includes(gate), `unknown gate ${gate}`);
+  for (const gate of gates) assert.ok(PeaceBeStill.KEYS.includes(gate), `unknown gate ${gate}`);
 });
 
 test("every hiding feature has a gate; script-only features have none", () => {
-  for (const key of YtTidy.KEYS.filter((k) => !SCRIPT_ONLY.includes(k))) assert.ok(gates.includes(key), `no rule gated on ${key}`);
+  for (const key of PeaceBeStill.KEYS.filter((k) => !SCRIPT_ONLY.includes(k))) assert.ok(gates.includes(key), `no rule gated on ${key}`);
   for (const key of SCRIPT_ONLY) assert.ok(!gates.includes(key), `${key} should not be in the stylesheet`);
 });
 
@@ -422,7 +427,7 @@ test("rules only ever hide; nothing is styled beyond display:none", () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `node --test test/tidy-css.test.mjs`
-Expected: FAIL with `ENOENT ... src/tidy.css`.
+Expected: FAIL with `ENOENT ... src/hide.css`.
 
 - [ ] **Step 3: Sanity-check the element names against a live page** (no login needed; YouTube embeds the renderer names it will build the DOM from):
 
@@ -434,44 +439,44 @@ curl -sL -A 'Mozilla/5.0 (X11; Linux x86_64) Firefox/154.0' 'https://www.youtube
 
 Expected: `videoDescriptionInfocardsSectionRenderer`, `videoDescriptionTranscriptSectionRenderer`, `dislikeButtonViewModel` and friends appear (a renderer name `fooBarRenderer` becomes the element `ytd-foo-bar-renderer`; a `fooViewModel` becomes `foo-view-model`). If a name used below is absent, note it for the audit in Task 5 rather than guessing a replacement now.
 
-- [ ] **Step 4: Write `src/tidy.css`**
+- [ ] **Step 4: Write `src/hide.css`**
 
 ```css
-/* Each rule is gated on a token in the root element's data-yt-tidy attribute,
+/* Each rule is gated on a token in the root element's data-peacebestill attribute,
    which content.js keeps equal to the set of enabled feature keys. So the
    stylesheet is fully static and a toggle takes effect without a reload. */
 
 /* Header: the Create button */
-html[data-yt-tidy~="create"] ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"]) { display: none !important; }
+html[data-peacebestill~="create"] ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"]) { display: none !important; }
 
 /* Sidebar: the "More from YouTube" section (Premium, Music, Kids, ...) */
-html[data-yt-tidy~="moreFromYoutube"] ytd-guide-section-renderer:has(a[href*="music.youtube.com"]) { display: none !important; }
+html[data-peacebestill~="moreFromYoutube"] ytd-guide-section-renderer:has(a[href*="music.youtube.com"]) { display: none !important; }
 
 /* Sidebar: the new-video dot beside a subscribed channel */
-html[data-yt-tidy~="subscriptionDots"] ytd-guide-entry-renderer #newness-dot { display: none !important; }
+html[data-peacebestill~="subscriptionDots"] ytd-guide-entry-renderer #newness-dot { display: none !important; }
 
 /* Description: the channel row at the bottom (avatar, subscriber count, links) */
-html[data-yt-tidy~="descriptionChannelLinks"] ytd-video-description-infocards-section-renderer { display: none !important; }
+html[data-peacebestill~="descriptionChannelLinks"] ytd-video-description-infocards-section-renderer { display: none !important; }
 
 /* Description: the transcript / course / music cards and card lists */
-html[data-yt-tidy~="descriptionCards"] :is(ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer) { display: none !important; }
+html[data-peacebestill~="descriptionCards"] :is(ytd-video-description-transcript-section-renderer, ytd-video-description-course-section-renderer, ytd-video-description-music-section-renderer, #description ytd-horizontal-card-list-renderer) { display: none !important; }
 
 /* Description: hashtags above the title and hashtag chips in the text */
-html[data-yt-tidy~="descriptionChips"] :is(ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]) { display: none !important; }
+html[data-peacebestill~="descriptionChips"] :is(ytd-watch-metadata #super-title, #description a[href^="/hashtag/"]) { display: none !important; }
 
 /* Sidebar: the About / Press / Copyright block */
-html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !important; }
+html[data-peacebestill~="footer"] ytd-guide-renderer #footer { display: none !important; }
 ```
 
 - [ ] **Step 5: Write `src/content.js`**
 
 ```js
-// Runs at document_start on youtube.com. Keeps the root element's data-yt-tidy
+// Runs at document_start on youtube.com. Keeps the root element's data-peacebestill
 // attribute equal to the enabled feature keys (tidy.css does the hiding), opens
 // the description on each watch page, and shows the dislike count when asked.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle } = globalThis.YtTidy;
+  const { KEYS, tokensFor, formatCount, videoIdFrom, calmTitle } = globalThis.PeaceBeStill;
   let settings = {};
 
   // YouTube is a single-page app: the watch page appears after its own
@@ -516,7 +521,7 @@ html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !importa
 
   function removeDislikes() {
     currentVideo = null;
-    document.querySelector(".yt-tidy-dislikes")?.remove();
+    document.querySelector(".peacebestill-dislikes")?.remove();
   }
 
   async function showDislikes() {
@@ -534,10 +539,10 @@ html[data-yt-tidy~="footer"] ytd-guide-renderer #footer { display: none !importa
     if (currentVideo !== videoId) return; // navigated away while waiting
     whenPresent("dislike-button-view-model button", (button) => {
       if (currentVideo !== videoId) return;
-      let span = button.querySelector(".yt-tidy-dislikes");
+      let span = button.querySelector(".peacebestill-dislikes");
       if (!span) {
         span = document.createElement("span");
-        span.className = "yt-tidy-dislikes";
+        span.className = "peacebestill-dislikes";
         span.style.marginLeft = "6px";
         button.append(span);
       }
@@ -615,7 +620,7 @@ Expected: all PASS; lint 0 errors.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/tidy.css src/content.js test/tidy-css.test.mjs
+git add src/hide.css src/content.js test/tidy-css.test.mjs
 git commit -m "Add the gated stylesheet and the content script that drives it"
 ```
 
@@ -627,7 +632,7 @@ git commit -m "Add the gated stylesheet and the content script that drives it"
 - Create: `src/options.html`, `src/options.js`, `src/options.css`, `test/options.test.mjs`
 
 **Interfaces:**
-- Consumes `globalThis.YtTidy.{FEATURES, KEYS, defaults}` from Task 2.
+- Consumes `globalThis.PeaceBeStill.{FEATURES, KEYS, defaults}` from Task 2.
 - Produces: one `<input type="checkbox" name="<key>">` per feature inside `<form id="features">`; each change writes `{ [key]: boolean }` to `storage.sync`. Ticking `dislikeCount` first calls `permissions.request({ data_collection: ["browsingActivity"] })` when that API exists (Firefox); a refusal unticks the box and writes nothing.
 
 - [ ] **Step 1: Write the failing test** — the page loads the core first, and the script builds one checkbox per key from `FEATURES`, reflecting stored settings over defaults (tested with a minimal fake DOM and fake storage):
@@ -670,14 +675,14 @@ function fakeDocument() {
 }
 
 test("options.js builds one checkbox per feature and reflects stored settings over defaults", async () => {
-  const { YtTidy } = loadClassic("src/tidy-core.js");
+  const { PeaceBeStill } = loadClassic("src/core.js");
   const { document, form } = fakeDocument();
   const writes = [];
   const chrome = { storage: { sync: { get: async () => ({ create: false }), set: async (obj) => writes.push(obj) } } };
-  loadClassic("src/options.js", { YtTidy, document, chrome });
+  loadClassic("src/options.js", { PeaceBeStill, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepEqual(form.elements.map((e) => e.name), [...YtTidy.KEYS]);
+  assert.deepEqual(form.elements.map((e) => e.name), [...PeaceBeStill.KEYS]);
   const box = (name) => form.elements.find((e) => e.name === name);
   assert.equal(box("create").checked, false, "stored value wins");
   assert.equal(box("footer").checked, true, "default on");
@@ -688,7 +693,7 @@ test("options.js builds one checkbox per feature and reflects stored settings ov
 });
 
 test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {
-  const { YtTidy } = loadClassic("src/tidy-core.js");
+  const { PeaceBeStill } = loadClassic("src/core.js");
   const { document, form } = fakeDocument();
   const writes = [];
   const requests = [];
@@ -697,7 +702,7 @@ test("ticking the dislike count asks Firefox for the optional data-collection pe
     storage: { sync: { get: async () => ({}), set: async (obj) => writes.push(obj) } },
     permissions: { request: async (req) => { requests.push(req); return answer; } },
   };
-  loadClassic("src/options.js", { YtTidy, document, browser });
+  loadClassic("src/options.js", { PeaceBeStill, document, browser });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   await form.listeners.change({ target: { name: "dislikeCount", checked: true } });
@@ -730,7 +735,7 @@ Expected: FAIL with `ENOENT ... src/options.html`.
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>YouTube Tidy</title>
+    <title>PeaceBeStill - YouTube</title>
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
@@ -748,7 +753,7 @@ Expected: FAIL with `ENOENT ... src/options.html`.
 // script listens for those writes, so a change shows up in open tabs at once.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { FEATURES, KEYS, defaults } = globalThis.YtTidy;
+  const { FEATURES, KEYS, defaults } = globalThis.PeaceBeStill;
   const form = document.getElementById("features");
 
   for (const [key, label] of FEATURES) {
@@ -810,18 +815,18 @@ git commit -m "Add the options page: one switch per feature"
 ### Task 5: Audit in both browsers (manual, with Ben)
 
 **Files:**
-- Modify: `src/tidy.css`, `src/content.js` (only if the audit finds a wrong selector)
-- Modify: `docs/superpowers/specs/2026-09-02-youtube-tidy-design.md` — update the selector table to what was verified
+- Modify: `src/hide.css`, `src/content.js` (only if the audit finds a wrong selector)
+- Modify: `docs/superpowers/specs/2026-09-02-peacebestill-youtube-design.md` — update the selector table to what was verified
 
 **Interfaces:** none; this task's deliverable is verified selectors.
 
 - [ ] **Step 1: Load the extension unpacked in Ben's real profiles** (they are signed in, which the Subscriptions sidebar needs). Give Ben these instructions:
 
-  - Firefox: open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on…**, pick `~/Projects/youtube-tidy/src/manifest.json`. It stays until Firefox restarts.
-  - Chromium: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick `~/Projects/youtube-tidy/src`.
+  - Firefox: open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on…**, pick `~/Projects/PeaceBeStill/src/manifest.json`. It stays until Firefox restarts.
+  - Chromium: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick `~/Projects/PeaceBeStill/src`.
   - Alternatively for a throwaway profile: `npm run start:firefox` or `npm run start:chromium` (opens YouTube signed out; fine for everything but the Subscriptions dots).
 
-- [ ] **Step 2: Walk the checklist, in each browser**, opening the options page from the extension's entry (Firefox: Add-ons Manager → YouTube Tidy → Options; Chromium: Details → Extension options):
+- [ ] **Step 2: Walk the checklist, in each browser**, opening the options page from the extension's entry (Firefox: Add-ons Manager → PeaceBeStill - YouTube → Options; Chromium: Details → Extension options):
 
   | Check | Where | Expect |
   | --- | --- | --- |
@@ -838,7 +843,7 @@ git commit -m "Add the options page: one switch per feature"
   | Toggles are live | options page | unticking a box restores the element in the open tab without a reload; ticking hides it again |
   | Console clean | devtools console on a watch page | no errors from content.js |
 
-- [ ] **Step 3: For every failed row, find the real element** — Ben right-clicks the still-visible element → Inspect, and pastes the element's tag, `id`, and the nearest `ytd-*` ancestor. Replace the selector in `src/tidy.css` (or `#description-inline-expander` / `#expand` / `is-expanded` / `dislike-button-view-model button` in `src/content.js`), reload the temporary add-on, re-check that row. Keep rules `display: none !important` only, so `test/tidy-css.test.mjs` keeps passing.
+- [ ] **Step 3: For every failed row, find the real element** — Ben right-clicks the still-visible element → Inspect, and pastes the element's tag, `id`, and the nearest `ytd-*` ancestor. Replace the selector in `src/hide.css` (or `#description-inline-expander` / `#expand` / `is-expanded` / `dislike-button-view-model button` in `src/content.js`), reload the temporary add-on, re-check that row. Keep rules `display: none !important` only, so `test/tidy-css.test.mjs` keeps passing.
 
 - [ ] **Step 4: Record what was verified** — update the selector column in the spec's Features table to the working selectors, and note the date and browser versions under the table.
 
@@ -847,7 +852,7 @@ git commit -m "Add the options page: one switch per feature"
 Run: `npm test && npm run lint`
 
 ```bash
-git add src/tidy.css src/content.js docs/superpowers/specs/2026-09-02-youtube-tidy-design.md
+git add src/hide.css src/content.js docs/superpowers/specs/2026-09-02-peacebestill-youtube-design.md
 git commit -m "Audit selectors against live YouTube in Firefox and Chromium"
 ```
 
@@ -933,7 +938,7 @@ Expected: FAIL with `Cannot find module ... scripts/pack-crx.mjs`.
 #!/usr/bin/env node
 // Packs a zip into a CRX3 with an RSA private key, using only node:crypto.
 //
-//   node scripts/pack-crx.mjs --key key.pem --zip dist/youtube-tidy.zip --out dist/youtube-tidy.crx
+//   node scripts/pack-crx.mjs --key key.pem --zip dist/peacebestill-youtube.zip --out dist/peacebestill-youtube.crx
 //   node scripts/pack-crx.mjs --key key.pem --id        # print the extension ID and exit
 //
 // Format: "Cr24", uint32 LE 3, uint32 LE header length, CrxFileHeader, zip.
@@ -1021,11 +1026,11 @@ Expected: all PASS.
 ```bash
 npm run build
 openssl genrsa -out /tmp/throwaway.pem 2048 2>/dev/null
-node scripts/pack-crx.mjs --key /tmp/throwaway.pem --zip dist/youtube-tidy.zip --out dist/throwaway.crx
+node scripts/pack-crx.mjs --key /tmp/throwaway.pem --zip dist/peacebestill-youtube.zip --out dist/throwaway.crx
 node scripts/pack-crx.mjs --key /tmp/throwaway.pem --id
 ```
 
-Then Ben drags `dist/throwaway.crx` onto `chrome://extensions` (developer mode on). Expected: Chromium offers to add "YouTube Tidy"; its ID in the list equals the one printed. Remove it afterwards; delete `/tmp/throwaway.pem`.
+Then Ben drags `dist/throwaway.crx` onto `chrome://extensions` (developer mode on). Expected: Chromium offers to add "PeaceBeStill - YouTube"; its ID in the list equals the one printed. Remove it afterwards; delete `/tmp/throwaway.pem`.
 
 - [ ] **Step 6: Commit**
 
@@ -1056,18 +1061,18 @@ import assert from "node:assert/strict";
 import { firefoxUpdates, chromiumUpdates } from "../scripts/update-manifests.mjs";
 
 test("Firefox update manifest has the addon, version and versioned link", () => {
-  const text = firefoxUpdates({ id: "youtube-tidy@peacebestill.fyi", version: "1.2.3", xpiUrl: "https://example.test/releases/download/v1.2.3/youtube-tidy.xpi" });
+  const text = firefoxUpdates({ id: "youtube@peacebestill.fyi", version: "1.2.3", xpiUrl: "https://example.test/releases/download/v1.2.3/peacebestill-youtube.xpi" });
   assert.deepEqual(JSON.parse(text), {
-    addons: { "youtube-tidy@peacebestill.fyi": { updates: [{ version: "1.2.3", update_link: "https://example.test/releases/download/v1.2.3/youtube-tidy.xpi" }] } },
+    addons: { "youtube@peacebestill.fyi": { updates: [{ version: "1.2.3", update_link: "https://example.test/releases/download/v1.2.3/peacebestill-youtube.xpi" }] } },
   });
   assert.ok(text.endsWith("\n"));
 });
 
 test("Chromium update manifest is a gupdate document with the app, codebase and version", () => {
-  const xml = chromiumUpdates({ id: "a".repeat(32), version: "1.2.3", crxUrl: "https://example.test/releases/download/v1.2.3/youtube-tidy.crx?a=1&b=2" });
+  const xml = chromiumUpdates({ id: "a".repeat(32), version: "1.2.3", crxUrl: "https://example.test/releases/download/v1.2.3/peacebestill-youtube.crx?a=1&b=2" });
   assert.match(xml, /^<\?xml version='1\.0' encoding='UTF-8'\?>\n<gupdate xmlns='http:\/\/www\.google\.com\/update2\/response' protocol='2\.0'>/);
   assert.match(xml, new RegExp(`<app appid='${"a".repeat(32)}'>`));
-  assert.match(xml, /codebase='https:\/\/example\.test\/releases\/download\/v1\.2\.3\/youtube-tidy\.crx\?a=1&amp;b=2'/);
+  assert.match(xml, /codebase='https:\/\/example\.test\/releases\/download\/v1\.2\.3\/peacebestill-youtube\.crx\?a=1&amp;b=2'/);
   assert.match(xml, /version='1\.2\.3'/);
 });
 ```
@@ -1107,7 +1112,7 @@ Expected: both FAIL with `Cannot find module`.
 ```js
 #!/usr/bin/env node
 // Writes the two update manifests the browsers poll, for one release:
-//   node scripts/update-manifests.mjs --repo nascosto/youtube-tidy --tag v1.0.0 --key key.pem --out dist
+//   node scripts/update-manifests.mjs --repo nascosto/PeaceBeStill --tag v1.0.0 --key key.pem --out dist
 // Firefox reads updates.json (its ID comes from src/manifest.json); Chromium
 // reads updates.xml (its ID is derived from the CRX signing key). Both point at
 // that release's own versioned asset URLs, while the browsers fetch the
@@ -1153,12 +1158,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   writeFileSync(`${out}/updates.json`, firefoxUpdates({
     id: manifest.browser_specific_settings.gecko.id,
     version: manifest.version,
-    xpiUrl: base + "youtube-tidy.xpi",
+    xpiUrl: base + "peacebestill-youtube.xpi",
   }));
   writeFileSync(`${out}/updates.xml`, chromiumUpdates({
     id: crxId(publicKeyDer(readFileSync(keyPath, "utf8"))),
     version: manifest.version,
-    crxUrl: base + "youtube-tidy.crx",
+    crxUrl: base + "peacebestill-youtube.crx",
   }));
   console.log(`${out}/updates.json and ${out}/updates.xml for ${tag}`);
 }
@@ -1200,12 +1205,12 @@ git commit -m "Add the update-manifest writer and the tag/version guard"
 
 **Files:**
 - Create: `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `README.md`
-- Create (outside the repo): `~/.config/youtube-tidy/crx-key.pem`
-- Modify: `docs/superpowers/specs/2026-09-02-youtube-tidy-design.md` (record the Chromium ID)
+- Create (outside the repo): `~/.config/peacebestill/youtube-crx-key.pem`
+- Modify: `docs/superpowers/specs/2026-09-02-peacebestill-youtube-design.md` (record the Chromium ID)
 
 **Interfaces:**
 - Consumes the npm scripts from Task 1 and the three scripts from Tasks 6–7.
-- Produces: on tag `vX.Y.Z`, a GitHub release carrying `youtube-tidy.xpi`, `youtube-tidy.crx`, `updates.json`, `updates.xml`.
+- Produces: on tag `vX.Y.Z`, a GitHub release carrying `peacebestill-youtube.xpi`, `peacebestill-youtube.crx`, `updates.json`, `updates.xml`.
 - Produces: the Chromium extension ID (printed in Step 4), used by Task 10.
 
 - [ ] **Step 1: Write `.github/workflows/ci.yml`**
@@ -1267,15 +1272,15 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign --source-dir src --artifacts-dir dist --channel unlisted
-          mv dist/*.xpi dist/youtube-tidy.xpi
+          mv dist/*.xpi dist/peacebestill-youtube.xpi
 
       - name: Pack for Chromium and write the update manifests
         env:
-          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+          YOUTUBE_CRX_PRIVATE_KEY: ${{ secrets.YOUTUBE_CRX_PRIVATE_KEY }}
         run: |
-          printf '%s\n' "$CRX_PRIVATE_KEY" > "$RUNNER_TEMP/key.pem"
+          printf '%s\n' "$YOUTUBE_CRX_PRIVATE_KEY" > "$RUNNER_TEMP/key.pem"
           npm run build
-          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/key.pem" --zip dist/youtube-tidy.zip --out dist/youtube-tidy.crx
+          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/key.pem" --zip dist/peacebestill-youtube.zip --out dist/peacebestill-youtube.crx
           node scripts/update-manifests.mjs --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --key "$RUNNER_TEMP/key.pem" --out dist
           rm -f "$RUNNER_TEMP/key.pem"
 
@@ -1284,15 +1289,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            dist/youtube-tidy.xpi dist/youtube-tidy.crx dist/updates.json dist/updates.xml \
+            dist/peacebestill-youtube.xpi dist/peacebestill-youtube.crx dist/updates.json dist/updates.xml \
             --title "$GITHUB_REF_NAME" \
-            --notes "YouTube Tidy $GITHUB_REF_NAME. Installed through system-setups; the assets below are what its browser policies fetch."
+            --notes "PeaceBeStill - YouTube $GITHUB_REF_NAME. Installed through system-setups; the assets below are what its browser policies fetch."
 ```
 
 - [ ] **Step 3: Write `README.md`**
 
 ````markdown
-# YouTube Tidy
+# PeaceBeStill - YouTube
 
 A tiny Firefox and Chromium extension that hides the bits of desktop YouTube
 you never use, opens the video description for you, and can show the dislike
@@ -1317,12 +1322,12 @@ Manifest V3, one codebase for both browsers, no background script, only the
 
 ## How it works
 
-`src/content.js` keeps a `data-yt-tidy` attribute on `<html>` equal to the
-enabled feature keys; `src/tidy.css` has one `display: none` rule per feature
+`src/content.js` keeps a `data-peacebestill` attribute on `<html>` equal to the
+enabled feature keys; `src/hide.css` has one `display: none` rule per feature
 gated on that attribute, so toggles apply to open tabs instantly. The same
 script clicks the description's expand control once per watch-page navigation
 and, when asked, fetches the dislike count and writes it into the dislike
-button. `src/tidy-core.js` holds the feature list both the content script and
+button. `src/core.js` holds the feature list both the content script and
 the options page use.
 
 ## Developing
@@ -1338,7 +1343,7 @@ Firefox → Load Temporary Add-on → `src/manifest.json`; Chromium →
 `chrome://extensions` → Developer mode → Load unpacked → `src/`.
 
 YouTube's markup is undocumented and changes. When a switch stops working,
-inspect the element, fix the selector in `src/tidy.css`, and re-check.
+inspect the element, fix the selector in `src/hide.css`, and re-check.
 
 ## Releasing
 
@@ -1353,21 +1358,21 @@ the CRX with the repo's fixed key, writes the two update manifests, and
 attaches all four to the release under constant names, so these URLs are
 always the newest version:
 
-    https://github.com/nascosto/youtube-tidy/releases/latest/download/youtube-tidy.xpi
-    https://github.com/nascosto/youtube-tidy/releases/latest/download/youtube-tidy.crx
-    https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json
-    https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.xml
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.xpi
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.crx
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml
 
 ### Secrets (set once: repository settings → Secrets and variables → Actions)
 
 | Secret | Where it comes from |
 | --- | --- |
 | `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account) |
-| `CRX_PRIVATE_KEY` | the PEM generated below; the Chromium extension ID is derived from it, so it must never change |
+| `YOUTUBE_YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the Chromium extension ID is derived from it, so it must never change |
 
-    mkdir -p ~/.config/youtube-tidy
-    openssl genrsa -out ~/.config/youtube-tidy/crx-key.pem 2048
-    node scripts/pack-crx.mjs --key ~/.config/youtube-tidy/crx-key.pem --id   # the Chromium ID
+    mkdir -p ~/.config/peacebestill
+    openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
+    node scripts/pack-crx.mjs --key ~/.config/peacebestill/youtube-crx-key.pem --id   # the Chromium ID
 
 Keep the PEM out of the repo (`.gitignore` already excludes `*.pem`).
 
@@ -1377,16 +1382,16 @@ Keep the PEM out of the repo (`.gitignore` already excludes `*.pem`).
 Firefox's and Chromium's enterprise policies: Firefox everywhere and Chromium on
 Linux fetch it from the URLs above and keep it updated. Chromium on Windows only
 allows it, because Chromium there refuses to force-install anything from
-outside the Web Store on an unmanaged machine: drop `youtube-tidy.crx` onto
+outside the Web Store on an unmanaged machine: drop `peacebestill-youtube.crx` onto
 `chrome://extensions` once and it updates itself afterwards.
 ````
 
 - [ ] **Step 4: Generate the CRX key and print the ID** (this is the one that goes into the secret and into system-setups):
 
 ```bash
-mkdir -p ~/.config/youtube-tidy
-openssl genrsa -out ~/.config/youtube-tidy/crx-key.pem 2048
-node scripts/pack-crx.mjs --key ~/.config/youtube-tidy/crx-key.pem --id
+mkdir -p ~/.config/peacebestill
+openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
+node scripts/pack-crx.mjs --key ~/.config/peacebestill/youtube-crx-key.pem --id
 ```
 
 Expected: a 32-letter ID. Record it in the spec under "Integration with system-setups" as `Chromium ID: <id>`.
@@ -1396,7 +1401,7 @@ Expected: a 32-letter ID. Record it in the spec under "Integration with system-s
 ```bash
 python3 -c "import yaml; [yaml.safe_load(open(f)) for f in ('.github/workflows/ci.yml', '.github/workflows/release.yml')]" && echo "workflows parse"
 npm test && npm run lint
-git add .github/workflows/ci.yml .github/workflows/release.yml README.md docs/superpowers/specs/2026-09-02-youtube-tidy-design.md
+git add .github/workflows/ci.yml .github/workflows/release.yml README.md docs/superpowers/specs/2026-09-02-peacebestill-youtube-design.md
 git commit -m "Add CI, the tag-driven release workflow, and the README"
 ```
 
@@ -1407,14 +1412,14 @@ git commit -m "Add CI, the tag-driven release workflow, and the README"
 **Files:** none in this repo.
 
 **Interfaces:**
-- Produces: the four asset URLs live at `https://github.com/nascosto/youtube-tidy/releases/latest/download/<asset>`, consumed by Task 10.
+- Produces: the four asset URLs live at `https://github.com/nascosto/PeaceBeStill/releases/latest/download/<asset>`, consumed by Task 10.
 
 - [ ] **Step 1: Ben creates the public repo and pushes** (gh is not logged in on this machine, so this is his terminal):
 
 ```bash
-cd ~/Projects/youtube-tidy
+cd ~/Projects/PeaceBeStill
 gh auth login            # once, if not already
-gh repo create nascosto/youtube-tidy --public --source=. --remote=origin --push
+gh repo create nascosto/PeaceBeStill --public --source=. --remote=origin --push
 ```
 
 - [ ] **Step 2: Ben adds the three secrets** — from the README's table:
@@ -1422,7 +1427,7 @@ gh repo create nascosto/youtube-tidy --public --source=. --remote=origin --push
 ```bash
 gh secret set AMO_JWT_ISSUER        # paste the JWT issuer from addons.mozilla.org
 gh secret set AMO_JWT_SECRET        # paste the JWT secret
-gh secret set CRX_PRIVATE_KEY < ~/.config/youtube-tidy/crx-key.pem
+gh secret set YOUTUBE_CRX_PRIVATE_KEY < ~/.config/peacebestill/youtube-crx-key.pem
 ```
 
 - [ ] **Step 3: Confirm CI is green on main**
@@ -1439,21 +1444,21 @@ gh run watch            # the release workflow; signing usually takes a few minu
 - [ ] **Step 5: Verify the release from this machine** (no auth needed, the repo is public):
 
 ```bash
-for a in youtube-tidy.xpi youtube-tidy.crx updates.json updates.xml; do
-  printf '%-18s ' "$a"; curl -sIL -o /dev/null -w '%{http_code} %{url_effective}\n' "https://github.com/nascosto/youtube-tidy/releases/latest/download/$a"
+for a in peacebestill-youtube.xpi peacebestill-youtube.crx updates.json updates.xml; do
+  printf '%-18s ' "$a"; curl -sIL -o /dev/null -w '%{http_code} %{url_effective}\n' "https://github.com/nascosto/PeaceBeStill/releases/latest/download/$a"
 done
-curl -sL https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.json | python3 -m json.tool
-curl -sL https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.xml
-curl -sL -o /tmp/yt.xpi https://github.com/nascosto/youtube-tidy/releases/latest/download/youtube-tidy.xpi && unzip -l /tmp/yt.xpi | grep -E 'META-INF/(mozilla\.rsa|cose\.sig)'
+curl -sL https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json | python3 -m json.tool
+curl -sL https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml
+curl -sL -o /tmp/yt.xpi https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.xpi && unzip -l /tmp/yt.xpi | grep -E 'META-INF/(mozilla\.rsa|cose\.sig)'
 ```
 
-Expected: four `200`s; `updates.json` names `youtube-tidy@peacebestill.fyi` and version `1.0.0` with a `releases/download/v1.0.0/` link; `updates.xml` names the ID from Task 8 Step 4; the XPI contains Mozilla's signature files.
+Expected: four `200`s; `updates.json` names `youtube@peacebestill.fyi` and version `1.0.0` with a `releases/download/v1.0.0/` link; `updates.xml` names the ID from Task 8 Step 4; the XPI contains Mozilla's signature files.
 
 ---
 
 ### Task 10: Install it through system-setups
 
-**Files (in `~/Projects/system-setups`, on a new branch `youtube-tidy-policy` off `main`):**
+**Files (in `~/Projects/system-setups`, on a new branch `peacebestill-youtube-policy` off `main`):**
 - Modify: `lib/common.sh` — the Firefox heredoc in `step_firefox_policies` and the Chromium heredoc in `step_chromium_policies`
 - Modify: `windows-setup.dsc.yaml` — the `firefox-extensions` MultiString and the `chromium-extensions` String
 - Modify: `README.md` — the browser-extension note
@@ -1464,24 +1469,24 @@ Expected: four `200`s; `updates.json` names `youtube-tidy@peacebestill.fyi` and 
 
 - [ ] **Step 1: Run the existing test to see it green before touching anything**
 
-Run: `cd ~/Projects/system-setups && git checkout -b youtube-tidy-policy origin/main && python3 lib/browser-policy.test.py`
+Run: `cd ~/Projects/system-setups && git checkout -b peacebestill-youtube-policy origin/main && python3 lib/browser-policy.test.py`
 Expected: `0 failure(s)`.
 
 - [ ] **Step 2: Add the Firefox entry** to both copies. In `lib/common.sh`, inside the `policies.json` heredoc, after the `magnolia@12.34` entry (add a comma to that entry's closing brace):
 
 ```json
-      "youtube-tidy@peacebestill.fyi": {
+      "youtube@peacebestill.fyi": {
         "installation_mode": "normal_installed",
-        "install_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/youtube-tidy.xpi"
+        "install_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.xpi"
       }
 ```
 
 In `windows-setup.dsc.yaml`, in the `firefox-extensions` resource's `ValueData` list, change the `'  }'` line after the `magnolia@12.34` block to `'  },'` and append before the final `'}'`:
 
 ```yaml
-          - '  "youtube-tidy@peacebestill.fyi": {'
+          - '  "youtube@peacebestill.fyi": {'
           - '    "installation_mode": "normal_installed",'
-          - '    "install_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/youtube-tidy.xpi"'
+          - '    "install_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.xpi"'
           - '  }'
 ```
 
@@ -1490,11 +1495,11 @@ In `windows-setup.dsc.yaml`, in the `firefox-extensions` resource's `ValueData` 
 ```json
     "<CRX_ID>": {
       "installation_mode": "normal_installed",
-      "update_url": "https://github.com/nascosto/youtube-tidy/releases/latest/download/updates.xml"
+      "update_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml"
     }
 ```
 
-and add a line to the ID → name comment table above the heredoc: `#   <CRX_ID>  YouTube Tidy`. In `windows-setup.dsc.yaml`, in the `chromium-extensions` resource's folded `ValueData`, change the last line's `"allowed"}}` to `"allowed"},` and add a final line:
+and add a line to the ID → name comment table above the heredoc: `#   <CRX_ID>  PeaceBeStill - YouTube`. In `windows-setup.dsc.yaml`, in the `chromium-extensions` resource's folded `ValueData`, change the last line's `"allowed"}}` to `"allowed"},` and add a final line:
 
 ```yaml
           "<CRX_ID>": {"installation_mode": "allowed"}}
@@ -1502,9 +1507,9 @@ and add a line to the ID → name comment table above the heredoc: `#   <CRX_ID>
 
 (Windows gets `allowed` only, like Bypass Paywalls Clean: Chromium on Windows refuses off-store force-installs on an unmanaged machine, and the test permits exactly this exception.)
 
-- [ ] **Step 3b: Drop Unhook.** YouTube Tidy now covers every Unhook option, so remove Unhook from both browsers' lists in the same change: in `lib/common.sh` the `myallychou@gmail.com` entry of the Firefox heredoc and the `khncfooichmfjbepaaaebmommgaepoid` entry (and its comment-table line) of the Chromium heredoc; in `windows-setup.dsc.yaml` the matching `myallychou@gmail.com` block of the Firefox MultiString and the `khncfooichmfjbepaaaebmommgaepoid` line of the Chromium String. A machine that already has Unhook keeps it installed but can now remove it from about:addons.
+- [ ] **Step 3b: Drop Unhook.** PeaceBeStill - YouTube now covers every Unhook option, so remove Unhook from both browsers' lists in the same change: in `lib/common.sh` the `myallychou@gmail.com` entry of the Firefox heredoc and the `khncfooichmfjbepaaaebmommgaepoid` entry (and its comment-table line) of the Chromium heredoc; in `windows-setup.dsc.yaml` the matching `myallychou@gmail.com` block of the Firefox MultiString and the `khncfooichmfjbepaaaebmommgaepoid` line of the Chromium String. A machine that already has Unhook keeps it installed but can now remove it from about:addons.
 
-- [ ] **Step 4: README note.** In `README.md`'s "Notes and known rough edges", extend the Chromium bullet's Windows sentence so it names both hand-installed extensions: after "Install it by hand once — download `bypass-paywalls-chrome-clean-latest.crx` from the author's GitFlic `bpc_uploads` project and drop it onto chrome://extensions — and it updates itself from then on." add "The same goes for YouTube Tidy, our own extension (`youtube-tidy.crx` from its GitHub releases)."
+- [ ] **Step 4: README note.** In `README.md`'s "Notes and known rough edges", extend the Chromium bullet's Windows sentence so it names both hand-installed extensions: after "Install it by hand once — download `bypass-paywalls-chrome-clean-latest.crx` from the author's GitFlic `bpc_uploads` project and drop it onto chrome://extensions — and it updates itself from then on." add "The same goes for PeaceBeStill - YouTube, our own extension (`peacebestill-youtube.crx` from its GitHub releases)."
 
 - [ ] **Step 5: Run the suite** (the same commands CI runs):
 
@@ -1514,14 +1519,14 @@ shellcheck -x -s bash -S warning fedora-setup.sh ubuntu-setup.sh lib/common.sh  
 bash -n lib/common.sh
 ```
 
-Expected: `0 failure(s)` with new `ok` lines for `youtube-tidy@peacebestill.fyi` on both platforms and for `<CRX_ID>` (`allowed only: off-store on Windows`); shellcheck clean.
+Expected: `0 failure(s)` with new `ok` lines for `youtube@peacebestill.fyi` on both platforms and for `<CRX_ID>` (`allowed only: off-store on Windows`); shellcheck clean.
 
 - [ ] **Step 6: Commit and push**
 
 ```bash
 git add lib/common.sh windows-setup.dsc.yaml README.md
-git commit -m "Install YouTube Tidy through the browser policies"
-git push -u origin youtube-tidy-policy
+git commit -m "Install PeaceBeStill - YouTube through the browser policies"
+git push -u origin peacebestill-youtube-policy
 ```
 
 Ben opens the PR (gh is not logged in here).
@@ -1536,9 +1541,9 @@ cd ~/Projects/system-setups && CHROMIUM_POLICY_DIR=/etc/chromium/policies/manage
 then restarts both browsers. Claude verifies:
 
 ```bash
-grep -c 'youtube-tidy' /etc/firefox/policies/policies.json /etc/chromium/policies/managed/extensions.json
-ls ~/.mozilla/firefox/*.default-release/extensions/ | grep youtube-tidy
+grep -c 'peacebestill-youtube' /etc/firefox/policies/policies.json /etc/chromium/policies/managed/extensions.json
+ls ~/.mozilla/firefox/*.default-release/extensions/ | grep peacebestill-youtube
 ls ~/.config/chromium/Default/Extensions/ | grep "<CRX_ID>"
 ```
 
-Expected: `1` and `1`; `youtube-tidy@peacebestill.fyi.xpi` in the Firefox profile; the `<CRX_ID>` directory in the Chromium profile. Then the Task 5 checklist once more, briefly, in both browsers, now on the policy-installed copies.
+Expected: `1` and `1`; `youtube@peacebestill.fyi.xpi` in the Firefox profile; the `<CRX_ID>` directory in the Chromium profile. Then the Task 5 checklist once more, briefly, in both browsers, now on the policy-installed copies.

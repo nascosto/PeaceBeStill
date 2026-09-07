@@ -25,18 +25,18 @@ mkdirSync(OUT, { recursive: true });
 const EXT_ID = [...createHash("sha256").update(SRC).digest("hex").slice(0, 32)]
   .map((h) => String.fromCharCode(97 + parseInt(h, 16))).join("");
 
-// Keep in step with src/tidy.css: read it. Every "display: none" rule gated
+// Keep in step with src/hide.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
 const { KEYS, FEATURES } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
-  vm.runInNewContext(readFileSync(new URL("../src/tidy-core.js", import.meta.url), "utf8"), context);
-  return context.YtTidy;
+  vm.runInNewContext(readFileSync(new URL("../src/core.js", import.meta.url), "utf8"), context);
+  return context.PeaceBeStill;
 })();
 
 const SELECTORS = {};
-for (const m of readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8").matchAll(/html\[data-yt-tidy~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
+for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8").matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
   SELECTORS[m[1]] = SELECTORS[m[1]] ? `${SELECTORS[m[1]]}, ${m[2]}` : m[2];
 }
 
@@ -86,7 +86,7 @@ try {
   await page.click("#guide-button").catch(() => {});
   await sleep(1500);
   report.children = await page.evaluate(survey, SELECTORS);
-  await page.screenshot({ path: OUT + "chromium-children.png" });
+  await page.screenshot({ path: OUT + "youtube-chromium-children.png" });
 
   report.titleCalm = await page.evaluate(async () => {
     const el = document.querySelector("yt-lockup-metadata-view-model h3 a, #video-title");
@@ -101,7 +101,7 @@ try {
   // The dislike count needs the buttons row it attaches to, so it belongs here.
   for (let i = 0; i < 40 && !report.dislikes; i++) {
     await sleep(500);
-    report.dislikes = await page.evaluate(() => document.querySelector(".yt-tidy-dislikes")?.textContent || null);
+    report.dislikes = await page.evaluate(() => document.querySelector(".peacebestill-dislikes")?.textContent || null);
   }
   report.dislikeButton = await page.evaluate(() => {
     const b = [...document.querySelectorAll("dislike-button-view-model button")].find((e) => e.getClientRects().length > 0);
@@ -113,7 +113,7 @@ try {
   await page.bringToFront();
   await sleep(1200);
   report.parents = await page.evaluate(survey, SELECTORS);
-  await page.screenshot({ path: OUT + "chromium-parents.png" });
+  await page.screenshot({ path: OUT + "youtube-chromium-parents.png" });
 
   // And switching one back off must bring its target back, without a reload.
   await write({ relatedVideos: false });

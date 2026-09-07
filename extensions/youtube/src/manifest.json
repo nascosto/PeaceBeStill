@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "PeaceBeStill - YouTube",
+  "version": "1.0.0",
+  "description": "Quiet YouTube down: hide the parts you never use. Every change is a switch, and nothing is on until you turn it on.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.youtube.com/*"
+      ],
+      "css": [
+        "hide.css"
+      ],
+      "js": [
+        "core.js",
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "youtube@peacebestill.fyi",
+      "strict_min_version": "142.0",
+      "update_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ],
+        "optional": [
+          "browsingActivity"
+        ]
+      }
+    }
+  },
+  "update_url": "https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml"
+}

@@ -67,7 +67,7 @@ class Marionette {
 }
 
 // --- Firefox with a throwaway profile ----------------------------------------
-const profile = mkdtempSync(join(tmpdir(), "yt-tidy-audit-"));
+const profile = mkdtempSync(join(tmpdir(), "peacebestill-audit-"));
 writeFileSync(join(profile, "user.js"), [
   'user_pref("browser.shell.checkDefaultBrowser", false);',
   'user_pref("datareporting.policy.dataSubmissionEnabled", false);',
@@ -81,14 +81,14 @@ writeFileSync(join(profile, "user.js"), [
 // --remote-allow-system-access lets the audit read the add-on's internal UUID.
 const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", "--headless", "--no-remote", "--new-instance", "--profile", profile, "about:blank"], { stdio: "ignore" });
 
-// Keep in step with src/tidy.css: read it. Every "display: none" rule gated
+// Keep in step with src/hide.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
 const { KEYS, FEATURES } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
-  vm.runInNewContext(readFileSync(new URL("../src/tidy-core.js", import.meta.url), "utf8"), context);
-  return context.YtTidy;
+  vm.runInNewContext(readFileSync(new URL("../src/core.js", import.meta.url), "utf8"), context);
+  return context.PeaceBeStill;
 })();
 
 // A parent switch hides the container its children live in, so with every
@@ -101,7 +101,7 @@ const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includ
 const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
 
 const SELECTORS = {};
-for (const m of readFileSync(new URL("../src/tidy.css", import.meta.url), "utf8").matchAll(/html\[data-yt-tidy~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
+for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8").matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
   SELECTORS[m[1]] = SELECTORS[m[1]] ? `${SELECTORS[m[1]]}, ${m[2]}` : m[2];
 }
 const SURVEY = `
@@ -142,7 +142,7 @@ try {
   await client.send("Marionette:SetContext", { value: "chrome" });
   const uuids = JSON.parse(await client.script('return Services.prefs.getStringPref("extensions.webextensions.uuids");'));
   await client.send("Marionette:SetContext", { value: "content" });
-  const uuid = uuids["youtube-tidy@peacebestill.fyi"];
+  const uuid = uuids["youtube@peacebestill.fyi"];
   report.optionsUuid = uuid ?? null;
   if (!uuid) throw new Error("the add-on has no internal UUID yet");
 
@@ -177,12 +177,12 @@ try {
   report.storageWrite = await write(CHILDREN_PASS);
   report.watchRendered = await onWatchPage();
   report.children = await client.script(SURVEY, [SELECTORS]);
-  writeFileSync(OUT + "firefox-children.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
+  writeFileSync(OUT + "youtube-firefox-children.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
 
   // The dislike count needs the buttons row it attaches to, so it belongs here.
   for (let i = 0; i < 40 && !report.dislikes; i++) {
     await sleep(500);
-    report.dislikes = await client.script('return document.querySelector(".yt-tidy-dislikes")?.textContent || null;');
+    report.dislikes = await client.script('return document.querySelector(".peacebestill-dislikes")?.textContent || null;');
   }
 
   // Pass two: the parents as well.
@@ -194,7 +194,7 @@ try {
   await write({ relatedVideos: false });
   await onWatchPage();
   report.afterToggle = await client.script(SURVEY, [SELECTORS]);
-  writeFileSync(OUT + "firefox-after-toggle.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
+  writeFileSync(OUT + "youtube-firefox-after-toggle.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
   await client.send("Marionette:Quit", {}).catch(() => {});
 } catch (e) {
   report.error = String(e.stack || e);
