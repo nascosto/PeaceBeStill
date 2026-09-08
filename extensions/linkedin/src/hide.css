@@ -1,0 +1,26 @@
+/* Each rule is gated on a token in the root element's data-peacebestill attribute,
+   which content.js keeps equal to the set of enabled feature keys. So the
+   stylesheet is fully static and a toggle takes effect without a reload.
+   Rules only ever hide (display: none); blackout is the one exception, because
+   replacing the site means drawing something as well as hiding everything. */
+
+/* ---- The whole site ----------------------------------------------------- */
+
+/* Blackout: the page goes, and a sentence takes its place.
+   Hiding body and generating the text on the root element depends on no
+   LinkedIn markup whatsoever, so this works unchanged on the mobile site and
+   needs no second set of rules for Firefox for Android.
+   The sentence is core.js's BLACKOUT_TITLE, which also becomes the tab title;
+   a test holds the two to the same string.
+   Colours are stated rather than inherited: LinkedIn ships a dark mode, and an
+   inherited colour could put dark text on a dark ground. */
+html[data-peacebestill~="blackout"] body { display: none !important; }
+html[data-peacebestill~="blackout"] { color-scheme: light dark; background: light-dark(#ffffff, #1c1b22) !important; }
+html[data-peacebestill~="blackout"]::before {
+  content: "You made the right choice.";
+  display: block;
+  padding: 4rem 1rem;
+  font: 1rem/1.5 system-ui, sans-serif;
+  color: light-dark(#1b1b1f, #ececed);
+  text-align: center;
+}
