@@ -61,7 +61,7 @@ rather than set once.
 depends on no LinkedIn markup whatsoever, so `blackout` works identically on
 Firefox for Android without a second set of rules — unlike the YouTube
 extension, whose mobile site is a separate application needing its own
-selectors. The same is true of the other three v1 switches, which are URL and
+selectors. The same is true of the other four v1 switches, which are URL and
 title logic. Every switch this extension ships at v1.0 therefore works on
 Android for free.
 
@@ -195,7 +195,7 @@ What this means in practice, and what the README must say plainly so the missing
 - When LinkedIn changes its markup, a switch stops working silently. The fix is
   a fresh paste of the page and a corrected rule.
 
-None of this touches v1.0, whose four switches use no selectors at all.
+None of this touches v1.0, whose five switches use no selectors at all.
 
 ## Distribution
 
@@ -288,7 +288,7 @@ follows from the manifest ID and needs no separate decision.
   other page alone; with more than one on, the first in table order wins.
 - With `notificationCount` on, the tab title loses its leading "(3) " and keeps
   it off as LinkedIn navigates.
-- All four switches behave the same on Firefox for Android as on the desktop.
+- All five switches behave the same on Firefox for Android as on the desktop.
 - The extension makes no network requests at all, in any configuration.
 - Toggling on the options page changes open tabs without a reload.
 - The source tree carries no `update_url`; the self-hosted build carries both,
