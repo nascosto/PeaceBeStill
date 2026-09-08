@@ -7,6 +7,7 @@ install changes nothing at all.
 | Extension | Site | Source |
 | --- | --- | --- |
 | PeaceBeStill - YouTube | www.youtube.com | [`extensions/youtube`](extensions/youtube) |
+| PeaceBeStill - LinkedIn | www.linkedin.com | [`extensions/linkedin`](extensions/linkedin) |
 
 Each extension is Manifest V3, works in both Firefox and Chromium from one
 codebase, has no background script, asks only for the `storage` permission,
@@ -92,6 +93,38 @@ Settings live in `storage.sync`, so they follow your Firefox or Chrome account.
 Only switches that differ from their default are stored, so a profile on the
 defaults stores nothing at all.
 
+## PeaceBeStill - LinkedIn
+
+Five switches so far, and the first one is the blunt one.
+
+- **Replace LinkedIn with a better idea** — every page on the site becomes one
+  line of ordinary text reading "You made the right choice." It is the whole
+  site, with no exceptions; to use LinkedIn again you turn it off. While it is
+  on, every other switch is greyed out and says so, because none of them can
+  matter when there is no page left to act on.
+- send the home page to Messaging, Notifications or Jobs instead of the feed
+  (with more than one on, the first of those three wins)
+- hide the unread count LinkedIn puts in front of the tab title
+
+Every one of them works on Firefox for Android exactly as on the desktop:
+none touches LinkedIn's markup, so there is no mobile version to write.
+
+### Why there are no audits here
+
+The YouTube extension checks its selectors by driving a signed-out headless
+browser through live pages. LinkedIn puts essentially everything behind a
+login, so that audit cannot exist, and `extensions/linkedin` has no `audit/`
+directory and no `audit:*` script. This is deliberate, not an omission.
+
+Two consequences worth knowing. Switches are added one page at a time, from
+markup read by hand in a signed-in browser, and that markup is never committed
+here in any form — this repository is public, and a signed-in LinkedIn page
+carries real names and profile identifiers. And when LinkedIn changes its
+markup a switch stops working silently; the fix is to look at the page again
+and correct the rule.
+
+None of that applies to the five switches above, which use no selectors at all.
+
 ## Developing
 
     npm install
@@ -99,16 +132,19 @@ defaults stores nothing at all.
     npm run lint             # web-ext lint
     npm run build            # both packages per extension, into dist/
     npm run bump patch       # one version across package.json and every manifest
-    npm run start:firefox    # throwaway Firefox profile with the extension loaded
-    npm run start:chromium
+    npm run start:firefox:youtube     # throwaway profile with that extension loaded
+    npm run start:chromium:youtube
+    npm run start:firefox:linkedin
+    npm run start:chromium:linkedin
 
-To try it in your real, signed-in profile: Firefox → `about:debugging` → This
-Firefox → Load Temporary Add-on → `extensions/youtube/src/manifest.json`;
+To try one in your real, signed-in profile: Firefox → `about:debugging` → This
+Firefox → Load Temporary Add-on → `extensions/<site>/src/manifest.json`;
 Chromium → `chrome://extensions` → Developer mode → Load unpacked →
-`extensions/youtube/src`.
+`extensions/<site>/src`.
 
-A site's markup is undocumented and changes. When a switch stops working, run
-the audits, which drive a signed-out headless browser through a live page and
+A site's markup is undocumented and changes. The audits below are the YouTube
+extension's; LinkedIn has none, for the reason given above. When one of its
+switches stops working, run the audits, which drive a signed-out headless browser through a live page and
 report, per switch, how many targets exist and how many are still rendered
 (screenshots land in `extensions/youtube/audit/out/`):
 
@@ -134,7 +170,7 @@ signed in, so those two are checked by hand.
 ```
 extensions/<site>/src     the extension itself
 extensions/<site>/test    its unit tests
-extensions/<site>/audit   its live-page audits
+extensions/<site>/audit   its live-page audits, where the site allows one
 scripts/                  release tooling, shared by every extension
 test/                     tests for that tooling, and the shared test helper
 ```
@@ -158,10 +194,13 @@ Each extension goes out down four channels, built from two packages:
 
 | Channel | Package | Add-on ID | Updates come from |
 | --- | --- | --- | --- |
-| addons.mozilla.org | the source tree | `youtube@peacebestill.fyi` | Mozilla |
+| addons.mozilla.org | the source tree | `<site>@peacebestill.fyi` | Mozilla |
 | Chrome Web Store | the source tree | assigned by Google | Google |
-| Self-hosted Firefox | + `update_url`s, own ID | `youtube-selfhosted@peacebestill.fyi` | the `.json` below |
+| Self-hosted Firefox | + `update_url`s, own ID | `<site>-selfhosted@peacebestill.fyi` | the `.json` below |
 | Self-hosted Chromium | + `update_url`s | derived from the CRX key | the `.xml` below |
+
+`<site>` is `youtube` or `linkedin`; the self-hosted Firefox ID is derived from
+the store one by `scripts/variant.mjs`, so it is never chosen by hand.
 
 Both stores reject a package that names its own update service, so the source
 tree carries no `update_url` at all and `scripts/variant.mjs` adds the two keys
@@ -179,6 +218,10 @@ constant names, so these URLs are always the newest version:
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.crx
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin.xpi
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin.crx
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin-updates.json
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin-updates.xml
 
 ### First listing on each store, by hand
 
@@ -206,6 +249,12 @@ way back from a rejection — fix the listing, dispatch the same tag again.
   dislike count is the only outbound request, it is off by default, and
   `PRIVACY.md` is the policy to link.
 
+Each extension has its own pair of variables, so each store's step is gated per
+extension: `YOUTUBE_AMO_SLUG` / `YOUTUBE_CWS_ITEM_ID`, and `LINKEDIN_AMO_SLUG` /
+`LINKEDIN_CWS_ITEM_ID`. The LinkedIn listings are the simpler pair to fill in:
+that extension makes no network request at all, in any configuration, so every
+data-use question is answered "nothing collected".
+
 ### Secrets (repository settings → Secrets and variables → Actions)
 
 | Secret | Where it comes from |
@@ -213,14 +262,17 @@ way back from a rejection — fix the listing, dispatch the same tag again.
 | `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account, and one pair signs every extension on both channels) |
 | `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` | a Google Cloud OAuth client with the Chrome Web Store API enabled, authorised once against the developer account |
 | `YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the self-hosted Chromium ID is derived from it, so it must never change |
+| `LINKEDIN_CRX_PRIVATE_KEY` | the same, for the LinkedIn extension |
 
-And two variables, not secrets: `YOUTUBE_AMO_SLUG` and `YOUTUBE_CWS_ITEM_ID`.
-Each names a listing that exists, and each gates its own store's step, so a
-release before either listing simply skips it.
+And four variables, not secrets: `YOUTUBE_AMO_SLUG`, `YOUTUBE_CWS_ITEM_ID`,
+`LINKEDIN_AMO_SLUG` and `LINKEDIN_CWS_ITEM_ID`. Each names a listing that
+exists, and each gates one store's step for one extension, so a release before
+a listing simply skips it.
 
     mkdir -p ~/.config/peacebestill
     openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
-    node scripts/pack-crx.mjs --key ~/.config/peacebestill/youtube-crx-key.pem --id   # the Chromium ID
+    openssl genrsa -out ~/.config/peacebestill/linkedin-crx-key.pem 2048
+    node scripts/pack-crx.mjs --key ~/.config/peacebestill/linkedin-crx-key.pem --id   # the Chromium ID
 
 Each extension needs its own key, since the Chromium ID is derived from it and
 two extensions cannot share an ID. Keep the PEMs out of the repo (`.gitignore`
