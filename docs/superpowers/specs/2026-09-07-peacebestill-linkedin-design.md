@@ -17,6 +17,11 @@ switch, and which of them are on is the user's business.
 Its centrepiece, and the first thing it ships, is a switch that turns the whole
 site off.
 
+**Firefox first.** The YouTube extension has just gone out as a Firefox add-on,
+with the Chrome Web Store listing still to come. LinkedIn follows the same
+order, which the release pipeline already supports: a store step whose listing
+variable is unset is skipped, not failed.
+
 ## The blackout switch
 
 `blackout` — *"Replace LinkedIn with a better idea"* — replaces every
@@ -51,6 +56,14 @@ reading "(3) Feed | LinkedIn" behind a blank page undercuts the whole point.
 LinkedIn is a single-page app and rewrites the title as it navigates, so this is
 re-applied from the same MutationObserver that serves the other title work,
 rather than set once.
+
+**It costs nothing on mobile.** Hiding `body` and generating text on `html`
+depends on no LinkedIn markup whatsoever, so `blackout` works identically on
+Firefox for Android without a second set of rules — unlike the YouTube
+extension, whose mobile site is a separate application needing its own
+selectors. The same is true of the other three v1 switches, which are URL and
+title logic. Every switch this extension ships at v1.0 therefore works on
+Android for free.
 
 **Not in scope for this switch.** Hiding `body` does not stop LinkedIn's
 scripts, polling or telemetry — they carry on behind a blank page. A
@@ -115,11 +128,14 @@ per declared group and an empty one would show as an empty box.
 - `manifest.json` — MV3; `permissions: ["storage"]` and no `host_permissions`;
   one content script on `*://www.linkedin.com/*` at `document_start` loading
   `hide.css` and then `core.js`, `content.js`; embedded `options_ui`;
-  `browser_specific_settings.gecko` with `id: linkedin@peacebestill.fyi`,
-  `strict_min_version: "142.0"` and the Firefox `update_url`; a top-level
-  `update_url` for Chromium; `minimum_chrome_version: "120"`.
-  `data_collection_permissions` is `required: ["none"]` with **no** optional
-  entry: this extension makes no network requests of any kind.
+  `browser_specific_settings.gecko` with `id: linkedin@peacebestill.fyi` and
+  `strict_min_version: "142.0"`, plus `gecko_android` at the same minimum;
+  `minimum_chrome_version: "120"`. **No `update_url`, at either level** — the
+  source tree is the package both stores receive, and both reject one that
+  names its own update service; `scripts/variant.mjs` adds the two keys back
+  for the self-hosted build. `data_collection_permissions` is
+  `required: ["none"]` with **no** optional entry: this extension makes no
+  network requests of any kind.
 - `core.js` — a new file following the YouTube one's structure, not a copy of
   it. Same published surface (`GROUPS`, `FEATURES`, `KEYS`, `defaults`,
   `withDefaults`, `effective`, `isDefaultValue`, `redundantKeys`, `parentOf`,
@@ -129,6 +145,7 @@ per declared group and an empty one would show as an empty box.
 - `hide.css` — one rule per feature, gated on a token in `data-peacebestill` on
   the root element, so the stylesheet is fully static and a toggle reaches open
   tabs without a reload. Rules only hide, except `blackout` as described above.
+  No second mobile block: see the Android note under the blackout switch.
 - `content.js` — reads `storage.sync`, writes the enabled keys to
   `document.documentElement.dataset.peacebestill`, re-applies on
   `storage.onChanged`, performs any redirect, and runs one debounced
@@ -142,6 +159,11 @@ per declared group and an empty one would show as an empty box.
   an optional data-collection permission.
 - `icons/` — its own SVG-derived PNG set at 16/32/48/96/128.
 
+**Host matching.** `www.linkedin.com` serves the mobile web too, so one match
+pattern is expected to cover desktop and Android. If a paste later shows an
+`m.` or `touch.` host in play, adding it is a one-line change — but it is not
+being guessed at now, on the same principle as the selectors.
+
 **Known limitation, shared with the YouTube extension.** The attribute is set
 after an asynchronous storage read, so a fast connection can render a frame of
 LinkedIn before it applies. Accepted for consistency rather than solved with a
@@ -150,9 +172,11 @@ mechanism this one extension would not share.
 ## Verification
 
 The YouTube extension confirms its selectors by driving a signed-out headless
-browser through live pages and reporting, per switch, how many targets exist and
-how many are still rendered. LinkedIn puts essentially everything behind a
-login, so that audit cannot exist here, and there is no substitute for it.
+browser through live pages — desktop, and now mobile — and reporting, per
+switch, how many targets exist and how many are still rendered. LinkedIn puts
+essentially everything behind a login, so that audit cannot exist here, and
+there is no substitute for it. `extensions/linkedin/` therefore has no `audit/`
+directory and the repo gains no `audit:*` scripts for it.
 
 Pasted markup is treated as throwaway research: it is read in the session that
 needs it and is **not** committed, in any form, scrubbed or synthetic. A
@@ -171,34 +195,63 @@ What this means in practice, and what the README must say plainly so the missing
 - When LinkedIn changes its markup, a switch stops working silently. The fix is
   a fresh paste of the page and a corrected rule.
 
+None of this touches v1.0, whose four switches use no selectors at all.
+
 ## Distribution
 
-Every extension in this repo shares the repo's version, and one tag releases
-them all, so adding a second extension means the existing release path grows
-rather than forks.
+Every extension in this repo shares the repo's version and one tag releases them
+all, so adding a second extension grows the existing pipeline rather than
+forking it. Each extension goes out down four channels built from two packages,
+exactly as the YouTube one does:
 
-- `package.json` — adds `lint:linkedin` and `build:linkedin`; `lint` and
-  `build` run both extensions. The unprefixed `start:firefox` and
-  `start:chromium` become `:youtube` and `:linkedin` variants, which is a
-  break to the documented developer commands, so the README changes with them.
-  No `audit:*` scripts for LinkedIn.
-- `release.yml` — a `web-ext sign` step and a CRX pack step for the new
-  extension, `extensions/linkedin/src` added to the `check-version.mjs`
-  arguments, and four more assets on the release:
-  `peacebestill-linkedin.{xpi,crx}` and
+| Channel | Package | Add-on ID | Updates come from |
+| --- | --- | --- | --- |
+| addons.mozilla.org | the source tree | `linkedin@peacebestill.fyi` | Mozilla |
+| Chrome Web Store | the source tree | assigned by Google | Google |
+| Self-hosted Firefox | + `update_url`s, own ID | `linkedin-selfhosted@peacebestill.fyi` | the release's `.json` |
+| Self-hosted Chromium | + `update_url`s | derived from the CRX key | the release's `.xml` |
+
+The self-hosted Firefox ID is produced by `variant.mjs`'s `selfHostedId`, so it
+follows from the manifest ID and needs no separate decision.
+
+- `package.json` — adds `lint:linkedin`, `build:linkedin:store` and
+  `build:linkedin:selfhosted` alongside a `build:linkedin` that runs both, with
+  `lint` and `build` covering both extensions. The unprefixed `start:firefox`
+  and `start:chromium` become `:youtube` and `:linkedin` variants, which breaks
+  the documented developer commands, so the README changes with them. No
+  `audit:*` scripts.
+- `release.yml` and `publish-stores.yml` — `extensions/linkedin/src` added to
+  the `check-version.mjs` arguments, a sign step, a CRX pack step, and the two
+  store steps, each gated on its own repository variable (`LINKEDIN_AMO_SLUG`,
+  `LINKEDIN_CWS_ITEM_ID`) the way the YouTube ones are. Four more assets on the
+  release: `peacebestill-linkedin.{xpi,crx}` and
   `peacebestill-linkedin-updates.{json,xml}`.
-- A new repository secret, `LINKEDIN_CRX_PRIVATE_KEY`, from a PEM generated
-  locally the way the README already documents. Each extension needs its own
-  key, since the Chromium ID derives from it and two extensions cannot share an
-  ID.
-- A new shared test in `test/`: every `extensions/*/src/manifest.json` version
-  equals `package.json`'s. Keeping versions in step by hand was a one-file job
-  with one extension and is a two-file job now.
+- One new secret, `LINKEDIN_CRX_PRIVATE_KEY`, from a PEM generated locally the
+  way the README documents. Each extension needs its own key, since the
+  self-hosted Chromium ID derives from it and two extensions cannot share an ID.
+  **Generate it as part of building the chassis, even though Chrome comes
+  later.** It is one `openssl` command, it never expires, and it keeps the
+  release job a straight copy of the YouTube block. The alternative — gating the
+  pack step and building the release's asset list conditionally — is real bash
+  complexity bought to defer a two-minute task.
+- `bump.mjs` already discovers every `extensions/*/src/manifest.json` and writes
+  the version to all of them, and `check-version.mjs` refuses a disagreeing tag,
+  so the second extension needs no change there and no new version-guard test.
+- `PRIVACY.md` — currently written as though YouTube is the only extension: it
+  describes "the one network request" and names a content script on
+  `www.youtube.com`. It needs restructuring so the shared promise stays at the
+  top and the per-extension specifics sit under it. LinkedIn's entry is the
+  short one: no network requests at all, in any configuration.
 - `README.md` — a row in the extensions table, a section describing the
-  switches, the Verification note above, and the updated developer commands.
+  switches, the Verification note above, the new secret and variables, and the
+  updated developer commands.
 
 ## Out of scope
 
+- **The Chrome Web Store listing.** Firefox first, matching the YouTube
+  extension's current state. The CWS step is gated on `LINKEDIN_CWS_ITEM_ID`,
+  so it skips until the listing exists, and `publish-stores.yml` can then push
+  an already-shipped tag to it without inventing a version.
 - **system-setups.** Adding `PeaceBeStill - LinkedIn` to the Firefox and
   Chromium enterprise policy lists is a separate job in a separate repository,
   taken up once this extension has shipped a release with assets to point at.
@@ -209,14 +262,16 @@ rather than forks.
 ## Workflow
 
 1. Build the chassis: manifest, `core.js`, `content.js`, `hide.css`, options
-   page, icons, unit tests, the `package.json` and `release.yml` wiring, and
-   the README changes. `web-ext lint` clean, `npm test` green.
-2. Check `blackout` and the redirects by hand in both browsers — Firefox
-   `about:debugging` → Load Temporary Add-on, Chromium `chrome://extensions` →
-   Load unpacked.
+   page, icons, unit tests, the `package.json`, `release.yml`,
+   `publish-stores.yml`, `PRIVACY.md` and README changes. `web-ext lint` clean,
+   `npm test` green.
+2. Check `blackout` and the redirects by hand — Firefox `about:debugging` →
+   Load Temporary Add-on, and Firefox for Android.
 3. Generate the CRX key, add `LINKEDIN_CRX_PRIVATE_KEY`, tag a release, and
    confirm it carries eight assets and that both new update manifests parse.
-4. Thereafter, one pasted page at a time: read the markup, add the switches,
+4. Create the AMO listing by hand, set `LINKEDIN_AMO_SLUG`, and dispatch
+   `publish-stores.yml` for the tag already shipped.
+5. Thereafter, one pasted page at a time: read the markup, add the switches,
    check them in a browser, commit.
 
 ## Acceptance
@@ -233,7 +288,11 @@ rather than forks.
   other page alone; with more than one on, the first in table order wins.
 - With `notificationCount` on, the tab title loses its leading "(3) " and keeps
   it off as LinkedIn navigates.
+- All four switches behave the same on Firefox for Android as on the desktop.
 - The extension makes no network requests at all, in any configuration.
 - Toggling on the options page changes open tabs without a reload.
+- The source tree carries no `update_url`; the self-hosted build carries both,
+  and a distinct Firefox ID.
 - A tagged release yields a Mozilla-signed XPI, a CRX with a stable ID, and two
-  valid update manifests for **each** extension, all at constant URLs.
+  valid update manifests for **each** extension, all at constant URLs, with the
+  store steps skipping cleanly while their listings do not exist.
