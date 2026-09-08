@@ -28,9 +28,11 @@ jobs:
       YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
       CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
       YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
+      LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
+      LINKEDIN_CWS_ITEM_ID: ${{ vars.LINKEDIN_CWS_ITEM_ID }}
     steps:
       - name: At least one store has to be configured
-        if: (env.AMO_JWT_ISSUER == '' || env.YOUTUBE_AMO_SLUG == '') && (env.CWS_CLIENT_ID == '' || env.YOUTUBE_CWS_ITEM_ID == '')
+        if: (env.AMO_JWT_ISSUER == '' || (env.YOUTUBE_AMO_SLUG == '' && env.LINKEDIN_AMO_SLUG == '')) && (env.CWS_CLIENT_ID == '' || (env.YOUTUBE_CWS_ITEM_ID == '' && env.LINKEDIN_CWS_ITEM_ID == ''))
         run: |
           echo "::error::No store credentials are set, so this run would publish nothing."
           exit 1
@@ -47,7 +49,7 @@ jobs:
       # Guards against dispatching a tag whose manifests say something else,
       # which would put the wrong version number on a store listing.
       - name: The tag must match every extension's manifest version
-        run: node scripts/check-version.mjs "${{ inputs.tag }}" extensions/youtube/src
+        run: node scripts/check-version.mjs "${{ inputs.tag }}" extensions/youtube/src extensions/linkedin/src
 
       - name: Build the store package
         run: npm run build
@@ -70,3 +72,22 @@ jobs:
         run: |
           node scripts/publish-cws.mjs --item "$YOUTUBE_CWS_ITEM_ID" \
             --zip dist/peacebestill-youtube-store.zip
+
+      - name: Submit LinkedIn to addons.mozilla.org (listed)
+        if: env.AMO_JWT_ISSUER != '' && env.LINKEDIN_AMO_SLUG != ''
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx web-ext sign --source-dir extensions/linkedin/src \
+            --artifacts-dir dist/amo --channel listed
+
+      - name: Publish LinkedIn to the Chrome Web Store
+        if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          node scripts/publish-cws.mjs --item "$LINKEDIN_CWS_ITEM_ID" \
+            --zip dist/peacebestill-linkedin-store.zip
