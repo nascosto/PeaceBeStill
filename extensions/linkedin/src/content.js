@@ -164,17 +164,25 @@
       // Upsells, told from the "Premium" badge a company or member carries by
       // the verb in front: "Try Premium for $0" is an advert, "GitHub, Premium"
       // is not.
-      ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock)\b.*\bPremium\b/)],
+      // "Who your viewers also viewed" is a Premium feature dressed as a panel.
+      ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock)\b.*\bPremium\b/)
+        .concat(labelled(/^Who your viewers also viewed$/))],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
       ["composer", () => labelled(/^Start a post$/)],
       // Not scoped to a page: LinkedIn puts these beside the feed, on profiles,
       // on My Network and in search results. The heading names the place --
       // "People you may know in Salt Lake City" -- so it matches the opening.
       ["pymk", () => labelled(/^People you may know/)],
-      // A post in the feed can be headed "Suggested for you" as well, and that
-      // is a post, not a panel: the feed pass already deals with those.
-      ["suggestions", () => labelled(/^(Suggested|Suggestions|Follow suggestions|More profiles) for you$/)
-        .filter((el) => !el.closest('[data-testid="mainFeed"]'))],
+      // Three panels wearing similar names, and three different features: what
+      // a profile suggests, what My Network suggests, and what Jobs suggests.
+      // Each is scoped to the page it belongs to, and a post in the feed headed
+      // "Suggested for you" is a post, which the feed pass already deals with.
+      ["profileSuggestions", () => (path.startsWith("/in/")
+        ? labelled(/^(Suggested for you|Pages for you|You might like|More profiles for you)$/) : [])],
+      ["networkSuggestions", () => (path.startsWith("/mynetwork")
+        ? labelled(/^(Suggestions for you|Follow suggestions for you)$/) : [])],
+      ["jobsSuggestions", () => (path.startsWith("/jobs")
+        ? labelled(/^More jobs for you$/) : [])],
     ];
     const found = specs.map(([kind, find]) => [kind, find()]);
     // Treated as another panel's label by every kind, so no box grows past one.
@@ -183,7 +191,11 @@
     // fence a panel in: without this the Premium button inside the composer
     // stopped the composer growing past its first row. A panel that swallows an
     // advert hides it too, which is the wanted result either way.
-    const POROUS = new Set(["premium", "otherAds"]);
+    // An advert of any kind sitting inside a panel is part of that panel, so
+    // adverts do not fence a panel in: the promoted jobs are inside "More jobs
+    // for you", and treating them as a foreign panel left that section as a
+    // heading with the jobs still under it.
+    const POROUS = new Set(["premium", "otherAds", "jobsPromoted", "sponsored"]);
     for (const [kind, els] of found) {
       const foreign = found
         .filter(([other]) => other !== kind && !POROUS.has(other))
@@ -257,7 +269,8 @@
   }
 
   const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news",
-    "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "premium", "otherAds", "ads"];
+    "jobsPromoted", "peopleYouMayKnow", "profileSuggestions", "networkSuggestions",
+    "jobsSuggestions", "composer", "premium", "otherAds", "ads"];
 
   // LinkedIn is a single-page app: it rewrites the title and renders the feed
   // long after load, so everything here is redone on mutation rather than once.

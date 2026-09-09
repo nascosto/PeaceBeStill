@@ -67,7 +67,9 @@ html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
    covers. */
 html[data-peacebestill~="jobsPromoted"] [data-pbs~="jobsPromoted"] { display: none !important; }
 html[data-peacebestill~="peopleYouMayKnow"] [data-pbs~="pymk"] { display: none !important; }
-html[data-peacebestill~="suggestions"] [data-pbs~="suggestions"] { display: none !important; }
+html[data-peacebestill~="profileSuggestions"] [data-pbs~="profileSuggestions"] { display: none !important; }
+html[data-peacebestill~="networkSuggestions"] [data-pbs~="networkSuggestions"] { display: none !important; }
+html[data-peacebestill~="jobsSuggestions"] [data-pbs~="jobsSuggestions"] { display: none !important; }
 
 /* The box that invites you to post, above the feed. */
 html[data-peacebestill~="composer"] [data-pbs~="composer"] { display: none !important; }
@@ -101,7 +103,10 @@ html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(> butt
 
 /* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's
    older screens, whose class names are not hashed and whose ids are stable. */
-html[data-peacebestill~="messagingOverlay"] aside#msg-overlay { display: none !important; }
+html[data-peacebestill~="messagingOverlay"] aside#msg-overlay,
+html[data-peacebestill~="messagingOverlay"] aside[class*="msg-overlay"],
+html[data-peacebestill~="messagingOverlay"] [class*="msg-overlay-list-bubble"],
+html[data-peacebestill~="messagingOverlay"] [id^="msg-overlay"] { display: none !important; }
 
 /* Hiding a destination takes its page too, not just its place in the top bar:
    content.js puts the destination this page belongs to in data-pbs-page. */

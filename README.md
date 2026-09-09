@@ -95,7 +95,7 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Twenty-eight settings, and the first one is the blunt one.
+Thirty settings, and the first one is the blunt one.
 
 - **Hide everything** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole

@@ -83,11 +83,22 @@ export async function linkedInTab(port = devPort()) {
     target = await rdp.request({ to: t.actor, type: "getTarget" }, (m) => !!m.frame);
     consoleActor = target.frame.consoleActor;
   };
-  // Every evaluation is matched back by the id the server gives it. Waiting for
-  // "the next evaluationResult" instead looks fine until two are in flight --
-  // the navigation poll and the thing being measured -- and then each gets the
-  // other's answer.
-  const evaluate = async (text) => {
+  // Evaluations run one at a time. Correlating results by id is not enough on
+  // its own: the acknowledgements are alike too, so two in flight can take each
+  // other's, and then each waits on the other's result. Queueing them removes
+  // the question rather than answering it.
+  let queue = Promise.resolve();
+  const evaluate = (text) => {
+    const run = queue.then(() => evaluateNow(text), () => evaluateNow(text));
+    queue = run.then(() => {}, () => {});
+    return run;
+  };
+
+  const evaluateNow = async (text) => {
+    // Anything left over from an evaluation nobody is waiting for any more --
+    // an abandoned navigation poll, say -- would otherwise be sitting in the
+    // buffer ready to be handed to the next caller.
+    rdp.events = rdp.events.filter((m) => m.type !== "evaluationResult");
     // The acknowledgement and the result both carry a resultID, so matching on
     // that alone hands back a stale result from an earlier evaluation. Only the
     // result carries type: "evaluationResult".
@@ -95,7 +106,7 @@ export async function linkedInTab(port = devPort()) {
       { to: consoleActor, type: "evaluateJSAsync", text, mapped: { await: true } },
       (m) => (m.resultID && m.type !== "evaluationResult") || m.error,
     );
-    if (ack.error === "noSuchActor") { await reacquire(); return evaluate(text); }
+    if (ack.error === "noSuchActor") { await reacquire(); return evaluateNow(text); }
     if (ack.error) throw new Error(`${ack.error}: ${ack.message}`);
     const res = await rdp.await((m) => m.type === "evaluationResult" && m.resultID === ack.resultID);
     if (res.exception) {

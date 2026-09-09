@@ -57,7 +57,17 @@ const SNAPSHOT = `JSON.stringify((() => {
     .filter((e) => e.getClientRects().length).length;
   const shownText = (needle) => [...document.querySelectorAll("h1,h2,h3,p,span,div,button")]
     .filter((e) => !e.children.length && (e.textContent || "").trim().startsWith(needle) && e.getClientRects().length).length;
-  const out = { probes: {}, feedItems: shown('[data-testid="mainFeed"] [role="listitem"]') };
+  const out = { probes: {}, feedItems: shown('[data-testid="mainFeed"] [role="listitem"]'), marks: {} };
+  // What the extension itself marked, and how much of it still renders. This
+  // is the extension's own record, not the harness's, and it tells "took
+  // nothing" apart from "had nothing to take".
+  for (const el of document.querySelectorAll("[data-pbs]")) {
+    for (const kind of (el.getAttribute("data-pbs") || "").split(/\s+/).filter(Boolean)) {
+      const seen = out.marks[kind] || (out.marks[kind] = { found: 0, showing: 0 });
+      seen.found++;
+      if (el.getClientRects().length) seen.showing++;
+    }
+  }
   for (const [name, selector] of Object.entries(${JSON.stringify(PROBES)})) out.probes[name] = shown(selector);
   for (const [name, needle] of Object.entries(${JSON.stringify(BY_TEXT)})) out.probes[name] = shownText(needle);
   return out;
@@ -90,7 +100,19 @@ async function store(settings) {
 async function look(path) {
   await tab.goTo("https://www.linkedin.com" + path);
   await settle(7000);
-  return JSON.parse(await tab.evaluate(SNAPSHOT));
+  // Three attempts at getting our own answer back. The debugging protocol has
+  // handed us another evaluation's result more than once, and rather than keep
+  // guessing at why, the reading is simply checked and taken again: a snapshot
+  // is a known shape, so a wrong answer is obvious.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const raw = await tab.evaluate(SNAPSHOT);
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.probes && typeof parsed.feedItems === "number") return parsed;
+    } catch { /* not ours; ask again */ }
+    await settle(1000);
+  }
+  throw new Error("could not read the page after three attempts");
 }
 
 try {
@@ -107,7 +129,18 @@ try {
       const now = await look(path);
       const suspected = present.filter((name) => now.probes[name] === 0);
       const feedTook = base.feedItems - now.feedItems;
-      if (!suspected.length && feedTook <= 0) continue;
+      const marked = now.marks[key === "peopleYouMayKnow" ? "pymk" : key];
+      // A setting with targets that hid none of them is the interesting case,
+      // and it used to look exactly like a setting with nothing to do.
+      if (marked && marked.showing > 0) {
+        console.log(`  ${key.padEnd(17)} FAILED: ${marked.showing} of ${marked.found} marked still showing`);
+        continue;
+      }
+      if (!suspected.length && feedTook <= 0 && !marked) continue;
+      if (!suspected.length && feedTook <= 0 && marked) {
+        console.log(`  ${key.padEnd(17)} ${marked.found} marked, all hidden`);
+        continue;
+      }
 
       // LinkedIn does not put the same page up twice: a panel missing once is
       // as likely to be a panel that did not render as one that was hidden. So
@@ -122,9 +155,21 @@ try {
       const took = suspected.filter((name) => after.probes[name] > 0 && again.probes[name] === 0);
       const feedBack = after.feedItems;
       const what = [...took];
-      if (feedTook > 0 && feedBack >= base.feedItems - 1) {
-        what.push(`${feedTook} of ${base.feedItems} feed items`);
+      // The feed count has to earn its place the same way a probe does. It
+      // drifts on its own -- LinkedIn mounts and unmounts posts as you go --
+      // so a drop counts only if it happened both times the setting was on and
+      // did not happen when it was off. Without this, seven settings that
+      // never touch a post each appeared to take one.
+      const droppedTwice = feedTook > 0 && base.feedItems - again.feedItems > 0;
+      const recovered = after.feedItems >= base.feedItems - 1;
+      if (droppedTwice && recovered) {
+        const drop = Math.min(feedTook, base.feedItems - again.feedItems);
+        what.push(`${drop} of ${base.feedItems} feed items`);
       }
+      // What the extension marked for this setting, and whether it went.
+      const MARK_OF = { rightRailAds: "otherAds", peopleYouMayKnow: "pymk" };
+      const mark = now.marks[MARK_OF[key] || key];
+      if (mark) what.push(`${mark.found - mark.showing} of ${mark.found} marked`);
       const phantom = suspected.filter((name) => !took.includes(name));
       if (!what.length && !phantom.length) continue;
       if (what.length) console.log(`  ${key.padEnd(17)} ${what.join(", ")}`);
