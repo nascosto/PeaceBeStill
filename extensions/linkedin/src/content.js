@@ -47,6 +47,26 @@
     if (sheet.textContent !== css) sheet.textContent = css;
   }
 
+  // A rule between rows is only wanted when something renders on both sides of
+  // it. Marks cannot settle that on their own -- which rows are hidden depends
+  // on which switches are on -- so it is decided from what the page is showing,
+  // and only in lists this extension has marked something in, so a list it has
+  // not touched keeps whatever rules LinkedIn drew.
+  function tidyRules() {
+    for (const rule of document.querySelectorAll("hr")) {
+      const parent = rule.parentElement;
+      if (!parent || !parent.querySelector("[data-pbs]")) continue;
+      const kin = [...parent.children];
+      const at = kin.indexOf(rule);
+      const renders = (el) => !!el && (el.getClientRects().length > 0
+        || [...el.querySelectorAll("*")].slice(0, 40).some((e) => e.getClientRects().length > 0));
+      const before = kin.slice(0, at).reverse().find((el) => el.tagName !== "HR");
+      const after = kin.slice(at + 1).find((el) => el.tagName !== "HR");
+      const wanted = renders(before) && renders(after) ? "" : "none";
+      if (rule.style.display !== wanted) rule.style.display = wanted;
+    }
+  }
+
   function apply() {
     document.documentElement.dataset.peacebestill = tokensFor(settings);
     // Which destination this page belongs to, so the stylesheet can take the
@@ -158,8 +178,12 @@
       // while the box is still label-sized, and refused once it is not --
       // which is where the advert on My Network stopped being the advert and
       // started being "Manage my network" as well.
+      // The same measure as "already a panel" above, rather than a smaller one:
+      // a heading block can be 69px tall, and calling that panel-sized stopped
+      // "More jobs for you" at its own heading. What keeps a label from running
+      // away is the neighbours it must not swallow, not its own size.
       const nodeHeight = node.getBoundingClientRect().height;
-      if (nodeHeight >= 40 && parentHeight > nodeHeight * 2.5) break;
+      if (nodeHeight >= PANEL_SIZE && parentHeight > nodeHeight * 2.5) break;
       node = parent;
     }
     return node;
@@ -219,14 +243,17 @@
     // fence a panel in: without this the Premium button inside the composer
     // stopped the composer growing past its first row. A panel that swallows an
     // advert hides it too, which is the wanted result either way.
-    // An advert of any kind sitting inside a panel is part of that panel, so
-    // adverts do not fence a panel in: the promoted jobs are inside "More jobs
-    // for you", and treating them as a foreign panel left that section as a
-    // heading with the jobs still under it.
-    const POROUS = new Set(["premium", "otherAds", "jobsPromoted", "sponsored"]);
+    // An advert sitting inside a panel is part of that panel, so adverts do not
+    // fence a panel in: the promoted jobs are inside "More jobs for you", and
+    // treating them as a foreign panel left that section as a heading with the
+    // jobs still under it. But one advert does not grow through another -- a
+    // Premium upsell on the jobs page did exactly that and took a job listing
+    // with it -- so this holds only for a panel that is not itself an advert.
+    const ADVERTS = new Set(["premium", "otherAds", "jobsPromoted", "sponsored"]);
     for (const [kind, els] of found) {
+      const porous = ADVERTS.has(kind) ? new Set() : ADVERTS;
       const foreign = found
-        .filter(([other]) => other !== kind && !POROUS.has(other))
+        .filter(([other]) => other !== kind && !porous.has(other))
         .flatMap(([, e]) => e)
         .concat(neighbours);
       for (const el of els) {
@@ -278,18 +305,30 @@
     // LinkedIn rules off its lists with <hr> between the items rather than a
     // border on each, so hiding an item leaves its line behind and the list
     // ends up a run of rules with nothing between them. Each item takes the
-    // rule that follows it, or the one before it if it is the last.
+    // rule that follows it.
     for (const marked of [...document.querySelectorAll("[data-pbs]")]) {
       const kind = marked.getAttribute("data-pbs");
       for (let node = marked; node && node !== document.body; node = node.parentElement) {
         const after = node.nextElementSibling;
-        const before = node.previousElementSibling;
-        const rule = (after && after.tagName === "HR") ? after
-          : (before && before.tagName === "HR") ? before : null;
-        if (!rule) continue;
-        if (!rule.hasAttribute("data-pbs")) rule.setAttribute("data-pbs", kind);
+        if (!after || after.tagName !== "HR") continue;
+        if (!after.hasAttribute("data-pbs")) after.setAttribute("data-pbs", kind);
         break;
       }
+    }
+
+    // A rule at either end of a list has no row after it to belong to, so it
+    // is left behind as a bare line once its neighbour goes. It belongs to the
+    // row on the side it does have.
+    for (const rule of [...document.querySelectorAll("hr")]) {
+      if (rule.hasAttribute("data-pbs") || !rule.parentElement) continue;
+      const kin = [...rule.parentElement.children];
+      const at = kin.indexOf(rule);
+      const before = kin.slice(0, at).reverse().find((el) => el.tagName !== "HR");
+      const after = kin.slice(at + 1).find((el) => el.tagName !== "HR");
+      const lonely = !before ? after : !after ? before : null;
+      const kind = lonely && (lonely.getAttribute("data-pbs")
+        || (lonely.firstElementChild && lonely.firstElementChild.getAttribute("data-pbs")));
+      if (kind) rule.setAttribute("data-pbs", kind);
     }
 
     // Two labels of one kind inside one panel -- "Unlock Premium tools" and the
@@ -330,6 +369,7 @@
     if (MARKED.some((key) => settings[key])) {
       markFeedItems();
       markModules();
+      tidyRules();
     }
   }
 
@@ -354,6 +394,7 @@
     if (redirectIfAsked()) return;
     apply();
     styleShadow();
+    tidyRules();
     watchDom();
   }
 

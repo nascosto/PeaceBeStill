@@ -72,7 +72,9 @@ const panels = () => core +
       display: getComputedStyle(el).display,
       // Space the parent keeps once the panel is gone, with nothing else in it
       // to justify it: an empty box where a card used to be.
-      emptyBoxLeft: leftovers.length === 0 ? Math.round(parentAfter) : 0,
+      // A rule between rows is a couple of pixels and has no siblings that
+      // render on their own, so it always looked like it left an empty box.
+      emptyBoxLeft: leftovers.length === 0 && before.height > 4 ? Math.round(parentAfter) : 0,
       // How much of the column this box claims. A panel is a part of a column,
       // never nearly all of it.
       shareOfColumn: (() => {
