@@ -30,6 +30,8 @@ const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games",
 const MARK_OF = { peopleYouMayKnow: "pymk" };
 // Switches that hide a container outright, with the selector they use.
 const CONTAINERS = {
+  // The parent switch repeats what its children do, so it is checked as one.
+  ads: '[data-pbs~="sponsored"], [data-pbs~="otherAds"], [data-pbs~="premium"], [data-pbs~="jobsPromoted"]',
   feed: '[data-testid="mainFeed"]',
   rightRail: 'aside[aria-label="Aside"]',
   leftRail: 'aside[aria-label="Sidebar"]',
@@ -70,6 +72,13 @@ const panels = () => core +
       // Space the parent keeps once the panel is gone, with nothing else in it
       // to justify it: an empty box where a card used to be.
       emptyBoxLeft: leftovers.length === 0 ? Math.round(parentAfter) : 0,
+      // How much of the column this box claims. A panel is a part of a column,
+      // never nearly all of it.
+      shareOfColumn: (() => {
+        const column = el.closest('aside[aria-label], section[aria-label], main');
+        const room = column ? column.getBoundingClientRect().height : 0;
+        return room > 0 ? Math.round((before.height / room) * 100) : 0;
+      })(),
       leftovers: leftovers.slice(0, 2),
       text: (el.textContent || "").trim().slice(0, 34),
     });
@@ -111,8 +120,11 @@ const collateral = (keys, markOf, containers) => core +
   const rootEl = document.documentElement;
   const wasOn = rootEl.dataset.peacebestill || "";
   rootEl.dataset.peacebestill = "";
+  // Rendered, not "display is not none": a child of a hidden box keeps its own
+  // computed display, so a switch that swallowed a neighbouring panel looked
+  // innocent. getClientRects is empty for anything inside a hidden ancestor.
   const visible = () => new Set([...document.querySelectorAll("body *")]
-    .filter((e) => getComputedStyle(e).display !== "none"));
+    .filter((e) => e.getClientRects().length > 0));
   const before = visible();
   const markOf = ${JSON.stringify(markOf)};
   const containers = ${JSON.stringify(containers)};
@@ -160,7 +172,9 @@ try {
       const found = JSON.parse(await evaluate(panels()));
       console.log("\n" + found.path + "  (panels)");
       for (const panel of found.panels) {
-        const complaint = panel.emptyBoxLeft > 8 ? `  <-- leaves a ${panel.emptyBoxLeft}px box` : "";
+        const complaint = panel.shareOfColumn >= 60 ? `  <-- ${panel.shareOfColumn}% of its column`
+          : panel.emptyBoxLeft > 8 ? `  <-- leaves a ${panel.emptyBoxLeft}px box` : "";
+        if (panel.shareOfColumn >= 60) problems++;
         console.log(`  ${panel.kind.padEnd(16)} ${String(panel.height).padStart(5)}px ${panel.display.padEnd(9)} ${JSON.stringify(panel.text)}${complaint}`);
         if (panel.leftovers.length) console.log(`  ${"".padEnd(16)} beside it: ${JSON.stringify(panel.leftovers)}`);
       }

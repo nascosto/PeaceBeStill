@@ -77,6 +77,8 @@
   // them all: LinkedIn puts seven wrappers between "Start a post" and the
   // composer box, while an advert or an upsell is a small box near its label
   // and given the same room swallows the whole column.
+  // A box this tall is a panel in its own right, not a label pointing at one.
+  const PANEL_SIZE = 100;
   const DEPTH = { composer: 8, premium: 6 };
   const DEFAULT_DEPTH = 6;
 
@@ -97,6 +99,25 @@
       // that panel and started on the next -- which is how hiding the advert
       // on My Network was taking "Manage my network" with it.
       if (headings(node) >= 1 && headings(parent) > headings(node)) break;
+      // A list item is its own thing. Growing out of one into the list takes
+      // its neighbours with it -- which is how hiding Premium adverts was
+      // hiding the "For Business" menu sitting beside one in the top bar.
+      if (/^(UL|OL|NAV)$/.test(parent.tagName)) break;
+      // And a panel is never most of the column it sits in. The rules above
+      // depend on finding a landmark -- another label, a second heading, a
+      // list -- and a column of plain divs offers none, which is how hiding
+      // the advert on My Network was taking the whole sidebar, "Manage my
+      // network" and all, since that heading is not a heading element.
+      const roomy = root.getBoundingClientRect().height;
+      const parentHeight = parent.getBoundingClientRect().height;
+      if (roomy > 0 && parentHeight > roomy * 0.6) break;
+      // A label is small and has to grow to reach its panel; a box that is
+      // already the size of a panel has arrived. So a large jump is allowed
+      // while the box is still label-sized, and refused once it is not --
+      // which is where the advert on My Network stopped being the advert and
+      // started being "Manage my network" as well.
+      const nodeHeight = node.getBoundingClientRect().height;
+      if (nodeHeight >= 40 && parentHeight > nodeHeight * 2.5) break;
       node = parent;
     }
     return node;
@@ -131,9 +152,14 @@
       ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock)\b.*\bPremium\b/)],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
       ["composer", () => labelled(/^Start a post$/)],
-      ["pymk", () => (/^\/(in|mynetwork)\//.test(path) ? labelled(/^People you may know/) : [])],
-      ["suggestions", () => (/^\/(in|mynetwork)\//.test(path)
-        ? labelled(/^(Suggested|Suggestions|Follow suggestions|More profiles) for you$/) : [])],
+      // Not scoped to a page: LinkedIn puts these beside the feed, on profiles,
+      // on My Network and in search results. The heading names the place --
+      // "People you may know in Salt Lake City" -- so it matches the opening.
+      ["pymk", () => labelled(/^People you may know/)],
+      // A post in the feed can be headed "Suggested for you" as well, and that
+      // is a post, not a panel: the feed pass already deals with those.
+      ["suggestions", () => labelled(/^(Suggested|Suggestions|Follow suggestions|More profiles) for you$/)
+        .filter((el) => !el.closest('[data-testid="mainFeed"]'))],
     ];
     const found = specs.map(([kind, find]) => [kind, find()]);
     // An advert sitting inside a panel is part of that panel, so adverts do not
@@ -157,13 +183,30 @@
         // out of the dialog before growing.
         const from = el.closest("dialog") ? el.closest("dialog").parentElement : el;
         if (!from) continue;
-        // LinkedIn wraps a whole panel in a <section>, which is exactly the box
-        // to hide when there is one; growing outwards is the fallback for the
-        // right-rail modules and job cards, which have no section of their own.
-        const section = from.closest("section");
-        const box = (section && section !== root && root.contains(section))
-          ? section
-          : growTo(from, root, foreign, kind);
+        // LinkedIn wraps a whole panel in a <section>, which is exactly the
+        // box to hide -- but it nests them: the "People who viewed your
+        // profile" panel is a section, and the carousel inside it is another.
+        // The panel is the outermost one that still passes the tests growing
+        // does, so a label may reach out to its panel while a box that is
+        // already panel-sized cannot jump into a bigger one.
+        const fromHeight = from.getBoundingClientRect().height;
+        const room = root.getBoundingClientRect().height;
+        const fits = (candidate) => {
+          if (foreign.some((other) => candidate.contains(other))) return false;
+          const height = candidate.getBoundingClientRect().height;
+          return room === 0 || height <= room * 0.6;
+        };
+        const sections = [];
+        for (let node = from; node && node !== root; node = node.parentElement) {
+          if (node.tagName === "SECTION") sections.unshift(node);
+        }
+        // A marker that is already the size of a panel is the panel: the advert,
+        // once stepped out of its menu, is the whole advert, and growing it any
+        // further only picks up whatever card sits next to it. A label is small
+        // and has to reach out to find the panel it names.
+        const box = fromHeight >= PANEL_SIZE
+          ? from
+          : (sections.find(fits) || growTo(from, root, foreign, kind));
         if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
       }
     }
