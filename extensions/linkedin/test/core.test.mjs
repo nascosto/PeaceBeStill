@@ -14,10 +14,10 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 // one chooser is empty, so a fresh install changes nothing and stores nothing.
 const DEFAULTS = [
   ...["blackout", "home", "feed", "composer", "suggested", "recommended",
-    "socialProof"].map((key) => [key, false]),
+    "socialProof", "myNetwork", "jobs", "messaging", "messagingOverlay", "notifications",
+    "notificationCount", "profile"].map((key) => [key, false]),
   ["homeRedirect", ""],
-  ...["myNetwork", "jobs", "messaging", "messagingOverlay", "notifications",
-    "notificationCount", "profile",
+  ...[
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
     "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions",

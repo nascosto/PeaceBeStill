@@ -29,6 +29,7 @@ function fakeDocument() {
         contains(n) { return this.names.has(n); },
       },
       append(...nodes) { this.children.push(...nodes); },
+      replaceChildren(...nodes) { this.children = [...nodes]; },
       setAttribute(k, v) { this.attrs[k] = String(v); },
       removeAttribute(k) { delete this.attrs[k]; },
       getAttribute(k) { return this.attrs[k] ?? null; },
@@ -107,8 +108,9 @@ test("every switch is nested under the one that covers it, one indent per level"
   const { rows } = await render();
   assert.deepEqual(rows().map((r) => r.name), [
     "blackout",
-    "home", "feed", "composer", "suggested", "recommended", "socialProof", "homeRedirect",
+    "home", "feed", "composer", "suggested", "recommended", "socialProof",
     "myNetwork", "jobs", "messaging", "messagingOverlay", "notifications", "notificationCount", "profile",
+    "homeRedirect",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
     "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
@@ -155,6 +157,21 @@ test("one switch turns off every advert, and takes their rows with it", async ()
   const hidden = rows().filter((r) => r.hidden).map((r) => r.name);
   assert.deepEqual(hidden, ["sponsored", "otherAds", "premium", "jobsPromoted"]);
   assert.equal(rows().find((r) => r.name === "ads").hidden, false);
+});
+
+test("the chooser's list is replaced on every render, not added to", async () => {
+  const { rows, change } = await render();
+  const chooser = () => rows().find((r) => r.name === "homeRedirect").box;
+  const count = chooser().children.length;
+  assert.equal(count, 5, "Home plus the four places it can send you");
+  // Every change redraws the page; the list must not grow each time.
+  await change("myNetwork", true);
+  assert.equal(chooser().children.length, 4, "My Network drops out, nothing is duplicated");
+  await change("myNetwork", false);
+  assert.equal(chooser().children.length, 5, "and comes back, still once");
+  await change("jobs", true);
+  await change("jobs", false);
+  assert.equal(chooser().children.length, 5, "still once after several redraws");
 });
 
 test("a section with nothing left to show goes too", async () => {
@@ -205,6 +222,16 @@ test("the filter narrows the list to matching switches", async () => {
   byId.filter.value = "";
   await byId.filter.listeners.input();
   assert.equal(rows().filter((r) => r.hidden).length, 0, "clearing the filter shows everything again");
+});
+
+test("a change from something that is not a setting writes nothing", async () => {
+  const { byId, writes, removes } = await render();
+  // A change event whose target is the form, not a control, must be ignored:
+  // storage here follows the browser account, so junk in it travels.
+  await byId.features.listeners.change({ target: { name: "", checked: true } });
+  await byId.features.listeners.change({ target: { name: "notASetting", checked: true } });
+  assert.deepEqual(plain(writes), []);
+  assert.deepEqual(plain(removes), []);
 });
 
 test("a storage failure is reported rather than silently pretended", async () => {

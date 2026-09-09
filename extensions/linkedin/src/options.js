@@ -47,7 +47,10 @@
     // sibling. Four is as deep as the tree goes.
     const depth = depthOf(key);
     if (depth) row.setAttribute("data-depth", String(Math.min(depth, 4)));
-    row.append(box, document.createTextNode(" " + label));
+    // A tick reads "[x] label"; a list reads "label [choices]", so the words
+    // come first and the control after.
+    if (choices) row.append(document.createTextNode(label + " "), box);
+    else row.append(box, document.createTextNode(" " + label));
     section.append(row);
     rows.push({ key, label, box, row, section, depth, choices });
   }
@@ -84,16 +87,21 @@
     for (const { key, label, box, row, choices } of rows) {
       if (choices) {
         // Rebuilt every time, because hiding a page takes it out of the list.
+        // replaceChildren, not children.length = 0: children is a live
+        // collection and assigning to its length does nothing at all, which
+        // left every render adding another copy of the list.
         const offered = choicesOffered(key, settings);
-        box.children.length = 0;
+        box.replaceChildren();
         for (const [value, text] of offered) {
           const option = document.createElement("option");
           option.value = value;
           option.textContent = text;
           box.append(option);
         }
+        // If what was picked is no longer on offer -- its page has since been
+        // hidden -- fall back to the first that is, rather than to nothing.
         const chosen = settings[key] ?? "";
-        box.value = offered.some(([value]) => value === chosen) ? chosen : "";
+        box.value = offered.some(([value]) => value === chosen) ? chosen : (offered[0] ? offered[0][0] : "");
       } else {
         box.checked = settings[key] === true;
       }
@@ -142,6 +150,10 @@
 
   form.addEventListener("change", async (event) => {
     const box = event.target;
+    // Only a control this page drew, and one it still knows about. A change
+    // event from anything else -- the form itself, say -- would otherwise write
+    // a nameless key into settings that follow the browser account.
+    if (!KEYS.includes(box.name)) return;
     if (isMoot(box.name, settings)) {
       // Covered by a switch above, so it is not on screen to be clicked; put
       // whatever it was back and ignore this.

@@ -45,6 +45,8 @@ label[data-depth="3"] { margin-left: 66px; }
 label[data-depth="4"] { margin-left: 88px; }
 input[type="checkbox"] { margin: 0; }
 
-/* The one setting that is a choice rather than a tick. */
+/* The one setting that is a choice rather than a tick: its words come first,
+   so the row is sized to the two of them rather than stretching the list. */
+label:has(select) { grid-template-columns: auto max-content; justify-content: start; align-items: center; }
 select { font: inherit; padding: 2px 4px; border: 1px solid var(--edge); border-radius: 4px;
          background: var(--page); color: var(--ink); }

@@ -29,6 +29,7 @@ function fakeDocument() {
         contains(n) { return this.names.has(n); },
       },
       append(...nodes) { this.children.push(...nodes); },
+      replaceChildren(...nodes) { this.children = [...nodes]; },
       setAttribute(k, v) { this.attrs[k] = String(v); },
       removeAttribute(k) { delete this.attrs[k]; },
       getAttribute(k) { return this.attrs[k] ?? null; },

@@ -30,7 +30,7 @@
   // Each choice names the page switch it depends on: somewhere you have hidden
   // is not somewhere to be sent, so it is neither offered nor obeyed.
   const REDIRECTS = [
-    ["", "the feed, as usual", null],
+    ["", "Home", "home"],
     ["messaging", "Messaging", "messaging"],
     ["notifications", "Notifications", "notifications"],
     ["jobs", "Jobs", "jobs"],
@@ -70,6 +70,16 @@
     if (!choices) return null;
     const merged = withDefaults(settings);
     return choices.filter(([, , needs]) => !needs || merged[needs] !== true);
+  }
+
+  // The choice actually in force: what you picked, unless you have since hidden
+  // that page, in which case the first one still on offer. Hiding Home takes
+  // "stay on Home" off the list too, so this can move you somewhere real.
+  function redirectChoice(settings) {
+    const merged = withDefaults(settings);
+    const offered = choicesOffered("homeRedirect", merged) || [];
+    if (offered.some(([value]) => value === merged.homeRedirect)) return merged.homeRedirect;
+    return offered.length ? offered[0][0] : "";
   }
 
   // Given the short texts found inside one feed item, the kinds it counts as.
@@ -112,9 +122,6 @@
     ["suggested", "Hide suggested posts", false, PAGES_GROUP, "feed"],
     ["recommended", "Hide “Recommended for you” posts", false, PAGES_GROUP, "feed"],
     ["socialProof", "Hide posts someone in your network liked or commented on", false, PAGES_GROUP, "feed"],
-    // Not under Home: with Home gone, being sent somewhere else is more useful,
-    // not less. The one setting that is not a switch.
-    ["homeRedirect", "Instead of the feed, open", "", PAGES_GROUP, "blackout", REDIRECTS],
     ["myNetwork", "Hide My Network", false, PAGES_GROUP, "blackout"],
     ["jobs", "Hide Jobs", false, PAGES_GROUP, "blackout"],
     ["messaging", "Hide Messaging", false, PAGES_GROUP, "blackout"],
@@ -122,6 +129,9 @@
     ["notifications", "Hide Notifications", false, PAGES_GROUP, "blackout"],
     ["notificationCount", "Hide unread count in tab title", false, PAGES_GROUP, "notifications"],
     ["profile", "Hide Profile", false, PAGES_GROUP, "blackout"],
+    // Not under Home: with Home gone, being sent somewhere else is more useful,
+    // not less. The one setting that is not a switch.
+    ["homeRedirect", "Default page", "", PAGES_GROUP, "blackout", REDIRECTS],
     // One switch for every advert on the site, with the individual kinds under
     // it. Adverts turn up in the feed, beside it, on the jobs pages and in the
     // top bar, so grouping them by page would have missed most of them.
@@ -243,9 +253,7 @@
     const merged = withDefaults(settings);
     if (merged.blackout === true) return null;
     if (!HOME_PATHS.includes(pathname || "")) return null;
-    const choice = REDIRECTS.find(([value]) => value === merged.homeRedirect);
-    if (!choice || (choice[2] && merged[choice[2]] === true)) return null;
-    return REDIRECT_PATHS[merged.homeRedirect] || null;
+    return REDIRECT_PATHS[redirectChoice(merged)] || null;
   }
 
   // "(3) Feed | LinkedIn" -> "Feed | LinkedIn": the unread count LinkedIn
@@ -265,5 +273,5 @@
     return calm === title ? null : calm;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, BLACKOUT_TITLE, KINDS, SOCIAL, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, tokensFor, redirectFor, untitled, titleFor };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, BLACKOUT_TITLE, KINDS, SOCIAL, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
 })(globalThis);
