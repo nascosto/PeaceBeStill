@@ -128,8 +128,24 @@
     }
   }
 
+  // Pages that go somewhere else instead: the home page to Messaging,
+  // Notifications or Jobs, when one of those switches is on.
+  function redirectIfAsked() {
+    const target = redirectFor(location.pathname, settings);
+    if (!target) return false;
+    location.replace(target);
+    return true;
+  }
+
   const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news", "rightRailAds",
     "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer"];
+
+  // LinkedIn is a single-page app: it rewrites the title and renders the feed
+  // long after load, so everything here is redone on mutation rather than once.
+  // The observer runs only while a switch needs it, and its callback is
+  // debounced so a busy feed cannot starve the page.
+  let observer = null;
+  let observeTimer = null;
 
   function pass() {
     keepTitle();
@@ -150,7 +166,7 @@
     if (observer) return;
     observer = new MutationObserver(() => {
       clearTimeout(observeTimer);
-      observeTimer = setTimeout(keepTitle, 200);
+      observeTimer = setTimeout(pass, 200);
     });
     observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   }
@@ -163,10 +179,12 @@
 
   api.storage.sync.get(KEYS).then((values) => {
     stored = values;
+  }).catch(() => {
+    // Storage unavailable: fall back to the defaults, which are all off.
+    stored = {};
+  }).then(() => {
     settings = effective(stored);
     refresh();
-  }).catch(() => {
-    // Storage unavailable: the defaults are off, so do nothing at all.
   });
 
   api.storage.onChanged.addListener((changes, area) => {
