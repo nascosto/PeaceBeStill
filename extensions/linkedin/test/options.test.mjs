@@ -52,7 +52,7 @@ function rowsOf(root) {
   const out = [];
   const walk = (node, label) => {
     for (const child of node.children ?? []) {
-      if (child.type === "checkbox") out.push({ box: child, row: label, node });
+      if (child.type === "checkbox" || child.tag === "select") out.push({ box: child, row: label, node });
       walk(child, child.tag === "label" ? child : label);
     }
   };
@@ -62,6 +62,8 @@ function rowsOf(root) {
     box,
     row,
     checked: box.checked === true,
+    value: box.value,
+    isSelect: box.tag === "select",
     indented: !!(row?.classList.contains("child") || row?.classList.contains("grandchild")),
     grandchild: !!row?.classList.contains("grandchild"),
     ariaDisabled: box.getAttribute("aria-disabled"),
@@ -105,13 +107,11 @@ test("every switch is nested under the one that covers it, one indent per level"
   const { rows } = await render();
   assert.deepEqual(rows().map((r) => r.name), [
     "blackout",
-    "home", "myNetwork", "jobs", "messaging", "notifications", "profile", "forBusiness",
-    "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
-    "suggested", "recommended", "socialProof",
+    "home", "feed", "composer", "suggested", "recommended", "socialProof", "homeRedirect",
+    "myNetwork", "jobs", "messaging", "messagingOverlay", "notifications", "notificationCount", "profile",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "games", "news", "peopleYouMayKnow", "suggestions", "messagingOverlay", "aiAssistant",
-    "notificationCount",
+    "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
   ]);
   // "Hide everything" parents the whole page, so it alone sits flush and
   // everything else is indented -- the switches inside the feed and inside the
@@ -120,6 +120,7 @@ test("every switch is nested under the one that covers it, one indent per level"
   assert.equal(depth.blackout, 0);
   assert.equal(depth.home, 1);
   assert.equal(depth.feed, 2, "the feed is inside Home");
+  assert.equal(depth.messagingOverlay, 2, "the overlay is inside Messaging");
   assert.equal(depth.rightRail, 1);
   assert.equal(depth.composer, 2, "the composer is inside the feed");
   assert.equal(depth.suggested, 2, "a post kind is inside the feed");
@@ -136,7 +137,7 @@ test("a switch an ancestor covers is taken off the list, not explained away", as
   assert.equal(back.rows().find((r) => r.name === "sponsored").hidden, false);
   assert.equal(back.rows().find((r) => r.name === "sponsored").checked, true);
   // A covered switch still refuses a change, since it cannot be clicked anyway.
-  await change("homeToJobs", true);
+  await change("jobs", true);
   assert.deepEqual(plain(writes), []);
   assert.deepEqual(plain(removes), []);
 });
@@ -166,27 +167,27 @@ test("a section with nothing left to show goes too", async () => {
 
 test("only a switch that differs from its default is stored", async () => {
   const { change, writes, removes } = await render();
-  await change("homeToJobs", true);
-  assert.deepEqual(plain(writes), [{ homeToJobs: true }]);
-  await change("homeToJobs", false);
-  assert.deepEqual(plain(writes), [{ homeToJobs: true }], "nothing more written");
-  assert.deepEqual(plain(removes), ["homeToJobs"]);
+  await change("jobs", true);
+  assert.deepEqual(plain(writes), [{ jobs: true }]);
+  await change("jobs", false);
+  assert.deepEqual(plain(writes), [{ jobs: true }], "nothing more written");
+  assert.deepEqual(plain(removes), ["jobs"]);
 });
 
 test("settings already stored that match their default are cleaned up on load", async () => {
-  const { removes } = await render({ homeToJobs: false, blackout: true });
-  assert.deepEqual(plain(removes), [["homeToJobs"]], "blackout differs, so it stays");
+  const { removes } = await render({ jobs: false, blackout: true });
+  assert.deepEqual(plain(removes), [["jobs"]], "blackout differs, so it stays");
 });
 
 test("the summary counts what is on, and says how much a switch above has covered", async () => {
-  const { byId, rows, removes } = await render({ blackout: true, homeToJobs: true });
-  assert.match(byId.summary.textContent, /2 of 30/);
-  assert.match(byId.summary.textContent, /29 covered by a switch above/);
+  const { byId, rows, removes } = await render({ blackout: true, jobs: true });
+  assert.match(byId.summary.textContent, /2 of 28/);
+  assert.match(byId.summary.textContent, /27 covered by a switch above/);
 
   await byId["all-off"].listeners.click();
-  assert.deepEqual(plain(removes.at(-1)), ["blackout", "homeToJobs"], "every stored key is dropped");
+  assert.deepEqual(plain(removes.at(-1)), ["blackout", "jobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 30/);
+  assert.match(byId.summary.textContent, /0 of 28/);
 });
 
 test("the filter narrows the list to matching switches", async () => {
@@ -199,7 +200,7 @@ test("the filter narrows the list to matching switches", async () => {
   byId.filter.value = "messaging";
   await byId.filter.listeners.input();
   assert.deepEqual(rows().filter((r) => !r.hidden).map((r) => r.name),
-    ["messaging", "homeToMessaging", "messagingOverlay"]);
+    ["messaging", "messagingOverlay"]);
 
   byId.filter.value = "";
   await byId.filter.listeners.input();

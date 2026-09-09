@@ -95,31 +95,31 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Thirty switches, and the first one is the blunt one.
+Twenty-eight settings, and the first one is the blunt one.
 
 - **Hide everything** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
   site, with no exceptions; to use LinkedIn again you turn it off. While it is
   on, every other switch is greyed out and says so, because none of them can
   matter when there is no page left to act on.
-- **the top bar**, one switch per item: Home, My Network, Jobs, Messaging,
-  Notifications, Profile, and the "For Business" menu. Hiding Home takes the
-  feed with it, which is why the feed switches sit under it
-- the feed: hide it entirely, or send the home page to Messaging,
-  Notifications or Jobs instead (with more than one of those on, the first
-  wins), and the "Start a post" box above it
-- posts nobody you follow wrote: suggested posts, "Recommended for you", and
-  the ones someone in your network liked or commented on
+- **the pages**, one switch each: Home, My Network, Jobs, Messaging,
+  Notifications and Profile. A page switch takes the page itself as well as its
+  place in the top bar, which is why everything belonging to a page sits under
+  it — the feed and its posts under Home, the chat overlay under Messaging, the
+  unread tab count under Notifications
+- the feed: hide it entirely, or just the "Start a post" box, suggested posts,
+  "Recommended for you", and posts someone in your network liked or commented on
+- **where the home page goes instead**, chosen from a list rather than ticked.
+  Somewhere you have hidden is not offered, and not obeyed if it was chosen
+  before you hid it
 - **advertisements**, under one switch that covers the lot, with the kinds
   under it if you want them separately: in the feed, outside it, Premium
   upsells, and promoted job adverts
 - the two columns beside the feed, together or one at a time
-- the puzzles and games, the LinkedIn News panel, "People you may know", the
-  "suggestions for you" panels, the messaging overlay pinned to the corner, and
-  LinkedIn's AI assistant
-- the unread count LinkedIn puts in front of the tab title
+- the puzzles and games, the LinkedIn News panel, business features, "People
+  you may know", the "suggestions for you" panels, and LinkedIn's AI assistant
 
-Turning a switch on takes away the switches it covers: with **Hide everything**
+Turning a switch on takes away the settings it covers: with **Hide everything**
 on there is one switch left on the page, because there is nothing else to
 decide. Their stored values are untouched, so turning it back off brings them
 back exactly as they were.

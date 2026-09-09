@@ -66,6 +66,20 @@
   ];
   const KEYS = FEATURES.map(([key]) => key);
 
+  // The choices a setting offers, or null when it is an ordinary switch.
+  // Nothing here offers any yet; the options page asks so that both extensions
+  // can share one page.
+  function choicesFor(key) {
+    const feature = FEATURES.find(([featureKey]) => featureKey === key);
+    return (feature && feature[5]) || null;
+  }
+
+  // What choicesFor offers once the current settings are taken into account.
+  // Nothing here is a chooser, so this is the empty case.
+  function choicesOffered(key) {
+    return choicesFor(key);
+  }
+
   function defaults() {
     return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
   }
@@ -211,5 +225,5 @@
     return merged;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

@@ -52,7 +52,7 @@ function rowsOf(root) {
   const out = [];
   const walk = (node, label) => {
     for (const child of node.children ?? []) {
-      if (child.type === "checkbox") out.push({ box: child, row: label, node });
+      if (child.type === "checkbox" || child.tag === "select") out.push({ box: child, row: label, node });
       walk(child, child.tag === "label" ? child : label);
     }
   };
@@ -62,6 +62,8 @@ function rowsOf(root) {
     box,
     row,
     checked: box.checked === true,
+    value: box.value,
+    isSelect: box.tag === "select",
     indented: !!(row?.classList.contains("child") || row?.classList.contains("grandchild")),
     grandchild: !!row?.classList.contains("grandchild"),
     ariaDisabled: box.getAttribute("aria-disabled"),

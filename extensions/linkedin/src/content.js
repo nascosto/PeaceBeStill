@@ -4,7 +4,7 @@
 // when asked, and keeps the tab title in step with both.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor, kindsFor } = globalThis.PeaceBeStill;
+  const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor, kindsFor, pageFor } = globalThis.PeaceBeStill;
 
   // What storage holds, and what that means once defaults are filled in and
   // anything blackout has made moot is forced off. Only `settings` is ever
@@ -22,6 +22,9 @@
 
   function apply() {
     document.documentElement.dataset.peacebestill = tokensFor(settings);
+    // Which destination this page belongs to, so the stylesheet can take the
+    // page away as well as its place in the top bar.
+    document.documentElement.dataset.pbsPage = pageFor(location.pathname);
   }
 
   function keepTitle() {

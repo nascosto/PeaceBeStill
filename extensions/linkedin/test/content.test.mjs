@@ -96,9 +96,9 @@ test("a change in storage reaches an open tab without a reload", async () => {
 });
 
 test("a redirect switch sends the home page onward, and only from the home page", async () => {
-  const home = await run({ stored: { homeToMessaging: true }, pathname: "/feed/" });
+  const home = await run({ stored: { homeRedirect: "messaging" }, pathname: "/feed/" });
   assert.deepEqual([...home.replaced], ["/messaging/"]);
-  const elsewhere = await run({ stored: { homeToMessaging: true }, pathname: "/jobs/" });
+  const elsewhere = await run({ stored: { homeRedirect: "messaging" }, pathname: "/jobs/" });
   assert.deepEqual([...elsewhere.replaced], []);
 });
 

@@ -7,7 +7,7 @@ const css = readFileSync(new URL("../src/hide.css", import.meta.url), "utf8");
 const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
 
 // Features with no stylesheet rule at all: pure script.
-const SCRIPT_ONLY = ["homeToMessaging", "homeToNotifications", "homeToJobs", "notificationCount"];
+const SCRIPT_ONLY = ["homeRedirect", "notificationCount"];
 const HIDE = "display: none !important;";
 
 const rules = [...css.matchAll(/html\[data-peacebestill~="([^"]+)"\][^{]*\{([^}]*)\}/g)]

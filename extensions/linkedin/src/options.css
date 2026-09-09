@@ -42,3 +42,7 @@ label[hidden] { display: none; }
 label.child { margin-left: 22px; }
 label.grandchild { margin-left: 44px; }
 input[type="checkbox"] { margin: 0; }
+
+/* The one setting that is a choice rather than a tick. */
+select { font: inherit; padding: 2px 4px; border: 1px solid var(--edge); border-radius: 4px;
+         background: var(--page); color: var(--ink); }

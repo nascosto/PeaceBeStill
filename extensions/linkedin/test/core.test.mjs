@@ -6,27 +6,38 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 
 // Every key, in order, with its default. This is the contract the options
 // page, the stylesheet gates and the stored settings all share.
+// Every setting, in order, with its default. All the switches are off, and the
+// one chooser is empty, so a fresh install changes nothing and stores nothing.
+// Every setting, in order, with its default. All the switches are off, and the
+// one chooser is empty, so a fresh install changes nothing and stores nothing.
+// Every setting, in order, with its default. All the switches are off, and the
+// one chooser is empty, so a fresh install changes nothing and stores nothing.
 const DEFAULTS = [
-  "blackout",
-  "home", "myNetwork", "jobs", "messaging", "notifications", "profile", "forBusiness",
-  "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
-  "suggested", "recommended", "socialProof",
-  "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
-  "rightRail", "leftRail",
-  "games", "news", "peopleYouMayKnow", "suggestions", "messagingOverlay", "aiAssistant",
-  "notificationCount",
-].map((key) => [key, false]);
+  ...["blackout", "home", "feed", "composer", "suggested", "recommended",
+    "socialProof"].map((key) => [key, false]),
+  ["homeRedirect", ""],
+  ...["myNetwork", "jobs", "messaging", "messagingOverlay", "notifications",
+    "notificationCount", "profile",
+    "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
+    "rightRail", "leftRail",
+    "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions",
+    "aiAssistant"].map((key) => [key, false]),
+];
 
 const KEYS = DEFAULTS.map(([k]) => k);
-const GROUPS = ["The whole site", "Top bar", "Home and feed", "Feed posts", "Advertisements", "Side rails", "Elsewhere on LinkedIn", "Browser tab"];
+const GROUPS = ["The whole site", "Pages", "Advertisements", "Side rails", "Elsewhere on LinkedIn"];
 
-test("the feature keys are the agreed thirty, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed twenty-eight, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
     // Not a placeholder, and not padded: "Hide Home" is as long as it needs.
     assert.ok(label.trim().length > 4 && label === label.trim(), `label for ${key}: ${JSON.stringify(label)}`);
-    assert.equal(typeof defaultOn, "boolean", `default for ${key}`);
+    // A switch defaults to a boolean; the chooser defaults to one of its own
+    // values, which is the empty one.
+    const choices = PeaceBeStill.choicesFor(key);
+    if (choices) assert.ok(choices.some(([choice]) => choice === defaultOn), `default for ${key}`);
+    else assert.equal(typeof defaultOn, "boolean", `default for ${key}`);
     assert.ok(GROUPS.includes(group), `group for ${key}: ${group}`);
   }
   assert.deepEqual([...PeaceBeStill.GROUPS], GROUPS);
@@ -51,6 +62,35 @@ test("blackout is top level and an ancestor of every other switch", () => {
 
 // The middle of the chain matters too: a post kind cannot matter with the feed
 // gone, and a rail module cannot matter with the rail gone.
+// CSS cannot read a URL, so the content script hands it the destination.
+test("pageFor names the destination a path belongs to, and nothing else", () => {
+  const page = PeaceBeStill.pageFor;
+  assert.equal(page("/"), "home");
+  assert.equal(page("/feed/"), "home");
+  assert.equal(page("/feed/update/urn:li:activity:1"), "home");
+  assert.equal(page("/mynetwork/grow/"), "myNetwork");
+  assert.equal(page("/jobs/"), "jobs");
+  assert.equal(page("/jobs/view/123"), "jobs");
+  assert.equal(page("/messaging/thread/abc"), "messaging");
+  assert.equal(page("/notifications/"), "notifications");
+  // A path that merely starts with the same letters is not that page.
+  assert.equal(page("/feedback"), "");
+  assert.equal(page("/jobsomething"), "");
+  // Profile has no page of its own: /in/ is where everybody else lives too,
+  // and its switch only takes your own menu out of the top bar.
+  assert.equal(page("/in/someone"), "");
+  assert.equal(page("/search/results/all/"), "");
+  assert.equal(page(""), "");
+  assert.equal(page(undefined), "");
+});
+
+test("a page's own switches sit under it", () => {
+  assert.equal(PeaceBeStill.parentOf("messagingOverlay"), "messaging");
+  assert.equal(PeaceBeStill.parentOf("notificationCount"), "notifications");
+  assert.equal(PeaceBeStill.isMoot("messagingOverlay", { messaging: true }), true);
+  assert.equal(PeaceBeStill.isMoot("notificationCount", { notifications: true }), true);
+});
+
 test("hiding Home takes the feed with it, and the feed takes its own posts", () => {
   // Home is the page the feed lives on, so the feed answers to it.
   assert.equal(PeaceBeStill.parentOf("feed"), "home");
@@ -59,9 +99,7 @@ test("hiding Home takes the feed with it, and the feed takes its own posts", () 
   }
   // The redirects are not the feed's business: with the feed gone, being sent
   // somewhere else is more useful, not less.
-  for (const key of ["homeToMessaging", "homeToNotifications", "homeToJobs"]) {
-    assert.equal(PeaceBeStill.isMoot(key, { home: true }), false, key);
-  }
+  assert.equal(PeaceBeStill.isMoot("homeRedirect", { home: true }), false);
 });
 
 test("feed and rightRail are parents in their own right", () => {
@@ -135,12 +173,12 @@ test("effective: a fresh install runs nothing, and blackout forces everything el
   assert.deepEqual(Object.entries(eff({})).filter(([, on]) => on), [], "a fresh install runs nothing");
   assert.deepEqual({ ...eff({}) }, { ...PeaceBeStill.defaults() });
 
-  const black = eff({ blackout: true, homeToJobs: true, notificationCount: true });
+  const black = eff({ blackout: true, homeRedirect: "jobs", notificationCount: true });
   assert.equal(black.blackout, true);
-  assert.equal(black.homeToJobs, false);
+  assert.equal(black.homeRedirect, "", "the chooser goes back to its own default, not to false");
   assert.equal(black.notificationCount, false);
 
-  assert.equal(eff({ homeToJobs: true }).homeToJobs, true);
+  assert.equal(eff({ sponsored: true }).sponsored, true);
   assert.equal(eff({ blackout: "yes" }).blackout, false, "junk is not truth");
   assert.equal(eff(undefined).blackout, false);
 });
@@ -148,7 +186,7 @@ test("effective: a fresh install runs nothing, and blackout forces everything el
 // This is what content.js actually does: effective() first, then tokensFor().
 test("the attribute reads exactly 'blackout' while the site is blacked out", () => {
   const { tokensFor, effective } = PeaceBeStill;
-  assert.equal(tokensFor(effective({ blackout: true, homeToJobs: true, sponsored: true, games: true })), "blackout");
+  assert.equal(tokensFor(effective({ blackout: true, homeRedirect: "jobs", sponsored: true, games: true })), "blackout");
   assert.equal(tokensFor(effective({ notificationCount: true })), "notificationCount");
   assert.equal(tokensFor(effective({})), "");
 });
@@ -158,38 +196,58 @@ test("a key that is absent, or removed while the page is open, falls back to its
   // content script can hand us undefined for a key. That must mean "default".
   assert.equal(PeaceBeStill.tokensFor({ blackout: undefined }), "");
   assert.equal(PeaceBeStill.isMoot("homeToJobs", { blackout: undefined }), false);
-  assert.equal(PeaceBeStill.redirectFor("/", { homeToJobs: undefined }), null);
+  assert.equal(PeaceBeStill.redirectFor("/", { homeRedirect: undefined }), null);
 });
 
 test("a value equal to its default is redundant and need not be stored", () => {
   assert.equal(PeaceBeStill.isDefaultValue("blackout", false), true);
   assert.equal(PeaceBeStill.isDefaultValue("blackout", true), false);
   assert.equal(PeaceBeStill.isDefaultValue("bogus", false), false, "unknown keys are never called redundant");
-  assert.deepEqual([...PeaceBeStill.redundantKeys({ blackout: false, homeToJobs: true, bogus: 1 })], ["blackout"]);
+  assert.deepEqual([...PeaceBeStill.redundantKeys({ blackout: false, homeRedirect: "jobs", bogus: 1 })], ["blackout"]);
+  assert.equal(PeaceBeStill.isDefaultValue("homeRedirect", ""), true);
+  assert.equal(PeaceBeStill.isDefaultValue("homeRedirect", "jobs"), false);
   assert.deepEqual([...PeaceBeStill.redundantKeys({})], []);
   assert.deepEqual([...PeaceBeStill.redundantKeys(undefined)], []);
 });
 
-test("redirectFor sends the home page where asked, and leaves every other page alone", () => {
+test("redirectFor sends the home page where the chooser says, and nowhere else", () => {
   const r = PeaceBeStill.redirectFor;
-  assert.equal(r("/", { homeToMessaging: true }), "/messaging/");
-  assert.equal(r("/feed", { homeToMessaging: true }), "/messaging/");
-  assert.equal(r("/feed/", { homeToNotifications: true }), "/notifications/");
-  assert.equal(r("/", { homeToJobs: true }), "/jobs/");
+  assert.equal(r("/", { homeRedirect: "messaging" }), "/messaging/");
+  assert.equal(r("/feed", { homeRedirect: "messaging" }), "/messaging/");
+  assert.equal(r("/feed/", { homeRedirect: "notifications" }), "/notifications/");
+  assert.equal(r("/", { homeRedirect: "jobs" }), "/jobs/");
+  assert.equal(r("/", { homeRedirect: "mynetwork" }), "/mynetwork/");
   // Anywhere that is not the home page is left alone, including the
   // destinations themselves -- otherwise the redirect would loop.
-  for (const path of ["/messaging/", "/notifications/", "/jobs/", "/in/someone", "/feed/update/urn:li:activity:1", ""]) {
-    assert.equal(r(path, { homeToMessaging: true, homeToNotifications: true, homeToJobs: true }), null, path);
+  for (const path of ["/messaging/", "/notifications/", "/jobs/", "/mynetwork/", "/in/someone", ""]) {
+    assert.equal(r(path, { homeRedirect: "messaging" }), null, path);
   }
-  assert.equal(r(undefined, { homeToJobs: true }), null);
-  assert.equal(r("/", {}), null, "off by default");
+  assert.equal(r(undefined, { homeRedirect: "jobs" }), null);
+  assert.equal(r("/", {}), null, "the default is to stay put");
+  assert.equal(r("/", { homeRedirect: "" }), null);
 });
 
-test("with more than one destination on, the first in table order wins", () => {
+test("somewhere you have hidden is neither offered nor obeyed", () => {
+  const offered = (settings) => [...PeaceBeStill.choicesOffered("homeRedirect", settings)].map(([value]) => value);
+  assert.deepEqual(offered({}), ["", "messaging", "notifications", "jobs", "mynetwork"]);
+  assert.deepEqual(offered({ jobs: true }), ["", "messaging", "notifications", "mynetwork"]);
+  assert.deepEqual(offered({ jobs: true, messaging: true }), ["", "notifications", "mynetwork"]);
+  // And the setting stops working, not just showing: hiding Jobs after picking
+  // it must not land you on a page you have taken away.
+  assert.equal(PeaceBeStill.redirectFor("/", { homeRedirect: "jobs" }), "/jobs/");
+  assert.equal(PeaceBeStill.redirectFor("/", { homeRedirect: "jobs", jobs: true }), null);
+  assert.equal(PeaceBeStill.choicesOffered("blackout", {}), null, "a switch offers no choices");
+});
+
+test("the chooser takes one of its own values and nothing else", () => {
   const r = PeaceBeStill.redirectFor;
-  assert.equal(r("/", { homeToMessaging: true, homeToNotifications: true, homeToJobs: true }), "/messaging/");
-  assert.equal(r("/", { homeToNotifications: true, homeToJobs: true }), "/notifications/");
-  assert.equal(r("/", { homeToJobs: true }), "/jobs/");
+  assert.equal(r("/", { homeRedirect: "bogus" }), null);
+  assert.equal(r("/", { homeRedirect: true }), null);
+  assert.equal(r("/", { homeRedirect: undefined }), null);
+  assert.equal(PeaceBeStill.withDefaults({ homeRedirect: "nowhere" }).homeRedirect, "");
+  // And it is the only setting that is not a switch.
+  const choosers = PeaceBeStill.FEATURES.filter(([key]) => PeaceBeStill.choicesFor(key));
+  assert.deepEqual([...choosers].map(([key]) => key), ["homeRedirect"]);
 });
 
 test("a blacked-out site never navigates", () => {

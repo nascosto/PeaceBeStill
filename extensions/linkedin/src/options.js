@@ -7,7 +7,7 @@
 // optional data-collection permission to ask for before ticking a box.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot } = globalThis.PeaceBeStill;
+  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
   const form = document.getElementById("features");
   const filter = document.getElementById("filter");
   const summary = document.getElementById("summary");
@@ -36,15 +36,18 @@
 
   function addRow(section, [key, label]) {
     const row = document.createElement("label");
-    const box = document.createElement("input");
-    box.type = "checkbox";
+    const choices = choicesFor(key);
+    // Most settings are a switch. One -- where the home page goes instead --
+    // is a choice between places, which is a list, not a tick.
+    const box = document.createElement(choices ? "select" : "input");
+    if (!choices) box.type = "checkbox";
     box.name = key;
     const depth = depthOf(key);
     if (depth === 1) row.classList.add("child");
     if (depth >= 2) row.classList.add("grandchild");
     row.append(box, document.createTextNode(" " + label));
     section.append(row);
-    rows.push({ key, label, box, row, section, depth });
+    rows.push({ key, label, box, row, section, depth, choices });
   }
 
   for (const group of GROUPS) {
@@ -55,13 +58,16 @@
     form.append(section);
     sections.push(section);
 
+    // Depth-first, so a switch is followed by everything it covers, however
+    // many levels deep. Rendering only one level -- which this did before --
+    // dropped a grandchild filed under the same heading entirely.
     const inGroup = FEATURES.filter(([, , , featureGroup]) => featureGroup === group);
     const parentIsHere = (feature) => inGroup.some(([key]) => key === feature[4]);
-    for (const feature of inGroup) {
-      if (parentIsHere(feature)) continue; // rendered under its parent, below
+    const addBranch = (feature) => {
       addRow(section, feature);
-      for (const child of inGroup.filter(([, , , , parent]) => parent === feature[0])) addRow(section, child);
-    }
+      for (const child of inGroup.filter(([, , , , parent]) => parent === feature[0])) addBranch(child);
+    };
+    for (const feature of inGroup) if (!parentIsHere(feature)) addBranch(feature);
   }
 
   // A switch an ancestor has already covered is taken off the list rather than
@@ -73,9 +79,24 @@
     const query = filter.value.trim().toLowerCase();
     let on = 0;
     let covered = 0;
-    for (const { key, label, box, row } of rows) {
-      box.checked = settings[key] === true;
-      if (box.checked) on++;
+    for (const { key, label, box, row, choices } of rows) {
+      if (choices) {
+        // Rebuilt every time, because hiding a page takes it out of the list.
+        const offered = choicesOffered(key, settings);
+        box.children.length = 0;
+        for (const [value, text] of offered) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = text;
+          box.append(option);
+        }
+        const chosen = settings[key] ?? "";
+        box.value = offered.some(([value]) => value === chosen) ? chosen : "";
+      } else {
+        box.checked = settings[key] === true;
+      }
+      // A chooser counts as on when it has been moved off its default.
+      if (choices ? !isDefaultValue(key, settings[key]) : box.checked) on++;
       const moot = isMoot(key, settings);
       if (moot) covered++;
       row.hidden = moot || (query !== "" && !label.toLowerCase().includes(query));
@@ -120,11 +141,15 @@
   form.addEventListener("change", async (event) => {
     const box = event.target;
     if (isMoot(box.name, settings)) {
-      box.checked = settings[box.name] === true; // locked: put the tick back
+      // Covered by a switch above, so it is not on screen to be clicked; put
+      // whatever it was back and ignore this.
+      if (box.type === "checkbox") box.checked = settings[box.name] === true;
+      else box.value = settings[box.name] ?? "";
       return;
     }
-    settings[box.name] = box.checked;
-    await save(box.name, box.checked);
+    const value = box.type === "checkbox" ? box.checked : box.value;
+    settings[box.name] = value;
+    await save(box.name, value);
     showState();
   });
 
