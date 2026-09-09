@@ -196,10 +196,11 @@
         .concat(labelled(/^Who your viewers also viewed$/))],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
       ["composer", () => labelled(/^Start a post$/)],
-      // Not scoped to a page: LinkedIn puts these beside the feed, on profiles,
-      // on My Network and in search results. The heading names the place --
-      // "People you may know in Salt Lake City" -- so it matches the opening.
-      ["pymk", () => labelled(/^People you may know/)],
+      // "People you may know" is on profiles as well as on My Network, and each
+      // belongs to its page. The heading names the place -- "People you may
+      // know in Salt Lake City" -- so it matches the opening.
+      ["networkPeople", () => (path.startsWith("/mynetwork") ? labelled(/^People you may know/) : [])],
+      ["profilePeople", () => (path.startsWith("/in/") ? labelled(/^People you may know/) : [])],
       // Three panels wearing similar names, and three different features: what
       // a profile suggests, what My Network suggests, and what Jobs suggests.
       // Each is scoped to the page it belongs to, and a post in the feed headed
@@ -313,7 +314,7 @@
   }
 
   const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news",
-    "jobsPromoted", "peopleYouMayKnow", "profileSuggestions", "networkSuggestions",
+    "jobsPromoted", "networkPeople", "profilePeople", "profileSuggestions", "networkSuggestions",
     "jobsSuggestions", "composer", "premium", "otherAds", "ads"];
 
   // LinkedIn is a single-page app: it rewrites the title and renders the feed

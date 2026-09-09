@@ -66,7 +66,8 @@ html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
    since in the feed it means a sponsored post, which `sponsored` already
    covers. */
 html[data-peacebestill~="jobsPromoted"] [data-pbs~="jobsPromoted"] { display: none !important; }
-html[data-peacebestill~="peopleYouMayKnow"] [data-pbs~="pymk"] { display: none !important; }
+html[data-peacebestill~="networkPeople"] [data-pbs~="networkPeople"] { display: none !important; }
+html[data-peacebestill~="profilePeople"] [data-pbs~="profilePeople"] { display: none !important; }
 html[data-peacebestill~="profileSuggestions"] [data-pbs~="profileSuggestions"] { display: none !important; }
 html[data-peacebestill~="networkSuggestions"] [data-pbs~="networkSuggestions"] { display: none !important; }
 html[data-peacebestill~="jobsSuggestions"] [data-pbs~="jobsSuggestions"] { display: none !important; }

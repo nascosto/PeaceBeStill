@@ -116,11 +116,11 @@ test("every switch is nested under the one that covers it, one indent per level"
     // "sponsored" appears twice on purpose: an advert in the feed is both an
     // advert and part of the feed, so it is offered in both places.
     "home", "feed", "composer", "suggested", "recommended", "socialProof", "sponsored",
-    "myNetwork", "networkSuggestions", "jobs", "jobsSuggestions", "messaging",
-    "notifications", "profile", "profileSuggestions", "homeRedirect",
+    "myNetwork", "networkPeople", "networkSuggestions", "jobs", "jobsSuggestions",
+    "messaging", "notifications", "profile", "profilePeople", "profileSuggestions", "homeRedirect",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "games", "news", "forBusiness", "peopleYouMayKnow", "aiAssistant",
+    "games", "news", "forBusiness", "aiAssistant",
     "messagingOverlay", "notificationCount",
   ]);
   // "Hide everything" parents the whole page, so it alone sits flush and
@@ -233,13 +233,13 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and says how much a switch above has covered", async () => {
   const { byId, rows, removes } = await render({ blackout: true, jobs: true });
-  assert.match(byId.summary.textContent, /2 of 30/);
-  assert.match(byId.summary.textContent, /29 covered by a switch above/);
+  assert.match(byId.summary.textContent, /2 of 31/);
+  assert.match(byId.summary.textContent, /30 covered by a switch above/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "jobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 30/);
+  assert.match(byId.summary.textContent, /0 of 31/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

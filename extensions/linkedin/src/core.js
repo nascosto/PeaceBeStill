@@ -124,12 +124,14 @@
     ["recommended", "Hide “Recommended for you” posts", false, PAGES_GROUP, "feed"],
     ["socialProof", "Hide posts someone in your network liked or commented on", false, PAGES_GROUP, "feed"],
     ["myNetwork", "Hide My Network", false, PAGES_GROUP, "blackout"],
+    ["networkPeople", "Hide “People you may know”", false, PAGES_GROUP, "myNetwork"],
     ["networkSuggestions", "Hide suggestion panels on My Network", false, PAGES_GROUP, "myNetwork"],
     ["jobs", "Hide Jobs", false, PAGES_GROUP, "blackout"],
     ["jobsSuggestions", "Hide “More jobs for you”", false, PAGES_GROUP, "jobs"],
     ["messaging", "Hide Messaging", false, PAGES_GROUP, "blackout"],
     ["notifications", "Hide Notifications", false, PAGES_GROUP, "blackout"],
     ["profile", "Hide Profile", false, PAGES_GROUP, "blackout"],
+    ["profilePeople", "Hide “People you may know”", false, PAGES_GROUP, "profile"],
     ["profileSuggestions", "Hide suggestion panels on profiles", false, PAGES_GROUP, "profile"],
     // Not under Home: with Home gone, being sent somewhere else is more useful,
     // not less. The one setting that is not a switch.
@@ -147,7 +149,6 @@
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
     ["news", "Hide LinkedIn News panel", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide business features", false, ELSEWHERE, "blackout"],
-    ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
     // Neither of these belongs to the page it is named after: the chat bubble
     // is pinned to every page, and LinkedIn puts the unread count in the tab

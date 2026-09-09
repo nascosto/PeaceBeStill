@@ -16,21 +16,23 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 // one chooser is empty, so a fresh install changes nothing and stores nothing.
 // Every setting, in order, with its default. All the switches are off, and the
 // one chooser is empty, so a fresh install changes nothing and stores nothing.
+// Every setting, in order, with its default. All the switches are off, and the
+// one chooser is empty, so a fresh install changes nothing and stores nothing.
 const DEFAULTS = [
   ...["blackout", "home", "feed", "composer", "suggested", "recommended", "socialProof",
-    "myNetwork", "networkSuggestions", "jobs", "jobsSuggestions", "messaging",
-    "notifications", "profile", "profileSuggestions"].map((key) => [key, false]),
+    "myNetwork", "networkPeople", "networkSuggestions", "jobs", "jobsSuggestions",
+    "messaging", "notifications", "profile", "profilePeople", "profileSuggestions"].map((key) => [key, false]),
   ["homeRedirect", ""],
   ...["ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "games", "news", "forBusiness", "peopleYouMayKnow", "aiAssistant",
+    "games", "news", "forBusiness", "aiAssistant",
     "messagingOverlay", "notificationCount"].map((key) => [key, false]),
 ];
 
 const KEYS = DEFAULTS.map(([k]) => k);
 const GROUPS = ["The whole site", "Pages", "Advertisements", "Side rails", "Elsewhere on LinkedIn"];
 
-test("the feature keys are the agreed thirty, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed thirty-one, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
@@ -89,7 +91,8 @@ test("pageFor names the destination a path belongs to, and nothing else", () => 
 
 // Each page's suggestion panel is its own feature, and answers to its page.
 test("the suggestion panels belong to the pages they appear on", () => {
-  for (const [key, page] of [["profileSuggestions", "profile"], ["networkSuggestions", "myNetwork"], ["jobsSuggestions", "jobs"]]) {
+  for (const [key, page] of [["profileSuggestions", "profile"], ["networkSuggestions", "myNetwork"],
+    ["jobsSuggestions", "jobs"], ["networkPeople", "myNetwork"], ["profilePeople", "profile"]]) {
     assert.equal(PeaceBeStill.parentOf(key), page, key);
     assert.equal(PeaceBeStill.isMoot(key, { [page]: true }), true, key);
   }
