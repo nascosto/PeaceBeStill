@@ -95,9 +95,9 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Twenty-one switches, and the first one is the blunt one.
+Twenty-two switches, and the first one is the blunt one.
 
-- **Replace LinkedIn with a better idea** — every page on the site becomes one
+- **Hide everything** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
   site, with no exceptions; to use LinkedIn again you turn it off. While it is
   on, every other switch is greyed out and says so, because none of them can
@@ -112,8 +112,9 @@ Twenty-one switches, and the first one is the blunt one.
 - things that follow you around the site, wherever they turn up: advertisements
   outside the feed, the puzzles and games, the LinkedIn News panel, and Premium
   adverts and upsells
-- elsewhere: promoted job adverts, "People you may know", the "suggestions for
-  you" panels, and LinkedIn's AI assistant
+- elsewhere: the "For Business" menu in the top bar, promoted job adverts,
+  "People you may know", the "suggestions for you" panels, and LinkedIn's AI
+  assistant
 - the unread count LinkedIn puts in front of the tab title
 
 Every one of them works on Firefox for Android exactly as on the desktop:

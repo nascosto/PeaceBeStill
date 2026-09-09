@@ -25,7 +25,7 @@
   // until you switch something on. That also means storage holds exactly the
   // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
-    ["blackout", "Replace LinkedIn with a better idea", false, SITE],
+    ["blackout", "Hide everything", false, SITE],
     ["feed", "Hide the feed entirely", false, HOME, "blackout"],
     ["homeToMessaging", "Open Messaging instead of the home feed", false, HOME, "blackout"],
     ["homeToNotifications", "Open Notifications instead of the home feed", false, HOME, "blackout"],
@@ -40,6 +40,7 @@
     ["games", "Hide the puzzles and games, wherever they appear", false, ELSEWHERE, "blackout"],
     ["news", "Hide the LinkedIn News panel, wherever it appears", false, ELSEWHERE, "blackout"],
     ["premium", "Hide Premium adverts and upsells", false, ELSEWHERE, "blackout"],
+    ["forBusiness", "Hide the “For Business” menu in the top bar", false, ELSEWHERE, "blackout"],
     ["jobsPromoted", "Hide promoted job adverts", false, ELSEWHERE, "blackout"],
     ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
     ["suggestions", "Hide the “suggestions for you” panels on profiles and My Network", false, ELSEWHERE, "blackout"],

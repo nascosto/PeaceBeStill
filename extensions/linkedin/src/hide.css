@@ -77,3 +77,7 @@ html[data-peacebestill~="aiAssistant"] aside[aria-label^="AI-powered assistant"]
 
 /* Premium adverts and upsells, wherever they turn up. */
 html[data-peacebestill~="premium"] [data-pbs~="premium"] { display: none !important; }
+
+/* The "For Business" menu in the top bar, which labels its own button, so the
+   nav item around it can be named outright. */
+html[data-peacebestill~="forBusiness"] li:has(> button[aria-label="For Business"]) { display: none !important; }

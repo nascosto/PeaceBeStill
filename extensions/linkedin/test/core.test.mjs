@@ -12,14 +12,14 @@ const DEFAULTS = [
   "sponsored", "suggested", "recommended", "socialProof",
   "rightRail", "leftRail",
   "otherAds", "games", "news", "premium",
-  "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "aiAssistant",
+  "forBusiness", "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "aiAssistant",
   "notificationCount",
 ].map((key) => [key, false]);
 
 const KEYS = DEFAULTS.map(([k]) => k);
 const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
 
-test("the feature keys are the agreed twenty-one, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed twenty-two, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);

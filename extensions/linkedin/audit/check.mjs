@@ -33,6 +33,7 @@ const CONTAINERS = {
   rightRail: 'aside[aria-label="Aside"]',
   leftRail: 'aside[aria-label="Sidebar"]',
   aiAssistant: 'aside[aria-label^="AI-powered assistant"]',
+  forBusiness: 'li:has(> button[aria-label="For Business"])',
 };
 
 const report = (keys, markOf, containers) => core +

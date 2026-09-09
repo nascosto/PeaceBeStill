@@ -110,7 +110,7 @@ test("switches are grouped, and only nest where parent and child share a section
     "sponsored", "suggested", "recommended", "socialProof",
     "rightRail", "leftRail",
     "otherAds", "games", "news", "premium",
-    "jobsPromoted", "peopleYouMayKnow", "suggestions", "aiAssistant",
+    "forBusiness", "jobsPromoted", "peopleYouMayKnow", "suggestions", "aiAssistant",
     "notificationCount",
   ]);
   // Blackout parents everything but has a section to itself, and the post
@@ -133,7 +133,7 @@ test("with the site blacked out every other switch says so, stays reachable by k
     // another section has to name the switch that locked it.
     // Blackout is what locked them, so blackout is what every note names --
     // including the indented ones, whose own parent is off.
-    assert.match(row.note, /Replace LinkedIn with a better idea/, row.name);
+    assert.match(row.note, /Hide everything/, row.name);
   }
   assert.equal(rows().find((r) => r.name === "blackout").moot, false);
 
@@ -173,12 +173,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ blackout: true, homeToJobs: true });
-  assert.match(byId.summary.textContent, /2 of 21/);
+  assert.match(byId.summary.textContent, /2 of 22/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "homeToJobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 21/);
+  assert.match(byId.summary.textContent, /0 of 22/);
 });
 
 test("the filter narrows the list to matching switches", async () => {
