@@ -37,6 +37,47 @@ const CONTAINERS = {
   forBusiness: 'li:has(> button[aria-label="For Business"])',
 };
 
+// A panel is hidden properly when nothing of it is left behind: no sibling
+// still rendering next to the box, and no empty box where the box used to be.
+const panels = () => core +
+  ";(() => { const { kindsFor } = globalThis.PeaceBeStill;" + helpers + `
+  markFeedItems();
+  markModules();
+  // Measure the page as it is with nothing switched on, or a panel already
+  // hidden by a switch reads as a panel that hides nothing.
+  const rootEl = document.documentElement;
+  const wasOn = rootEl.dataset.peacebestill || "";
+  rootEl.dataset.peacebestill = "";
+  const out = { path: location.pathname, panels: [] };
+  for (const el of document.querySelectorAll("[data-pbs]")) {
+    const parent = el.parentElement;
+    const before = el.getBoundingClientRect();
+    const was = el.style.display;
+    el.style.display = "none";
+    const parentAfter = parent ? parent.getBoundingClientRect().height : 0;
+    // What still renders beside it, and how much of the parent it did not take.
+    const leftovers = parent ? [...parent.children]
+      .filter((c) => c !== el && c.getClientRects().length)
+      .map((c) => (c.textContent || "").trim().slice(0, 30))
+      .filter(Boolean) : [];
+    el.style.display = was;
+    const parentBefore = parent ? parent.getBoundingClientRect().height : 0;
+    out.panels.push({
+      kind: el.getAttribute("data-pbs"),
+      tag: el.tagName.toLowerCase(),
+      height: Math.round(before.height),
+      display: getComputedStyle(el).display,
+      // Space the parent keeps once the panel is gone, with nothing else in it
+      // to justify it: an empty box where a card used to be.
+      emptyBoxLeft: leftovers.length === 0 ? Math.round(parentAfter) : 0,
+      leftovers: leftovers.slice(0, 2),
+      text: (el.textContent || "").trim().slice(0, 34),
+    });
+  }
+  rootEl.dataset.peacebestill = wasOn;
+  globalThis.__r = JSON.stringify(out);
+})(); __r`;
+
 const report = (keys, markOf, containers) => core +
   ";(() => { const { kindsFor } = globalThis.PeaceBeStill;" + helpers + `
   markFeedItems();
@@ -61,7 +102,42 @@ const report = (keys, markOf, containers) => core +
   globalThis.__r = JSON.stringify(out);
 })(); __r`;
 
-const paths = process.argv.slice(2);
+// Does a switch hide anything that is not its own? Turn it on alone and see
+// what stopped rendering that none of its targets accounts for.
+const collateral = (keys, markOf, containers) => core +
+  ";(() => { const { kindsFor } = globalThis.PeaceBeStill;" + helpers + `
+  markFeedItems();
+  markModules();
+  const rootEl = document.documentElement;
+  const wasOn = rootEl.dataset.peacebestill || "";
+  rootEl.dataset.peacebestill = "";
+  const visible = () => new Set([...document.querySelectorAll("body *")]
+    .filter((e) => getComputedStyle(e).display !== "none"));
+  const before = visible();
+  const markOf = ${JSON.stringify(markOf)};
+  const containers = ${JSON.stringify(containers)};
+  const out = { path: location.pathname, switches: {} };
+  const check = (key, selector) => {
+    const mine = [...document.querySelectorAll(selector)];
+    if (!mine.length) return;
+    rootEl.dataset.peacebestill = key;
+    const after = visible();
+    rootEl.dataset.peacebestill = "";
+    const gone = [...before].filter((e) => !after.has(e));
+    // Anything that vanished must be one of this switch's targets, or inside one.
+    const stray = gone.filter((e) => !mine.some((target) => target === e || target.contains(e)));
+    out.switches[key] = { targets: mine.length, hid: gone.length, stray: stray.length,
+      strayText: stray.slice(0, 2).map((e) => (e.textContent || "").trim().slice(0, 30)) };
+  };
+  for (const key of ${JSON.stringify(keys)}) check(key, '[data-pbs~="' + (markOf[key] || key) + '"]');
+  for (const [key, selector] of Object.entries(containers)) check(key, selector);
+  rootEl.dataset.peacebestill = wasOn;
+  globalThis.__r = JSON.stringify(out);
+})(); __r`;
+
+const wantCollateral = process.argv.includes("--collateral");
+const wantPanels = process.argv.includes("--panels");
+const paths = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
 const { evaluate, goTo, close } = await linkedInTab();
 let problems = 0;
 try {
@@ -69,6 +145,26 @@ try {
     if (path) {
       await goTo(new URL(path, "https://www.linkedin.com").href);
       await new Promise((r) => setTimeout(r, 5000));
+    }
+    if (wantCollateral) {
+      const found = JSON.parse(await evaluate(collateral(MARKED, MARK_OF, CONTAINERS)));
+      console.log("\n" + found.path + "  (side effects)");
+      for (const [key, r] of Object.entries(found.switches)) {
+        const verdict = r.stray ? `STRAY ${r.stray}  ${JSON.stringify(r.strayText)}` : "clean";
+        if (r.stray) problems++;
+        console.log(`  ${key.padEnd(16)} ${String(r.targets).padStart(3)} targets, ${String(r.hid).padStart(4)} hidden  ${verdict}`);
+      }
+      continue;
+    }
+    if (wantPanels) {
+      const found = JSON.parse(await evaluate(panels()));
+      console.log("\n" + found.path + "  (panels)");
+      for (const panel of found.panels) {
+        const complaint = panel.emptyBoxLeft > 8 ? `  <-- leaves a ${panel.emptyBoxLeft}px box` : "";
+        console.log(`  ${panel.kind.padEnd(16)} ${String(panel.height).padStart(5)}px ${panel.display.padEnd(9)} ${JSON.stringify(panel.text)}${complaint}`);
+        if (panel.leftovers.length) console.log(`  ${"".padEnd(16)} beside it: ${JSON.stringify(panel.leftovers)}`);
+      }
+      continue;
     }
     const result = JSON.parse(await evaluate(report(MARKED, MARK_OF, CONTAINERS)));
     console.log("\n" + result.path);

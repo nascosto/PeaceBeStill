@@ -77,8 +77,10 @@
   // them all: LinkedIn puts seven wrappers between "Start a post" and the
   // composer box, while an advert or an upsell is a small box near its label
   // and given the same room swallows the whole column.
-  const DEPTH = { composer: 8, premium: 4 };
+  const DEPTH = { composer: 8, premium: 6 };
   const DEFAULT_DEPTH = 6;
+
+  const headings = (el) => el.querySelectorAll("h1,h2,h3").length;
 
   function growTo(el, root, foreign, kind) {
     let node = el;
@@ -90,6 +92,11 @@
       if (foreign.some((other) => parent.contains(other))) break;
       // And never swallow the feed itself.
       if (parent.querySelector('[role="listitem"]')) break;
+      // A panel has one heading. Picking up the first is how a box grows from
+      // its label to the whole panel; picking up a second means it has left
+      // that panel and started on the next -- which is how hiding the advert
+      // on My Network was taking "Manage my network" with it.
+      if (headings(node) >= 1 && headings(parent) > headings(node)) break;
       node = parent;
     }
     return node;
@@ -144,14 +151,30 @@
         // and in the rail on a profile, and My Network puts some of its
         // headings outside both, so the container is found from the label up.
         const root = el.closest('aside[aria-label], section[aria-label], main') || document.body;
+        // "Ad Options" is the heading of the advert's own menu, which lives in
+        // a <dialog> that stays closed until you click it. Growing from inside
+        // that marks the menu and leaves the advert itself on the page, so step
+        // out of the dialog before growing.
+        const from = el.closest("dialog") ? el.closest("dialog").parentElement : el;
+        if (!from) continue;
         // LinkedIn wraps a whole panel in a <section>, which is exactly the box
         // to hide when there is one; growing outwards is the fallback for the
         // right-rail modules and job cards, which have no section of their own.
-        const section = el.closest("section");
+        const section = from.closest("section");
         const box = (section && section !== root && root.contains(section))
           ? section
-          : growTo(el, root, foreign, kind);
+          : growTo(from, root, foreign, kind);
         if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
+      }
+    }
+    // Two labels of one kind inside one panel -- "Unlock Premium tools" and the
+    // "Try Premium" link beside it -- each mark a box, one inside the other.
+    // The outer box is the panel; drop the inner one. Done afterwards, because
+    // which gets marked first depends on document order.
+    for (const marked of [...document.querySelectorAll("[data-pbs]")]) {
+      const kind = marked.getAttribute("data-pbs");
+      if (marked.parentElement && marked.parentElement.closest('[data-pbs~="' + kind + '"]')) {
+        marked.removeAttribute("data-pbs");
       }
     }
   }

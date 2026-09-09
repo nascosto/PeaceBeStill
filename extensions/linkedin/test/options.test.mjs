@@ -63,6 +63,8 @@ function rowsOf(root) {
     box,
     row,
     checked: box.checked === true,
+    disabled: box.disabled === true,
+    mirror: row?.getAttribute("data-mirror") === "1",
     value: box.value,
     isSelect: box.tag === "select",
     depth: Number(row?.getAttribute("data-depth") ?? 0),
@@ -94,9 +96,12 @@ async function render(stored = {}, { failWrites = false } = {}) {
   return { PeaceBeStill, byId, writes, removes, change, rows: () => rowsOf(byId.features) };
 }
 
-test("every feature gets one checkbox, inside a fieldset with its section as the legend", async () => {
+test("every setting gets a control, inside a fieldset with its section as the legend", async () => {
   const { PeaceBeStill, byId, rows } = await render();
-  assert.deepEqual(rows().map((r) => r.name).sort(), [...PeaceBeStill.KEYS].sort());
+  // Every setting is drawn once, and the mirrored one twice.
+  const drawn = rows().filter((r) => !r.mirror).map((r) => r.name).sort();
+  assert.deepEqual(drawn, [...PeaceBeStill.KEYS].sort());
+  assert.deepEqual(rows().filter((r) => r.mirror).map((r) => r.name), ["sponsored"]);
   const fieldsets = byId.features.children.filter((c) => c.tag === "fieldset");
   assert.deepEqual(
     fieldsets.map((f) => f.children.find((c) => c.tag === "legend").textContent),
@@ -108,12 +113,14 @@ test("every switch is nested under the one that covers it, one indent per level"
   const { rows } = await render();
   assert.deepEqual(rows().map((r) => r.name), [
     "blackout",
-    "home", "feed", "composer", "suggested", "recommended", "socialProof",
-    "myNetwork", "jobs", "messaging", "messagingOverlay", "notifications", "notificationCount", "profile",
-    "homeRedirect",
+    // "sponsored" appears twice on purpose: an advert in the feed is both an
+    // advert and part of the feed, so it is offered in both places.
+    "home", "feed", "composer", "suggested", "recommended", "socialProof", "sponsored",
+    "myNetwork", "jobs", "messaging", "notifications", "profile", "homeRedirect",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
     "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
+    "messagingOverlay", "notificationCount",
   ]);
   // "Hide everything" parents the whole page, so it alone sits flush and
   // everything else is indented -- the switches inside the feed and inside the
@@ -122,7 +129,7 @@ test("every switch is nested under the one that covers it, one indent per level"
   assert.equal(depth.blackout, 0);
   assert.equal(depth.home, 1);
   assert.equal(depth.feed, 2, "the feed is inside Home");
-  assert.equal(depth.messagingOverlay, 2, "the overlay is inside Messaging");
+
   assert.equal(depth.rightRail, 1);
   assert.equal(depth.composer, 3, "the composer is inside the feed, inside Home");
   assert.equal(depth.suggested, 3, "a post kind is inside the feed, inside Home");
@@ -150,6 +157,33 @@ test("hiding the feed takes its own switches with it, and leaves the rest", asyn
   assert.deepEqual(hidden, ["composer", "suggested", "recommended", "socialProof"]);
   // The puzzles are not part of the feed, so they stay.
   assert.equal(rows().find((r) => r.name === "games").hidden, false);
+});
+
+test("the mirrored advert switch is ticked and locked when the global one is on", async () => {
+  const mirror = (world) => world.rows().find((r) => r.mirror);
+
+  const plain2 = await render();
+  assert.equal(mirror(plain2).checked, false);
+  assert.equal(mirror(plain2).disabled, false);
+  assert.equal(mirror(plain2).hidden, false);
+
+  // Hiding every advert covers this one, so its second row says so rather than
+  // vanishing: the thing is happening, and not yours to change from here.
+  const global = await render({ ads: true });
+  assert.equal(mirror(global).checked, true);
+  assert.equal(mirror(global).disabled, true);
+  assert.equal(mirror(global).hidden, false);
+  // Its own row, under Advertisements, is taken away as any covered row is.
+  assert.equal(global.rows().find((r) => r.name === "sponsored" && !r.mirror).hidden, true);
+
+  // Hiding the feed covers it too, since there is no feed left to advertise in.
+  const noFeed = await render({ feed: true });
+  assert.equal(mirror(noFeed).checked, true);
+  assert.equal(mirror(noFeed).disabled, true);
+
+  // And it goes entirely when the switch it is shown under has itself gone.
+  const noHome = await render({ home: true });
+  assert.equal(mirror(noHome).hidden, true);
 });
 
 test("one switch turns off every advert, and takes their rows with it", async () => {

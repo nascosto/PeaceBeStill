@@ -4,7 +4,7 @@
 // tabs at once.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
+  const { GROUPS, FEATURES, KEYS, MIRRORS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
   const form = document.getElementById("features");
   const filter = document.getElementById("filter");
   const summary = document.getElementById("summary");
@@ -31,7 +31,7 @@
     return depth;
   }
 
-  function addRow(section, [key, label]) {
+  function addRow(section, [key, label], { depth, mirror = false, mirrorParent = null } = {}) {
     const row = document.createElement("label");
     const choices = choicesFor(key);
     // Most settings are a switch. One -- where the home page goes instead --
@@ -42,15 +42,17 @@
     // One indent per level, however deep: with a cap at two, a switch inside
     // the feed inside Home sat level with the feed itself and read as its
     // sibling. Four is as deep as the tree goes.
-    const depth = depthOf(key);
     if (depth) row.setAttribute("data-depth", String(Math.min(depth, 4)));
+    if (mirror) row.setAttribute("data-mirror", "1");
     // A tick reads "[x] label"; a list reads "label [choices]", so the words
     // come first and the control after.
     if (choices) row.append(document.createTextNode(label + " "), box);
     else row.append(box, document.createTextNode(" " + label));
     section.append(row);
-    rows.push({ key, label, box, row, section, depth, choices });
+    rows.push({ key, label, box, row, section, depth, choices, mirror, mirrorParent });
   }
+
+  const featureOf = (key) => FEATURES.find(([featureKey]) => featureKey === key);
 
   for (const group of GROUPS) {
     const section = document.createElement("fieldset");
@@ -60,16 +62,27 @@
     form.append(section);
     sections.push(section);
 
+    // What this heading shows: the settings filed under it, plus any that also
+    // appear here because they belong to two things at once.
+    const entries = [
+      ...FEATURES.filter(([, , , featureGroup]) => featureGroup === group)
+        .map((feature) => ({ feature, key: feature[0], parent: feature[4], mirror: false })),
+      ...MIRRORS.filter(([, mirrorGroup]) => mirrorGroup === group)
+        .map(([key, , parent]) => ({ feature: featureOf(key), key, parent, mirror: true })),
+    ];
+    const here = (entry) => entries.some((other) => !other.mirror && other.key === entry.parent);
+
     // Depth-first, so a switch is followed by everything it covers, however
     // many levels deep. Rendering only one level -- which this did before --
     // dropped a grandchild filed under the same heading entirely.
-    const inGroup = FEATURES.filter(([, , , featureGroup]) => featureGroup === group);
-    const parentIsHere = (feature) => inGroup.some(([key]) => key === feature[4]);
-    const addBranch = (feature) => {
-      addRow(section, feature);
-      for (const child of inGroup.filter(([, , , , parent]) => parent === feature[0])) addBranch(child);
+    const addBranch = (entry, depth) => {
+      addRow(section, entry.feature, { depth, mirror: entry.mirror, mirrorParent: entry.parent });
+      if (entry.mirror) return; // a second row of one setting, not a branch
+      for (const child of entries.filter((other) => other.parent === entry.key && other !== entry)) {
+        addBranch(child, depth + 1);
+      }
     };
-    for (const feature of inGroup) if (!parentIsHere(feature)) addBranch(feature);
+    for (const entry of entries) if (!entry.mirror && !here(entry)) addBranch(entry, depthOf(entry.key));
   }
 
   // A switch an ancestor has already covered is taken off the list rather than
@@ -81,7 +94,7 @@
     const query = filter.value.trim().toLowerCase();
     let on = 0;
     let covered = 0;
-    for (const { key, label, box, row, choices } of rows) {
+    for (const { key, label, box, row, choices, mirror, mirrorParent } of rows) {
       if (choices) {
         // Rebuilt every time, because hiding a page takes it out of the list.
         // replaceChildren, not children.length = 0: children is a live
@@ -102,17 +115,30 @@
       } else {
         box.checked = settings[key] === true;
       }
+      const moot = isMoot(key, settings);
+      const filtered = query !== "" && !label.toLowerCase().includes(query);
+      if (mirror) {
+        // The second place a setting appears stays put when something above it
+        // takes over, ticked and locked, so it is clear the thing is happening
+        // rather than merely absent. It goes only when the switch it is shown
+        // under has gone: there is no sense in a lone row under nothing.
+        const covered = isMoot(key, settings) || settings[mirrorParent] === true;
+        box.checked = covered || settings[key] === true;
+        box.disabled = covered;
+        row.hidden = filtered || isMoot(mirrorParent, settings);
+        continue;
+      }
       // A chooser counts as on when it has been moved off its default.
       if (choices ? !isDefaultValue(key, settings[key]) : box.checked) on++;
-      const moot = isMoot(key, settings);
       if (moot) covered++;
-      row.hidden = moot || (query !== "" && !label.toLowerCase().includes(query));
+      row.hidden = moot || filtered;
     }
     for (const section of sections) {
       section.hidden = rows.filter((entry) => entry.section === section).every((entry) => entry.row.hidden);
     }
     const note = covered ? ` · ${covered} covered by a switch above` : "";
-    summary.textContent = `${on} of ${rows.length} on${note} · settings follow your browser account`;
+    const total = rows.filter((entry) => !entry.mirror).length;
+    summary.textContent = `${on} of ${total} on${note} · settings follow your browser account`;
   }
 
   function report(error) {

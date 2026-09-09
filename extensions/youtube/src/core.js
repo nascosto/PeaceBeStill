@@ -66,6 +66,10 @@
   ];
   const KEYS = FEATURES.map(([key]) => key);
 
+  // Settings that also appear in a second place. None here yet; the options
+  // page asks so that both extensions can share one page.
+  const MIRRORS = [];
+
   // The choices a setting offers, or null when it is an ordinary switch.
   // Nothing here offers any yet; the options page asks so that both extensions
   // can share one page.
@@ -225,5 +229,5 @@
     return merged;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

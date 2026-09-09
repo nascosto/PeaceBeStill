@@ -12,16 +12,16 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 // one chooser is empty, so a fresh install changes nothing and stores nothing.
 // Every setting, in order, with its default. All the switches are off, and the
 // one chooser is empty, so a fresh install changes nothing and stores nothing.
+// Every setting, in order, with its default. All the switches are off, and the
+// one chooser is empty, so a fresh install changes nothing and stores nothing.
 const DEFAULTS = [
-  ...["blackout", "home", "feed", "composer", "suggested", "recommended",
-    "socialProof", "myNetwork", "jobs", "messaging", "messagingOverlay", "notifications",
-    "notificationCount", "profile"].map((key) => [key, false]),
+  ...["blackout", "home", "feed", "composer", "suggested", "recommended", "socialProof",
+    "myNetwork", "jobs", "messaging", "notifications", "profile"].map((key) => [key, false]),
   ["homeRedirect", ""],
-  ...[
-    "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
+  ...["ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions",
-    "aiAssistant"].map((key) => [key, false]),
+    "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
+    "messagingOverlay", "notificationCount"].map((key) => [key, false]),
 ];
 
 const KEYS = DEFAULTS.map(([k]) => k);
@@ -84,11 +84,13 @@ test("pageFor names the destination a path belongs to, and nothing else", () => 
   assert.equal(page(undefined), "");
 });
 
-test("a page's own switches sit under it", () => {
-  assert.equal(PeaceBeStill.parentOf("messagingOverlay"), "messaging");
-  assert.equal(PeaceBeStill.parentOf("notificationCount"), "notifications");
-  assert.equal(PeaceBeStill.isMoot("messagingOverlay", { messaging: true }), true);
-  assert.equal(PeaceBeStill.isMoot("notificationCount", { notifications: true }), true);
+// The chat bubble is pinned to every page and the unread count is in the tab
+// title, so neither answers to the page it is named after.
+test("the overlay and the tab count are independent of their pages", () => {
+  assert.equal(PeaceBeStill.parentOf("messagingOverlay"), "blackout");
+  assert.equal(PeaceBeStill.parentOf("notificationCount"), "blackout");
+  assert.equal(PeaceBeStill.isMoot("messagingOverlay", { messaging: true }), false);
+  assert.equal(PeaceBeStill.isMoot("notificationCount", { notifications: true }), false);
 });
 
 test("hiding Home takes the feed with it, and the feed takes its own posts", () => {
@@ -229,9 +231,10 @@ test("redirectFor sends the home page where the chooser says, and nowhere else",
 
 test("somewhere you have hidden is neither offered nor obeyed", () => {
   const offered = (settings) => [...PeaceBeStill.choicesOffered("homeRedirect", settings)].map(([value]) => value);
-  assert.deepEqual(offered({}), ["", "messaging", "notifications", "jobs", "mynetwork"]);
-  assert.deepEqual(offered({ jobs: true }), ["", "messaging", "notifications", "mynetwork"]);
-  assert.deepEqual(offered({ jobs: true, messaging: true }), ["", "notifications", "mynetwork"]);
+  // Listed in the order the top bar lists them, so the two read alike.
+  assert.deepEqual(offered({}), ["", "mynetwork", "jobs", "messaging", "notifications"]);
+  assert.deepEqual(offered({ jobs: true }), ["", "mynetwork", "messaging", "notifications"]);
+  assert.deepEqual(offered({ jobs: true, messaging: true }), ["", "mynetwork", "notifications"]);
   // And the setting stops working, not just showing: hiding Jobs after picking
   // it must not land you on a page you have taken away.
   assert.equal(PeaceBeStill.redirectFor("/", { homeRedirect: "jobs" }), "/jobs/");

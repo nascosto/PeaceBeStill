@@ -29,12 +29,13 @@
   // "" is the default and means leave it alone.
   // Each choice names the page switch it depends on: somewhere you have hidden
   // is not somewhere to be sent, so it is neither offered nor obeyed.
+  // In the order the top bar lists them, so the two read alike.
   const REDIRECTS = [
     ["", "Home", "home"],
+    ["mynetwork", "My Network", "myNetwork"],
+    ["jobs", "Jobs", "jobs"],
     ["messaging", "Messaging", "messaging"],
     ["notifications", "Notifications", "notifications"],
-    ["jobs", "Jobs", "jobs"],
-    ["mynetwork", "My Network", "myNetwork"],
   ];
   const REDIRECT_PATHS = {
     messaging: "/messaging/",
@@ -125,9 +126,7 @@
     ["myNetwork", "Hide My Network", false, PAGES_GROUP, "blackout"],
     ["jobs", "Hide Jobs", false, PAGES_GROUP, "blackout"],
     ["messaging", "Hide Messaging", false, PAGES_GROUP, "blackout"],
-    ["messagingOverlay", "Hide messaging overlay", false, PAGES_GROUP, "messaging"],
     ["notifications", "Hide Notifications", false, PAGES_GROUP, "blackout"],
-    ["notificationCount", "Hide unread count in tab title", false, PAGES_GROUP, "notifications"],
     ["profile", "Hide Profile", false, PAGES_GROUP, "blackout"],
     // Not under Home: with Home gone, being sent somewhere else is more useful,
     // not less. The one setting that is not a switch.
@@ -141,16 +140,29 @@
     ["premium", "Hide Premium adverts and upsells", false, ADS, "ads"],
     ["jobsPromoted", "Hide promoted job adverts", false, ADS, "ads"],
     ["rightRail", "Hide right-hand column", false, RAILS, "blackout"],
-    ["leftRail", "Hide left-hand column (your profile card and stats)", false, RAILS, "blackout"],
+    ["leftRail", "Hide left-hand column", false, RAILS, "blackout"],
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
     ["news", "Hide LinkedIn News panel", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide business features", false, ELSEWHERE, "blackout"],
     ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
     ["suggestions", "Hide “suggestions for you” panels", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
+    // Neither of these belongs to the page it is named after: the chat bubble
+    // is pinned to every page, and LinkedIn puts the unread count in the tab
+    // title whether or not you have hidden Notifications.
+    ["messagingOverlay", "Hide messaging overlay", false, ELSEWHERE, "blackout"],
+    ["notificationCount", "Hide unread count in tab title", false, ELSEWHERE, "blackout"],
   ];
 
   const KEYS = FEATURES.map(([key]) => key);
+
+  // Settings that also appear in a second place, because they belong to two
+  // things at once: an advert in the feed is both an advert and part of the
+  // feed. [key, the group it also appears in, the switch it sits under there].
+  // The second row is the same setting, not a copy of it.
+  const MIRRORS = [
+    ["sponsored", PAGES_GROUP, "feed"],
+  ];
 
   // The home page, by every path LinkedIn serves it at, and where each switch
   // sends it. A destination is never itself a home path, so a redirect cannot
@@ -273,5 +285,5 @@
     return calm === title ? null : calm;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, BLACKOUT_TITLE, KINDS, SOCIAL, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, BLACKOUT_TITLE, KINDS, SOCIAL, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
 })(globalThis);

@@ -153,10 +153,16 @@ profile you sign into by hand, which is why it is not in CI:
     npm run dev:linkedin       # once, in a terminal of its own; sign in if asked
     npm run check:linkedin     # check every switch against the page it is showing
     npm run check:linkedin -- /feed/ /in/me/ /jobs/ /mynetwork/grow/
+    npm run check:linkedin -- --panels /feed/       # is each panel's box the whole panel?
+    npm run check:linkedin -- --collateral /feed/   # does any switch hide what is not its own?
 
 The profile lives in `~/.config/peacebestill/linkedin-dev-profile` and keeps
-its session, so signing in is a one-off. `check:linkedin` reports, per switch,
-how many targets it found on the page and how many actually stopped rendering;
+its session, so signing in is a one-off. `check:linkedin` reports, per switch, how many targets it found on the page and
+how many actually stopped rendering. `--panels` reports the box each panel
+resolves to and flags one that leaves an empty container behind; `--collateral`
+turns each switch on alone and reports anything that stopped rendering which
+that switch does not own. Between them they catch the two ways this goes wrong:
+hiding too little of a panel, and hiding something else as well.
 it drives the browser over Firefox's remote debugging protocol, the channel
 devtools uses, so it sets no automation flag on your session. It reads the
 extension's own `core.js` and lifts the marking pass out of its `content.js`,
