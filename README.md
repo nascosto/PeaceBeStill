@@ -107,13 +107,13 @@ Twenty-three switches, and the first one is the blunt one.
   wins), and the "Start a post" box above it
 - posts nobody you follow wrote: suggested posts, "Recommended for you", and
   the ones dragged in because someone reacted to them
-- **advertisements**, under one switch that covers the lot wherever they are,
-  with the kinds under it if you want them separately: in the feed, everywhere
-  else on the site, Premium upsells, and promoted job adverts
+- **advertisements**, under one switch that covers the lot, with the kinds
+  under it if you want them separately: in the feed, outside it, Premium
+  upsells, and promoted job adverts
 - the two columns beside the feed, together or one at a time
-- things that follow you around: the puzzles and games, the LinkedIn News
-  panel, the "For Business" menu in the top bar, "People you may know", the
-  "suggestions for you" panels, and LinkedIn's AI assistant
+- the puzzles and games, the LinkedIn News panel, the "For Business" menu in
+  the top bar, "People you may know", the "suggestions for you" panels, and
+  LinkedIn's AI assistant
 - the unread count LinkedIn puts in front of the tab title
 
 Turning a switch on takes away the switches it covers: with **Hide everything**

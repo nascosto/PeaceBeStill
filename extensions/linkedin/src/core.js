@@ -37,15 +37,15 @@
     // One switch for every advert on the site, with the individual kinds under
     // it. Adverts turn up in the feed, beside it, on the jobs pages and in the
     // top bar, so grouping them by page would have missed most of them.
-    ["ads", "Hide all advertisements, wherever they are", false, ADS, "blackout"],
+    ["ads", "Hide all advertisements", false, ADS, "blackout"],
     ["sponsored", "Hide advertisements in the feed (promoted and sponsored posts)", false, ADS, "ads"],
-    ["otherAds", "Hide advertisements everywhere else on the site", false, ADS, "ads"],
+    ["otherAds", "Hide advertisements outside the feed", false, ADS, "ads"],
     ["premium", "Hide Premium adverts and upsells", false, ADS, "ads"],
     ["jobsPromoted", "Hide promoted job adverts", false, ADS, "ads"],
     ["rightRail", "Hide the right-hand column entirely", false, RAILS, "blackout"],
     ["leftRail", "Hide the left-hand column (your profile card and stats)", false, RAILS, "blackout"],
-    ["games", "Hide the puzzles and games, wherever they appear", false, ELSEWHERE, "blackout"],
-    ["news", "Hide the LinkedIn News panel, wherever it appears", false, ELSEWHERE, "blackout"],
+    ["games", "Hide the puzzles and games", false, ELSEWHERE, "blackout"],
+    ["news", "Hide the LinkedIn News panel", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide the “For Business” menu in the top bar", false, ELSEWHERE, "blackout"],
     ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
     ["suggestions", "Hide the “suggestions for you” panels on profiles and My Network", false, ELSEWHERE, "blackout"],
