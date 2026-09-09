@@ -42,9 +42,11 @@
     const box = document.createElement(choices ? "select" : "input");
     if (!choices) box.type = "checkbox";
     box.name = key;
+    // One indent per level, however deep: with a cap at two, a switch inside
+    // the feed inside Home sat level with the feed itself and read as its
+    // sibling. Four is as deep as the tree goes.
     const depth = depthOf(key);
-    if (depth === 1) row.classList.add("child");
-    if (depth >= 2) row.classList.add("grandchild");
+    if (depth) row.setAttribute("data-depth", String(Math.min(depth, 4)));
     row.append(box, document.createTextNode(" " + label));
     section.append(row);
     rows.push({ key, label, box, row, section, depth, choices });

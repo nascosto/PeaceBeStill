@@ -64,8 +64,8 @@ function rowsOf(root) {
     checked: box.checked === true,
     value: box.value,
     isSelect: box.tag === "select",
-    indented: !!(row?.classList.contains("child") || row?.classList.contains("grandchild")),
-    grandchild: !!row?.classList.contains("grandchild"),
+    depth: Number(row?.getAttribute("data-depth") ?? 0),
+    indented: Number(row?.getAttribute("data-depth") ?? 0) > 0,
     ariaDisabled: box.getAttribute("aria-disabled"),
     reallyDisabled: box.disabled === true,
     hidden: row?.hidden === true,
@@ -116,14 +116,14 @@ test("every switch is nested under the one that covers it, one indent per level"
   // "Hide everything" parents the whole page, so it alone sits flush and
   // everything else is indented -- the switches inside the feed and inside the
   // rails a further step, since they are two levels down.
-  const depth = Object.fromEntries(rows().map((r) => [r.name, r.indented ? (r.grandchild ? 2 : 1) : 0]));
+  const depth = Object.fromEntries(rows().map((r) => [r.name, r.depth]));
   assert.equal(depth.blackout, 0);
   assert.equal(depth.home, 1);
   assert.equal(depth.feed, 2, "the feed is inside Home");
   assert.equal(depth.messagingOverlay, 2, "the overlay is inside Messaging");
   assert.equal(depth.rightRail, 1);
-  assert.equal(depth.composer, 2, "the composer is inside the feed");
-  assert.equal(depth.suggested, 2, "a post kind is inside the feed");
+  assert.equal(depth.composer, 3, "the composer is inside the feed, inside Home");
+  assert.equal(depth.suggested, 3, "a post kind is inside the feed, inside Home");
   assert.equal(depth.ads, 1);
   assert.equal(depth.sponsored, 2, "an advert kind is inside the advert switch");
 });

@@ -107,7 +107,7 @@
     // The site's destinations. Each hides its page as well as its place in the
     // top bar, which is why the things belonging to a page sit under it.
     ["home", "Hide Home", false, PAGES_GROUP, "blackout"],
-    ["feed", "Hide feed entirely", false, PAGES_GROUP, "home"],
+    ["feed", "Hide feed", false, PAGES_GROUP, "home"],
     ["composer", "Hide “Start a post” box", false, PAGES_GROUP, "feed"],
     ["suggested", "Hide suggested posts", false, PAGES_GROUP, "feed"],
     ["recommended", "Hide “Recommended for you” posts", false, PAGES_GROUP, "feed"],

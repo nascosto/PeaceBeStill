@@ -38,9 +38,11 @@ legend { padding: 0 6px 0 0; font-size: 11px; text-transform: uppercase; letter-
    sits under the text rather than under the box. */
 label { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 7px; padding: 2px 0; }
 label[hidden] { display: none; }
-/* Nested under the switch it depends on, one step per level. */
-label.child { margin-left: 22px; }
-label.grandchild { margin-left: 44px; }
+/* Nested under the switch it covers it, one step per level. */
+label[data-depth="1"] { margin-left: 22px; }
+label[data-depth="2"] { margin-left: 44px; }
+label[data-depth="3"] { margin-left: 66px; }
+label[data-depth="4"] { margin-left: 88px; }
 input[type="checkbox"] { margin: 0; }
 
 /* The one setting that is a choice rather than a tick. */
