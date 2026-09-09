@@ -102,27 +102,37 @@ test("every feature gets one checkbox, inside a fieldset with its section as the
   );
 });
 
-test("blackout is the parent of everything, but nothing is indented under it", async () => {
+test("switches are grouped, and only nest where parent and child share a section", async () => {
   const { rows } = await render();
-  // Nesting is only drawn when parent and child share a section. Blackout has
-  // a section to itself, so every other switch stays at the top level of its
-  // own group -- which is the point: they are ordinary switches that happen to
-  // be pointless while the site is gone.
-  assert.deepEqual(rows().map((r) => r.indented), [false, false, false, false, false]);
   assert.deepEqual(rows().map((r) => r.name), [
-    "blackout", "homeToMessaging", "homeToNotifications", "homeToJobs", "notificationCount",
+    "blackout",
+    "feed", "homeToMessaging", "homeToNotifications", "homeToJobs",
+    "sponsored", "suggested", "recommended", "socialProof",
+    "rightRail", "rightRailAds", "games", "news", "leftRail",
+    "jobsPromoted", "peopleYouMayKnow", "suggestions",
+    "notificationCount",
   ]);
+  // Blackout parents everything but has a section to itself, and the post
+  // kinds sit in their own section away from `feed`, so neither draws an
+  // indent. The three right-rail modules do live beside their parent.
+  const indented = Object.fromEntries(rows().map((r) => [r.name, r.indented]));
+  assert.deepEqual(
+    Object.entries(indented).filter(([, i]) => i).map(([n]) => n),
+    ["rightRailAds", "games", "news"],
+  );
 });
 
 test("with the site blacked out every other switch says so, stays reachable by keyboard, and cannot be changed", async () => {
   const { rows, change, writes, removes } = await render({ blackout: true });
-  for (const key of ["homeToMessaging", "homeToNotifications", "homeToJobs", "notificationCount"]) {
-    const row = rows().find((r) => r.name === key);
-    assert.equal(row.moot, true, key);
-    assert.equal(row.ariaDisabled, "true", `${key} is announced as disabled`);
-    assert.equal(row.reallyDisabled, false, `${key} must stay in the tab order`);
-    // Not indented under blackout, so the note has to name it.
-    assert.match(row.note, /Replace LinkedIn with a better idea/, `${key} names what locked it`);
+  for (const row of rows().filter((r) => r.name !== "blackout")) {
+    assert.equal(row.moot, true, row.name);
+    assert.equal(row.ariaDisabled, "true", `${row.name} is announced as disabled`);
+    assert.equal(row.reallyDisabled, false, `${row.name} must stay in the tab order`);
+    // An indented switch points at the row above it; one that was pushed into
+    // another section has to name the switch that locked it.
+    // Blackout is what locked them, so blackout is what every note names --
+    // including the indented ones, whose own parent is off.
+    assert.match(row.note, /Replace LinkedIn with a better idea/, row.name);
   }
   assert.equal(rows().find((r) => r.name === "blackout").moot, false);
 
@@ -131,6 +141,17 @@ test("with the site blacked out every other switch says so, stays reachable by k
   assert.deepEqual(plain(writes), []);
   assert.deepEqual(plain(removes), []);
   assert.equal(rows().find((r) => r.name === "homeToJobs").checked, false, "the tick is put back");
+});
+
+test("a note names the switch that actually locked it, not the parent that is off", async () => {
+  // Hiding the feed makes the post kinds moot; the right rail makes its own
+  // modules moot, and those sit directly beneath it.
+  const feedOff = await render({ feed: true });
+  assert.match(feedOff.rows().find((r) => r.name === "sponsored").note, /Hide the feed entirely/);
+  const railOff = await render({ rightRail: true });
+  assert.equal(railOff.rows().find((r) => r.name === "games").note, "no effect while the switch above is on");
+  // And a switch nothing has locked says nothing at all.
+  assert.equal(feedOff.rows().find((r) => r.name === "games").note, "");
 });
 
 test("only a switch that differs from its default is stored", async () => {
@@ -149,12 +170,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ blackout: true, homeToJobs: true });
-  assert.match(byId.summary.textContent, /2 of 5/);
+  assert.match(byId.summary.textContent, /2 of 18/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "homeToJobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 5/);
+  assert.match(byId.summary.textContent, /0 of 18/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

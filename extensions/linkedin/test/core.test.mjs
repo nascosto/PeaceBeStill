@@ -8,14 +8,17 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 // page, the stylesheet gates and the stored settings all share.
 const DEFAULTS = [
   "blackout",
-  "homeToMessaging", "homeToNotifications", "homeToJobs",
+  "feed", "homeToMessaging", "homeToNotifications", "homeToJobs",
+  "sponsored", "suggested", "recommended", "socialProof",
+  "rightRail", "rightRailAds", "games", "news", "leftRail",
+  "jobsPromoted", "peopleYouMayKnow", "suggestions",
   "notificationCount",
 ].map((key) => [key, false]);
 
 const KEYS = DEFAULTS.map(([k]) => k);
-const GROUPS = ["The whole site", "Home and feed", "Notifications"];
+const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
 
-test("the feature keys are the agreed five, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed eighteen, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
@@ -34,11 +37,47 @@ test("nothing is on by default: the extension does nothing until asked", () => {
 
 // The whole design of the options page rests on this: blackout hides the
 // entire site, so nothing else can have any effect while it is on.
-test("blackout is top level and the parent of every other switch", () => {
+test("blackout is top level and an ancestor of every other switch", () => {
   assert.equal(PeaceBeStill.parentOf("blackout"), null);
   for (const key of KEYS.filter((k) => k !== "blackout")) {
-    assert.equal(PeaceBeStill.parentOf(key), "blackout", key);
+    const chain = [];
+    for (let p = PeaceBeStill.parentOf(key); p; p = PeaceBeStill.parentOf(p)) chain.push(p);
+    assert.ok(chain.includes("blackout"), `${key} does not descend from blackout (chain: ${chain})`);
   }
+});
+
+// The middle of the chain matters too: a post kind cannot matter with the feed
+// gone, and a rail module cannot matter with the rail gone.
+test("feed and rightRail are parents in their own right", () => {
+  for (const key of ["sponsored", "suggested", "recommended", "socialProof"]) {
+    assert.equal(PeaceBeStill.parentOf(key), "feed", key);
+    assert.equal(PeaceBeStill.isMoot(key, { feed: true }), true, key);
+  }
+  for (const key of ["rightRailAds", "games", "news"]) {
+    assert.equal(PeaceBeStill.parentOf(key), "rightRail", key);
+    assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), true, key);
+  }
+});
+
+// The feed labels are the only durable hook: LinkedIn's class names are hashed
+// and rotate per deploy, and CSS cannot select on text, so content.js reads
+// these and marks the item for the stylesheet to hide.
+test("kindsFor reads a feed item's kind from the short labels in its header", () => {
+  const k = PeaceBeStill.kindsFor;
+  assert.deepEqual([...k(["Promoted"])], ["sponsored"]);
+  assert.deepEqual([...k(["Sponsored"])], ["sponsored"]);
+  assert.deepEqual([...k(["Suggested"])], ["suggested"]);
+  assert.deepEqual([...k(["Suggested for you"])], ["suggested"]);
+  assert.deepEqual([...k(["Recommended for you"])], ["recommended"]);
+  assert.deepEqual([...k(["Jane Doe likes this"])], ["socialProof"]);
+  assert.deepEqual([...k(["Jane Doe commented on this"])], ["socialProof"]);
+  assert.deepEqual([...k(["Jane Doe reposted this"])], ["socialProof"]);
+  // An ordinary post, and a post that merely mentions the word, are untouched:
+  // only an exact label match counts.
+  assert.deepEqual([...k(["Some ordinary post"])], []);
+  assert.deepEqual([...k(["We just promoted three people"])], []);
+  assert.deepEqual([...k([])], []);
+  assert.deepEqual([...k(undefined)], []);
 });
 
 test("blackout makes every other switch moot, and nothing is moot without it", () => {
@@ -81,7 +120,7 @@ test("effective: a fresh install runs nothing, and blackout forces everything el
 // This is what content.js actually does: effective() first, then tokensFor().
 test("the attribute reads exactly 'blackout' while the site is blacked out", () => {
   const { tokensFor, effective } = PeaceBeStill;
-  assert.equal(tokensFor(effective({ blackout: true, homeToJobs: true, notificationCount: true })), "blackout");
+  assert.equal(tokensFor(effective({ blackout: true, homeToJobs: true, sponsored: true, games: true })), "blackout");
   assert.equal(tokensFor(effective({ notificationCount: true })), "notificationCount");
   assert.equal(tokensFor(effective({})), "");
 });

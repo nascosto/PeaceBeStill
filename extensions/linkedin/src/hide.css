@@ -2,7 +2,12 @@
    which content.js keeps equal to the set of enabled feature keys. So the
    stylesheet is fully static and a toggle takes effect without a reload.
    Rules only ever hide (display: none); blackout is the one exception, because
-   replacing the site means drawing something as well as hiding everything. */
+   replacing the site means drawing something as well as hiding everything.
+
+   LinkedIn's class names are hashed and rotate with each deploy, so nothing
+   here keys on one. The durable hooks are ARIA roles and labels, data-testid,
+   and -- where the only distinguishing feature is a visible label, which CSS
+   cannot select on -- a data-pbs mark that content.js puts on the element. */
 
 /* ---- The whole site ----------------------------------------------------- */
 
@@ -12,15 +17,54 @@
    needs no second set of rules for Firefox for Android.
    The sentence is core.js's BLACKOUT_TITLE, which also becomes the tab title;
    a test holds the two to the same string.
-   Colours are stated rather than inherited: LinkedIn ships a dark mode, and an
-   inherited colour could put dark text on a dark ground. */
+   Sizes are absolute, not rem: LinkedIn sets html { font-size: 62.5% }, so a
+   1rem sentence renders at 10px. Colours are stated rather than inherited,
+   because LinkedIn ships a dark mode. */
 html[data-peacebestill~="blackout"] body { display: none !important; }
 html[data-peacebestill~="blackout"] { color-scheme: light dark; background: light-dark(#ffffff, #1c1b22) !important; }
 html[data-peacebestill~="blackout"]::before {
   content: "You made the right choice.";
   display: block;
-  padding: 4rem 1rem;
-  font: 1rem/1.5 system-ui, sans-serif;
+  padding: 64px 16px;
+  font: 16px/1.5 system-ui, sans-serif;
   color: light-dark(#1b1b1f, #ececed);
   text-align: center;
 }
+
+/* ---- Home and feed ------------------------------------------------------ */
+
+/* The feed itself: the list, not the column, so the composer above it stays. */
+html[data-peacebestill~="feed"] [data-testid="mainFeed"] { display: none !important; }
+
+/* ---- Feed posts --------------------------------------------------------- */
+
+/* Each of these is a kind of post LinkedIn puts in front of you that nobody you
+   follow posted. They are told apart by the label in the post header
+   ("Promoted", "Suggested", "Recommended for you") or by the line saying
+   someone reacted to a stranger's post -- text, which CSS cannot match, so
+   content.js reads it and marks the item. */
+html[data-peacebestill~="sponsored"] [role="listitem"][data-pbs~="sponsored"] { display: none !important; }
+html[data-peacebestill~="suggested"] [role="listitem"][data-pbs~="suggested"] { display: none !important; }
+html[data-peacebestill~="recommended"] [role="listitem"][data-pbs~="recommended"] { display: none !important; }
+html[data-peacebestill~="socialProof"] [role="listitem"][data-pbs~="socialProof"] { display: none !important; }
+
+/* ---- Side rails --------------------------------------------------------- */
+
+/* The two columns either side of the feed. The right one carries the advert,
+   the puzzles and the news panel, which are also switchable on their own; it
+   is one unlabelled container, so content.js marks the three modules inside. */
+html[data-peacebestill~="rightRail"] aside[aria-label="Aside"] { display: none !important; }
+html[data-peacebestill~="leftRail"] aside[aria-label="Sidebar"] { display: none !important; }
+html[data-peacebestill~="rightRailAds"] [data-pbs~="ads"] { display: none !important; }
+html[data-peacebestill~="games"] [data-pbs~="games"] { display: none !important; }
+html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
+
+/* ---- Elsewhere on LinkedIn ---------------------------------------------- */
+
+/* Panels found by a label inside them and marked by content.js, the same way
+   the right-rail modules are. "Promoted" is scoped to the jobs pages there,
+   since in the feed it means a sponsored post, which `sponsored` already
+   covers. */
+html[data-peacebestill~="jobsPromoted"] [data-pbs~="jobsPromoted"] { display: none !important; }
+html[data-peacebestill~="peopleYouMayKnow"] [data-pbs~="pymk"] { display: none !important; }
+html[data-peacebestill~="suggestions"] [data-pbs~="suggestions"] { display: none !important; }

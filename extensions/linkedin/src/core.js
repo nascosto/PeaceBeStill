@@ -3,8 +3,8 @@
 (function (root) {
   // Options-page sections, in display order. Blackout has one to itself, and
   // it comes first, because it is the parent of everything below it.
-  const GROUPS = ["The whole site", "Home and feed", "Notifications"];
-  const [SITE, HOME, NOTIFICATIONS] = GROUPS;
+  const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
+  const [SITE, HOME, POSTS, RAILS, ELSEWHERE, NOTIFICATIONS] = GROUPS;
 
   // What the page says, and what the tab says, once the site is blacked out.
   // hide.css draws this string; a test holds the two to the same sentence.
@@ -26,11 +26,25 @@
   // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
     ["blackout", "Replace LinkedIn with a better idea", false, SITE],
+    ["feed", "Hide the feed entirely", false, HOME, "blackout"],
     ["homeToMessaging", "Open Messaging instead of the home feed", false, HOME, "blackout"],
     ["homeToNotifications", "Open Notifications instead of the home feed", false, HOME, "blackout"],
     ["homeToJobs", "Open Jobs instead of the home feed", false, HOME, "blackout"],
+    ["sponsored", "Hide promoted and sponsored posts", false, POSTS, "feed"],
+    ["suggested", "Hide suggested posts", false, POSTS, "feed"],
+    ["recommended", "Hide “Recommended for you” posts", false, POSTS, "feed"],
+    ["socialProof", "Hide posts shown because someone liked or commented on them", false, POSTS, "feed"],
+    ["rightRail", "Hide the right-hand column entirely", false, RAILS, "blackout"],
+    ["rightRailAds", "Hide the advert in the right-hand column", false, RAILS, "rightRail"],
+    ["games", "Hide the puzzles and games", false, RAILS, "rightRail"],
+    ["news", "Hide the LinkedIn News panel", false, RAILS, "rightRail"],
+    ["leftRail", "Hide the left-hand column (your profile card and stats)", false, RAILS, "blackout"],
+    ["jobsPromoted", "Hide promoted job adverts", false, ELSEWHERE, "blackout"],
+    ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
+    ["suggestions", "Hide the “suggestions for you” panels on profiles and My Network", false, ELSEWHERE, "blackout"],
     ["notificationCount", "Hide the unread count in the tab title", false, NOTIFICATIONS, "blackout"],
   ];
+
   const KEYS = FEATURES.map(([key]) => key);
 
   // The home page, by every path LinkedIn serves it at, and where each switch
@@ -42,6 +56,30 @@
     ["homeToNotifications", "/notifications/"],
     ["homeToJobs", "/jobs/"],
   ];
+
+  // A feed item's kind, decided from the short label LinkedIn puts in its
+  // header. Class names there are hashed and rotate per deploy, so the label is
+  // the durable hook; CSS cannot select on text, so content.js marks the item
+  // and hide.css hides the mark. Exact matches only, against leaf elements, so
+  // a post that merely mentions the word is not caught by it.
+  const KINDS = [
+    ["sponsored", /^(Promoted|Sponsored)$/],
+    ["suggested", /^Suggested(?: for you)?$/],
+    ["recommended", /^Recommended(?: for you)?$/],
+  ];
+  // The "someone you know reacted to this" line that drags a stranger's post
+  // into your feed. One line, a name and a verb, so it is matched loosely.
+  const SOCIAL = /\b(?:likes|loves|celebrates|supports|finds|commented on|reposted)\b.*\bthis\b/;
+
+  // Given the short texts found inside one feed item, the kinds it counts as.
+  function kindsFor(texts) {
+    const kinds = [];
+    for (const [kind, pattern] of KINDS) {
+      if ((texts || []).some((t) => pattern.test(String(t).trim()))) kinds.push(kind);
+    }
+    if ((texts || []).some((t) => SOCIAL.test(String(t).trim()))) kinds.push("socialProof");
+    return kinds;
+  }
 
   function defaults() {
     return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
@@ -94,13 +132,22 @@
   // options page greys such a switch out; its stored value is left alone, so
   // turning the parent off brings it back exactly as it was.
   function isMoot(key, settings) {
+    return blockerOf(key, settings) !== null;
+  }
+
+  // The nearest ancestor of this feature that is switched on: the switch that
+  // actually made it moot, which the options page names. With more than one
+  // level of nesting the direct parent may itself be off -- hiding the feed
+  // makes the post kinds moot, but so does blacking out the whole site -- and
+  // naming a switch that is off would be a lie.
+  function blockerOf(key, settings) {
     const merged = withDefaults(settings);
     const seen = new Set();
     for (let parent = parentOf(key); parent && !seen.has(parent); parent = parentOf(parent)) {
-      if (merged[parent] === true) return true;
+      if (merged[parent] === true) return parent;
       seen.add(parent);
     }
-    return false;
+    return null;
   }
 
   // What the content script should actually do, given what is stored: the
@@ -146,5 +193,5 @@
     return calm === title ? null : calm;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, BLACKOUT_TITLE, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, redirectFor, untitled, titleFor };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, BLACKOUT_TITLE, KINDS, SOCIAL, kindsFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, tokensFor, redirectFor, untitled, titleFor };
 })(globalThis);

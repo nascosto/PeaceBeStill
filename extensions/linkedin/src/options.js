@@ -7,7 +7,7 @@
 // optional data-collection permission to ask for before ticking a box.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot } = globalThis.PeaceBeStill;
+  const { GROUPS, FEATURES, KEYS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf } = globalThis.PeaceBeStill;
   const form = document.getElementById("features");
   const filter = document.getElementById("filter");
   const summary = document.getElementById("summary");
@@ -66,13 +66,15 @@
       row.classList.toggle("moot", moot);
       if (moot) box.setAttribute("aria-disabled", "true");
       else box.removeAttribute("aria-disabled");
-      // Every locked switch says why. An indented one sits directly under the
-      // switch that locked it, so naming it again for each of three siblings
-      // is just noise; one that was pushed into another section by its own
-      // subject matter has to name it.
+      // Every locked switch says why, naming the switch that actually locked it
+      // -- the nearest ancestor that is on, which with two levels of nesting
+      // need not be the direct parent. An indented switch sits directly under
+      // its parent, so when that is the one that locked it, pointing at the row
+      // above says the same thing without repeating a label three times.
+      const blocker = moot ? blockerOf(key, settings) : null;
       note.textContent = !moot ? ""
-        : indented ? "no effect while the switch above is on"
-        : `no effect while “${labelOf(parentOf(key))}” is on`;
+        : (indented && blocker === parentOf(key)) ? "no effect while the switch above is on"
+        : `no effect while “${labelOf(blocker)}” is on`;
     }
     summary.textContent = `${on} of ${rows.length} on · settings follow your browser account`;
   }

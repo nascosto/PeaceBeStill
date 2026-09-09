@@ -95,35 +95,57 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Five switches so far, and the first one is the blunt one.
+Eighteen switches, and the first one is the blunt one.
 
 - **Replace LinkedIn with a better idea** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
   site, with no exceptions; to use LinkedIn again you turn it off. While it is
   on, every other switch is greyed out and says so, because none of them can
   matter when there is no page left to act on.
-- send the home page to Messaging, Notifications or Jobs instead of the feed
-  (with more than one on, the first of those three wins)
-- hide the unread count LinkedIn puts in front of the tab title
+- the feed: hide it entirely, or send the home page to Messaging,
+  Notifications or Jobs instead (with more than one of those on, the first
+  wins)
+- posts nobody you follow wrote: promoted and sponsored, suggested,
+  "Recommended for you", and the ones dragged in because someone reacted to
+  them
+- the two columns beside the feed, together or one at a time, and inside the
+  right one its advert, the puzzles and the LinkedIn News panel
+- elsewhere: promoted job adverts, "People you may know", and the
+  "suggestions for you" panels on profiles and My Network
+- the unread count LinkedIn puts in front of the tab title
 
 Every one of them works on Firefox for Android exactly as on the desktop:
-none touches LinkedIn's markup, so there is no mobile version to write.
+none depends on the desktop layout.
 
-### Why there are no audits here
+### How it works, and why it is not all CSS
 
-The YouTube extension checks its selectors by driving a signed-out headless
-browser through live pages. LinkedIn puts essentially everything behind a
-login, so that audit cannot exist, and `extensions/linkedin` has no `audit/`
-directory and no `audit:*` script. This is deliberate, not an omission.
+LinkedIn's class names are hashed and rotate with every deploy, so nothing here
+keys on one. The durable hooks are ARIA roles and labels (`role="listitem"`,
+`aside[aria-label="Aside"]`), `data-testid`, and the visible label itself.
 
-Two consequences worth knowing. Switches are added one page at a time, from
-markup read by hand in a signed-in browser, and that markup is never committed
-here in any form — this repository is public, and a signed-in LinkedIn page
-carries real names and profile identifiers. And when LinkedIn changes its
-markup a switch stops working silently; the fix is to look at the page again
-and correct the rule.
+That last one is why this extension has a marking pass where the YouTube one
+does not. What separates a promoted post from an ordinary one is the word
+"Promoted" in its header, and CSS has no text selector. So `content.js` reads
+each feed item's labels, marks it `data-pbs="sponsored"`, and `hide.css` hides
+the mark. The panels in the side columns are found the same way, growing from
+the label outwards to the largest box that does not also contain a different
+panel's label.
 
-None of that applies to the five switches above, which use no selectors at all.
+Because it keys on words, it is language-dependent: the switches are written
+against LinkedIn in English.
+
+### Checking it still works
+
+LinkedIn is behind a login, so the signed-out headless audits that keep the
+YouTube extension honest cannot run here. Instead there is a dev profile you
+sign into once, and the selectors are checked against real pages in it:
+
+    npm run start:firefox:linkedin
+
+Pages read this way are never committed, in any form — this repository is
+public, and a signed-in LinkedIn page carries real names and profile
+identifiers. When LinkedIn changes its markup a switch stops working silently;
+the fix is to look at the page again and correct the rule.
 
 ## Developing
 

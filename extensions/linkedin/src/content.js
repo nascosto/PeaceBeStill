@@ -4,7 +4,7 @@
 // when asked, and keeps the tab title in step with both.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor } = globalThis.PeaceBeStill;
+  const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor, kindsFor } = globalThis.PeaceBeStill;
 
   // What storage holds, and what that means once defaults are filled in and
   // anything blackout has made moot is forced off. Only `settings` is ever
@@ -31,24 +31,111 @@
     if (wanted !== null) document.title = wanted;
   }
 
-  function redirectIfAsked() {
-    const target = redirectFor(location.pathname, settings);
-    if (!target) return false;
-    location.replace(target);
-    return true;
+
+  // --- Marking what CSS cannot select ---------------------------------------
+  // LinkedIn tells a promoted, suggested or recommended post apart from an
+  // ordinary one by a short label in its header, and CSS has no text selector.
+  // So each feed item is read once, classified, and marked with data-pbs;
+  // hide.css hides the marks. Items are marked once and remembered, because a
+  // feed grows by hundreds of nodes as it scrolls.
+  const FEED_ITEMS = '[data-testid="mainFeed"] [role="listitem"]';
+  const seen = new WeakSet();
+
+  // The short texts in an item's header, which is where the label lives. Bounded
+  // so a long post with many spans cannot make this expensive.
+  function labelsIn(item) {
+    const out = [];
+    for (const el of [...item.querySelectorAll("span,p")].slice(0, 80)) {
+      if (el.children.length) continue;
+      const text = (el.textContent || "").trim();
+      if (text && text.length < 90) out.push(text);
+    }
+    return out;
   }
 
-  // LinkedIn is a single-page app and rewrites the title as it navigates, so
-  // the title work is redone on mutation rather than set once. The observer
-  // runs only while a switch needs it, and its callback is debounced so a
-  // busy feed cannot starve the page.
-  let observer = null;
-  let observeTimer = null;
+  function markFeedItems() {
+    for (const item of document.querySelectorAll(FEED_ITEMS)) {
+      if (seen.has(item)) continue;
+      seen.add(item);
+      const kinds = kindsFor(labelsIn(item));
+      if (kinds.length) item.setAttribute("data-pbs", kinds.join(" "));
+    }
+  }
+
+  // Panels that are only identifiable by a label inside them: the puzzles, the
+  // news panel and the advert in the right rail, promoted job adverts, and the
+  // "people you may know" and "suggested for you" panels elsewhere.
+  //
+  // The panel is the largest box around the label that does not also contain a
+  // different panel's label. Growing to the first ancestor with siblings, which
+  // is the obvious rule, marks only the heading: LinkedIn wraps a heading and
+  // its body as two children of the panel.
+  function growTo(el, root, others) {
+    let node = el;
+    while (node.parentElement && node.parentElement !== root) {
+      const parent = node.parentElement;
+      if (others.some((other) => parent.contains(other))) break;
+      node = parent;
+    }
+    return node;
+  }
+
+  // Elements whose whole text is the label, innermost first: LinkedIn wraps
+  // some headings around a span, so requiring a childless node misses them,
+  // and accepting every ancestor would match half the page. Keeping only those
+  // with no matching descendant gives exactly the label itself.
+  function labelled(pattern) {
+    const matches = [...document.querySelectorAll("span,p,h1,h2,h3,div,button")]
+      .filter((el) => pattern.test((el.textContent || "").trim()));
+    return matches.filter((el) => !matches.some((other) => other !== el && el.contains(other)));
+  }
+
+  function markModules() {
+    const path = location.pathname;
+    // What identifies each panel, and where it is allowed to be looked for.
+    // "Promoted" is a job advert only on the jobs pages; in the feed it means a
+    // sponsored post, which the feed-item pass already marks. The people
+    // heading names a place -- "People you may know in Salt Lake City" -- so it
+    // matches the opening rather than the whole string.
+    const specs = [
+      ["games", () => [...document.querySelectorAll('aside div[aria-label^="Play "]')]],
+      ["news", () => labelled(/^(LinkedIn News|Top stories)$/)],
+      ["ads", () => labelled(/^(Ad Options|Ad)$/)],
+      ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
+      ["pymk", () => (/^\/(in|mynetwork)\//.test(path) ? labelled(/^People you may know/) : [])],
+      ["suggestions", () => (/^\/(in|mynetwork)\//.test(path)
+        ? labelled(/^(Suggested|Suggestions|Follow suggestions|More profiles) for you$/) : [])],
+    ];
+    const found = specs.map(([kind, find]) => [kind, find()]);
+    const all = found.flatMap(([, els]) => els);
+    for (const [kind, els] of found) {
+      for (const el of els) {
+        // Each panel grows inside whichever labelled column it happens to live
+        // in: "People you may know" is in the main column on the network page
+        // and in the rail on a profile, and My Network puts some of its
+        // headings outside both, so the container is found from the label up.
+        const root = el.closest('aside[aria-label], section[aria-label], main') || document.body;
+        const box = growTo(el, root, all.filter((other) => other !== el));
+        if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
+      }
+    }
+  }
+
+  const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news", "rightRailAds",
+    "jobsPromoted", "peopleYouMayKnow", "profileSuggested"];
+
+  function pass() {
+    keepTitle();
+    if (MARKED.some((key) => settings[key])) {
+      markFeedItems();
+      markModules();
+    }
+  }
 
   function watchDom() {
     // Always: this is also how the title is put back when blackout goes off.
-    keepTitle();
-    if (!(settings.blackout || settings.notificationCount)) {
+    pass();
+    if (!(settings.blackout || settings.notificationCount || MARKED.some((key) => settings[key]))) {
       observer?.disconnect();
       observer = null;
       return;
