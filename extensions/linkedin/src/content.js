@@ -115,7 +115,13 @@
         // and in the rail on a profile, and My Network puts some of its
         // headings outside both, so the container is found from the label up.
         const root = el.closest('aside[aria-label], section[aria-label], main') || document.body;
-        const box = growTo(el, root, all.filter((other) => other !== el));
+        // LinkedIn wraps a whole panel in a <section>, which is exactly the box
+        // to hide when there is one; growing outwards is the fallback for the
+        // right-rail modules and job cards, which have no section of their own.
+        const section = el.closest("section");
+        const box = (section && section !== root && root.contains(section))
+          ? section
+          : growTo(el, root, all.filter((other) => other !== el));
         if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
       }
     }

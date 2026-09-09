@@ -146,6 +146,17 @@ per declared group and an empty one would show as an empty box.
   the root element, so the stylesheet is fully static and a toggle reaches open
   tabs without a reload. Rules only hide, except `blackout` as described above.
   No second mobile block: see the Android note under the blackout switch.
+- **The marking pass (added 2026-09-09).** What separates a promoted post from
+  an ordinary one is the word "Promoted" in its header, and CSS has no text
+  selector. So `content.js` reads each feed item's short labels, classifies it
+  with `kindsFor`, and sets `data-pbs="sponsored"`; the stylesheet hides the
+  mark. Panels in the side columns are found the same way, and the box to hide
+  is the label's enclosing `<section>` where there is one, or otherwise the
+  largest box around it that does not also contain a different panel's label.
+  This is a real departure from the YouTube extension, where the stylesheet
+  does all the work, and it is forced: nothing else about these posts is
+  durable. It also makes the extension language-dependent -- the labels are
+  matched in English.
 - `content.js` — reads `storage.sync`, writes the enabled keys to
   `document.documentElement.dataset.peacebestill`, re-applies on
   `storage.onChanged`, performs any redirect, and runs one debounced
@@ -171,31 +182,42 @@ mechanism this one extension would not share.
 
 ## Verification
 
-The YouTube extension confirms its selectors by driving a signed-out headless
-browser through live pages — desktop, and now mobile — and reporting, per
-switch, how many targets exist and how many are still rendered. LinkedIn puts
-essentially everything behind a login, so that audit cannot exist here, and
-there is no substitute for it. `extensions/linkedin/` therefore has no `audit/`
-directory and the repo gains no `audit:*` scripts for it.
+**Revised 2026-09-09, after building it.** This section originally said that
+because LinkedIn is behind a login, the live-page audit that keeps the YouTube
+extension honest "cannot exist here, and there is no substitute for it". That
+was wrong, and the error mattered: it argued for shipping fewer switches than
+the site deserved.
 
-Pasted markup is treated as throwaway research: it is read in the session that
-needs it and is **not** committed, in any form, scrubbed or synthetic. A
-signed-in LinkedIn page carries real names, real posts, profile URNs and
-tracking identifiers, and this repository is public. The regression net a
-committed fixture would buy is not worth a scrubbing step that has to be perfect
-every single time.
+An audit does exist. It just cannot run signed out, and so cannot run in CI.
+`npm run dev:linkedin` opens a Firefox profile that is signed into by hand once
+and kept; `npm run check:linkedin` drives that browser over Firefox's Remote
+Debugging Protocol -- the channel devtools uses, which sets no
+`navigator.webdriver` flag -- and reports, per switch, how many targets it
+found on the current page and how many actually stopped rendering. It can
+navigate between pages itself. It uses the extension's own `core.js` and lifts
+the marking pass out of its `content.js`, so what it exercises is what ships.
 
-What this means in practice, and what the README must say plainly so the missing
-`audit/` directory does not read as an oversight:
+What has not changed is the rule about markup: pages read this way are **never
+committed, in any form, scrubbed or synthetic**. A signed-in LinkedIn page
+carries real names, real posts and profile identifiers, and this repository is
+public. `.gitignore` already excludes `**/audit/out/`.
 
-- Unit tests cover the feature table, the CSS gates, the manifest and the
-  options page — the extension's own logic.
-- Selector correctness is confirmed by hand, in a real signed-in browser, at the
-  time each switch is written.
-- When LinkedIn changes its markup, a switch stops working silently. The fix is
-  a fresh paste of the page and a corrected rule.
+Three things only a real page could show, all of which a unit test had happily
+passed:
 
-None of this touches v1.0, whose five switches use no selectors at all.
+- The blackout sentence rendered at 10px. LinkedIn sets `html { font-size:
+  62.5% }`, so a size in `rem` is not the size you asked for. Sizes there are
+  absolute now.
+- LinkedIn's class names are hashed and rotate per deploy, and the documented
+  stable hooks are gone -- `.feed-shared-update-v2` matches nothing at all.
+  What survives is ARIA (`role="listitem"`, `aside[aria-label="Aside"]`),
+  `data-testid`, and the visible label.
+- With two levels of nesting the options page named the wrong switch as the one
+  that had locked a row: the direct parent, which may itself be off. `blockerOf`
+  names the nearest ancestor actually on.
+
+When LinkedIn changes its markup a switch stops working silently. The fix is to
+open the page in the dev profile, look again, and correct the rule.
 
 ## Distribution
 
@@ -255,7 +277,10 @@ follows from the manifest ID and needs no separate decision.
 - **system-setups.** Adding `PeaceBeStill - LinkedIn` to the Firefox and
   Chromium enterprise policy lists is a separate job in a separate repository,
   taken up once this extension has shipped a release with assets to point at.
-- **Live-page audits and committed fixtures.** As above.
+- **Committed fixtures.** As above: pages read in the dev profile stay out of
+  the repository.
+- **A CI audit.** The check needs a signed-in profile, so it is run by hand and
+  CI keeps to the unit tests and the linter.
 - **Guessed selectors.** No switch ships against markup that has not been read
   and then checked in a browser.
 

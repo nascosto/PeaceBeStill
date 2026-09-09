@@ -2,6 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Superseded in part, 2026-09-09.** This plan was executed, but the extension
+> then grew from five switches to eighteen once its pages could actually be
+> read in a signed-in browser. Two of its statements are now wrong: LinkedIn
+> does have an audit (a manual one -- see the spec's Verification section), and
+> the stylesheet no longer does all the hiding, because a marking pass in
+> `content.js` is needed for anything identified by a visible label. The spec
+> is the current document; this is the record of the first pass.
+
 **Goal:** Add a second extension, `PeaceBeStill - LinkedIn`, to this repo: five switches, all off by default, led by a `blackout` switch that replaces every LinkedIn page with the sentence "You made the right choice."
 
 **Architecture:** The same chassis as `extensions/youtube`. `core.js` is a classic script publishing one global that holds the feature table and every pure decision; `content.js` writes the enabled keys onto `<html data-peacebestill="…">` and `hide.css` gates one rule per key on that attribute, so a toggle reaches open tabs without a reload. `blackout` is the declared parent of every other switch, which the existing `isMoot`/`effective` machinery already handles with no new logic.

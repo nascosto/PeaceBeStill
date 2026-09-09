@@ -137,15 +137,25 @@ against LinkedIn in English.
 ### Checking it still works
 
 LinkedIn is behind a login, so the signed-out headless audits that keep the
-YouTube extension honest cannot run here. Instead there is a dev profile you
-sign into once, and the selectors are checked against real pages in it:
+YouTube extension honest cannot run here. There is an audit, but it drives a
+profile you sign into by hand, which is why it is not in CI:
 
-    npm run start:firefox:linkedin
+    npm run dev:linkedin       # once, in a terminal of its own; sign in if asked
+    npm run check:linkedin     # check every switch against the page it is showing
+    npm run check:linkedin -- /feed/ /in/me/ /jobs/ /mynetwork/grow/
+
+The profile lives in `~/.config/peacebestill/linkedin-dev-profile` and keeps
+its session, so signing in is a one-off. `check:linkedin` reports, per switch,
+how many targets it found on the page and how many actually stopped rendering;
+it drives the browser over Firefox's remote debugging protocol, the channel
+devtools uses, so it sets no automation flag on your session. It reads the
+extension's own `core.js` and lifts the marking pass out of its `content.js`,
+so what it tests is what ships.
 
 Pages read this way are never committed, in any form — this repository is
 public, and a signed-in LinkedIn page carries real names and profile
 identifiers. When LinkedIn changes its markup a switch stops working silently;
-the fix is to look at the page again and correct the rule.
+the fix is to open the page again and correct the rule.
 
 ## Developing
 

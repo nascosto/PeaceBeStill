@@ -21,6 +21,8 @@
     "start:chromium:youtube": "web-ext run --source-dir extensions/youtube/src --target chromium --start-url https://www.youtube.com",
     "start:firefox:linkedin": "web-ext run --source-dir extensions/linkedin/src --start-url https://www.linkedin.com",
     "start:chromium:linkedin": "web-ext run --source-dir extensions/linkedin/src --target chromium --start-url https://www.linkedin.com",
+    "dev:linkedin": "web-ext run --source-dir extensions/linkedin/src --firefox-profile $HOME/.config/peacebestill/linkedin-dev-profile --keep-profile-changes --start-url https://www.linkedin.com/feed/",
+    "check:linkedin": "node extensions/linkedin/audit/check.mjs",
     "audit:chromium": "node extensions/youtube/audit/chromium.mjs",
     "audit:firefox": "node extensions/youtube/audit/firefox.mjs",
     "audit:mobile": "node extensions/youtube/audit/mobile.mjs"
