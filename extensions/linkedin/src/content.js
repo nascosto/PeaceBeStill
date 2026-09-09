@@ -70,11 +70,23 @@
   // different panel's label. Growing to the first ancestor with siblings, which
   // is the obvious rule, marks only the heading: LinkedIn wraps a heading and
   // its body as two children of the panel.
-  function growTo(el, root, others) {
+  // How far a panel may grow from its label, per kind. One number cannot serve
+  // them all: LinkedIn puts seven wrappers between "Start a post" and the
+  // composer box, while an advert or an upsell is a small box near its label
+  // and given the same room swallows the whole column.
+  const DEPTH = { composer: 8, premium: 4 };
+  const DEFAULT_DEPTH = 6;
+
+  function growTo(el, root, foreign, kind) {
     let node = el;
-    while (node.parentElement && node.parentElement !== root) {
+    const limit = DEPTH[kind] ?? DEFAULT_DEPTH;
+    for (let level = 0; level < limit; level++) {
       const parent = node.parentElement;
-      if (others.some((other) => parent.contains(other))) break;
+      if (!parent || parent === root) break;
+      // Another kind of panel: the box would swallow something it should not.
+      if (foreign.some((other) => parent.contains(other))) break;
+      // And never swallow the feed itself.
+      if (parent.querySelector('[role="listitem"]')) break;
       node = parent;
     }
     return node;
@@ -98,9 +110,15 @@
     // heading names a place -- "People you may know in Salt Lake City" -- so it
     // matches the opening rather than the whole string.
     const specs = [
-      ["games", () => [...document.querySelectorAll('aside div[aria-label^="Play "]')]],
+      // A game tile is a div; "Play video" is the button on a post's video.
+      ["games", () => [...document.querySelectorAll('div[aria-label^="Play "]')]
+        .filter((el) => el.getAttribute("aria-label") !== "Play video")],
       ["news", () => labelled(/^(LinkedIn News|Top stories)$/)],
-      ["ads", () => labelled(/^(Ad Options|Ad)$/)],
+      ["otherAds", () => labelled(/^(Ad Options|Ad|Advertisement|Promoted by)$/)],
+      // Upsells, told from the "Premium" badge a company or member carries by
+      // the verb in front: "Try Premium for $0" is an advert, "GitHub, Premium"
+      // is not.
+      ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock)\b.*\bPremium\b/)],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
       ["composer", () => labelled(/^Start a post$/)],
       ["pymk", () => (/^\/(in|mynetwork)\//.test(path) ? labelled(/^People you may know/) : [])],
@@ -108,8 +126,15 @@
         ? labelled(/^(Suggested|Suggestions|Follow suggestions|More profiles) for you$/) : [])],
     ];
     const found = specs.map(([kind, find]) => [kind, find()]);
-    const all = found.flatMap(([, els]) => els);
+    // An advert sitting inside a panel is part of that panel, so adverts do not
+    // fence a panel in: without this the Premium button inside the composer
+    // stopped the composer growing past its first row. A panel that swallows an
+    // advert hides it too, which is the wanted result either way.
+    const POROUS = new Set(["premium", "otherAds"]);
     for (const [kind, els] of found) {
+      const foreign = found
+        .filter(([other]) => other !== kind && !POROUS.has(other))
+        .flatMap(([, e]) => e);
       for (const el of els) {
         // Each panel grows inside whichever labelled column it happens to live
         // in: "People you may know" is in the main column on the network page
@@ -122,7 +147,7 @@
         const section = el.closest("section");
         const box = (section && section !== root && root.contains(section))
           ? section
-          : growTo(el, root, all.filter((other) => other !== el));
+          : growTo(el, root, foreign, kind);
         if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
       }
     }
@@ -137,8 +162,8 @@
     return true;
   }
 
-  const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news", "rightRailAds",
-    "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer"];
+  const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news",
+    "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "premium", "otherAds"];
 
   // LinkedIn is a single-page app: it rewrites the title and renders the feed
   // long after load, so everything here is redone on mutation rather than once.

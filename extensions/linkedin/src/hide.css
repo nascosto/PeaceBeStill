@@ -55,7 +55,7 @@ html[data-peacebestill~="socialProof"] [role="listitem"][data-pbs~="socialProof"
    is one unlabelled container, so content.js marks the three modules inside. */
 html[data-peacebestill~="rightRail"] aside[aria-label="Aside"] { display: none !important; }
 html[data-peacebestill~="leftRail"] aside[aria-label="Sidebar"] { display: none !important; }
-html[data-peacebestill~="rightRailAds"] [data-pbs~="ads"] { display: none !important; }
+html[data-peacebestill~="otherAds"] [data-pbs~="otherAds"] { display: none !important; }
 html[data-peacebestill~="games"] [data-pbs~="games"] { display: none !important; }
 html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
 
@@ -74,3 +74,6 @@ html[data-peacebestill~="composer"] [data-pbs~="composer"] { display: none !impo
 
 /* LinkedIn's AI assistant, which labels its own panel and so needs no mark. */
 html[data-peacebestill~="aiAssistant"] aside[aria-label^="AI-powered assistant"] { display: none !important; }
+
+/* Premium adverts and upsells, wherever they turn up. */
+html[data-peacebestill~="premium"] [data-pbs~="premium"] { display: none !important; }

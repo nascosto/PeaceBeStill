@@ -10,7 +10,8 @@ const DEFAULTS = [
   "blackout",
   "feed", "homeToMessaging", "homeToNotifications", "homeToJobs",
   "sponsored", "suggested", "recommended", "socialProof",
-  "rightRail", "rightRailAds", "games", "news", "leftRail",
+  "rightRail", "leftRail",
+  "otherAds", "games", "news", "premium",
   "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "aiAssistant",
   "notificationCount",
 ].map((key) => [key, false]);
@@ -18,7 +19,7 @@ const DEFAULTS = [
 const KEYS = DEFAULTS.map(([k]) => k);
 const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
 
-test("the feature keys are the agreed twenty, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed twenty-one, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
@@ -53,9 +54,11 @@ test("feed and rightRail are parents in their own right", () => {
     assert.equal(PeaceBeStill.parentOf(key), "feed", key);
     assert.equal(PeaceBeStill.isMoot(key, { feed: true }), true, key);
   }
-  for (const key of ["rightRailAds", "games", "news"]) {
-    assert.equal(PeaceBeStill.parentOf(key), "rightRail", key);
-    assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), true, key);
+  // The puzzles, the news panel and the adverts turn up outside the right rail
+  // too, so hiding the rail must not grey them out.
+  for (const key of ["games", "news", "otherAds", "premium"]) {
+    assert.equal(PeaceBeStill.parentOf(key), "blackout", key);
+    assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), false, key);
   }
 });
 

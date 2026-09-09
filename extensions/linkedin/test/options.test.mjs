@@ -108,7 +108,8 @@ test("switches are grouped, and only nest where parent and child share a section
     "blackout",
     "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
     "sponsored", "suggested", "recommended", "socialProof",
-    "rightRail", "rightRailAds", "games", "news", "leftRail",
+    "rightRail", "leftRail",
+    "otherAds", "games", "news", "premium",
     "jobsPromoted", "peopleYouMayKnow", "suggestions", "aiAssistant",
     "notificationCount",
   ]);
@@ -118,7 +119,7 @@ test("switches are grouped, and only nest where parent and child share a section
   const indented = Object.fromEntries(rows().map((r) => [r.name, r.indented]));
   assert.deepEqual(
     Object.entries(indented).filter(([, i]) => i).map(([n]) => n),
-    ["composer", "rightRailAds", "games", "news"],
+    ["composer"],
   );
 });
 
@@ -148,10 +149,12 @@ test("a note names the switch that actually locked it, not the parent that is of
   // modules moot, and those sit directly beneath it.
   const feedOff = await render({ feed: true });
   assert.match(feedOff.rows().find((r) => r.name === "sponsored").note, /Hide the feed entirely/);
+  const feedItself = await render({ feed: true });
+  assert.equal(feedItself.rows().find((r) => r.name === "composer").note, "no effect while the switch above is on");
+  // And a switch nothing has locked says nothing at all: the puzzles are not
+  // part of the right rail, so hiding that leaves them alone.
   const railOff = await render({ rightRail: true });
-  assert.equal(railOff.rows().find((r) => r.name === "games").note, "no effect while the switch above is on");
-  // And a switch nothing has locked says nothing at all.
-  assert.equal(feedOff.rows().find((r) => r.name === "games").note, "");
+  assert.equal(railOff.rows().find((r) => r.name === "games").note, "");
 });
 
 test("only a switch that differs from its default is stored", async () => {
@@ -170,12 +173,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ blackout: true, homeToJobs: true });
-  assert.match(byId.summary.textContent, /2 of 20/);
+  assert.match(byId.summary.textContent, /2 of 21/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "homeToJobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 20/);
+  assert.match(byId.summary.textContent, /0 of 21/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

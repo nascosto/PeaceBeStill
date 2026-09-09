@@ -24,9 +24,9 @@ const helpers = content.slice(content.indexOf("  const FEED_ITEMS ="), content.i
 // feed, the two rails, blackout) hide a container the stylesheet can name on
 // its own, and are checked by the selector column below instead.
 const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games",
-  "news", "rightRailAds", "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer"];
+  "news", "otherAds", "premium", "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer"];
 // Where the switch name and the mark differ.
-const MARK_OF = { rightRailAds: "ads", peopleYouMayKnow: "pymk" };
+const MARK_OF = { peopleYouMayKnow: "pymk" };
 // Switches that hide a container outright, with the selector they use.
 const CONTAINERS = {
   feed: '[data-testid="mainFeed"]',

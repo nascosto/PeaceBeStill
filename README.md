@@ -95,7 +95,7 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Twenty switches, and the first one is the blunt one.
+Twenty-one switches, and the first one is the blunt one.
 
 - **Replace LinkedIn with a better idea** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
@@ -104,15 +104,16 @@ Twenty switches, and the first one is the blunt one.
   matter when there is no page left to act on.
 - the feed: hide it entirely, or send the home page to Messaging,
   Notifications or Jobs instead (with more than one of those on, the first
-  wins)
-- posts nobody you follow wrote: promoted and sponsored, suggested,
+  wins), and the "Start a post" box above it
+- posts nobody you follow wrote: advertisements in the feed, suggested posts,
   "Recommended for you", and the ones dragged in because someone reacted to
   them
-- the two columns beside the feed, together or one at a time, and inside the
-  right one its advert, the puzzles and the LinkedIn News panel
-- elsewhere: promoted job adverts, "People you may know", and the
-  "suggestions for you" panels on profiles and My Network
-- the "Start a post" box above the feed, and LinkedIn's AI assistant panel
+- the two columns beside the feed, together or one at a time
+- things that follow you around the site, wherever they turn up: advertisements
+  outside the feed, the puzzles and games, the LinkedIn News panel, and Premium
+  adverts and upsells
+- elsewhere: promoted job adverts, "People you may know", the "suggestions for
+  you" panels, and LinkedIn's AI assistant
 - the unread count LinkedIn puts in front of the tab title
 
 Every one of them works on Firefox for Android exactly as on the desktop:
