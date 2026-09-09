@@ -247,6 +247,23 @@
         if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
       }
     }
+    // LinkedIn rules off its lists with <hr> between the items rather than a
+    // border on each, so hiding an item leaves its line behind and the list
+    // ends up a run of rules with nothing between them. Each item takes the
+    // rule that follows it, or the one before it if it is the last.
+    for (const marked of [...document.querySelectorAll("[data-pbs]")]) {
+      const kind = marked.getAttribute("data-pbs");
+      for (let node = marked; node && node !== document.body; node = node.parentElement) {
+        const after = node.nextElementSibling;
+        const before = node.previousElementSibling;
+        const rule = (after && after.tagName === "HR") ? after
+          : (before && before.tagName === "HR") ? before : null;
+        if (!rule) continue;
+        if (!rule.hasAttribute("data-pbs")) rule.setAttribute("data-pbs", kind);
+        break;
+      }
+    }
+
     // Two labels of one kind inside one panel -- "Unlock Premium tools" and the
     // "Try Premium" link beside it -- each mark a box, one inside the other.
     // The outer box is the panel; drop the inner one. Done afterwards, because
