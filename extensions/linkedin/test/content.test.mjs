@@ -21,6 +21,9 @@ function fakeWorld({ stored = {}, failStorage = false, pathname = "/feed/", titl
     body: { children: [] },
     querySelector: () => null,
     querySelectorAll: () => [],
+    // LinkedIn keeps its overlays in a shadow root; with no host there is
+    // nothing to style, which is the case a fake DOM stands in for.
+    getElementById: () => null,
     addEventListener(type, fn) { listeners[type] = fn; },
     createElement: () => ({ style: {}, classList: { add() {}, remove() {} }, append() {} }),
   };

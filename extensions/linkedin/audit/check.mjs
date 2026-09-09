@@ -24,7 +24,8 @@ const helpers = content.slice(content.indexOf("  const FEED_ITEMS ="), content.i
 // feed, the two rails, blackout) hide a container the stylesheet can name on
 // its own, and are checked by the selector column below instead.
 const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games",
-  "news", "otherAds", "premium", "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer"];
+  "news", "otherAds", "premium", "jobsPromoted", "peopleYouMayKnow", "composer",
+  "profileSuggestions", "networkSuggestions", "jobsSuggestions"];
 // The advert parent repeats what its children do, so it is checked separately.
 // Where the switch name and the mark differ.
 const MARK_OF = { peopleYouMayKnow: "pymk" };

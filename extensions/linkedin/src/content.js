@@ -20,6 +20,33 @@
   // our sentence without waiting for the next navigation.
   let siteTitle = "";
 
+  // LinkedIn renders its overlays -- the chat bubble, the assistant -- inside a
+  // shadow root on div#interop-outlet, and a content script's stylesheet does
+  // not cross that boundary. hide.css cannot reach them however it is written,
+  // which is why hiding the bubble appeared to do nothing at all. So a small
+  // sheet is put inside the shadow root and kept in step with the settings.
+  const SHADOW_RULES = [
+    ["messagingOverlay", "aside#msg-overlay, aside[class*='msg-overlay'], [class*='msg-overlay-list-bubble']"],
+    ["aiAssistant", "aside#coach-container, aside[aria-label^='AI-powered assistant']"],
+  ];
+
+  function styleShadow() {
+    const host = document.getElementById("interop-outlet");
+    const shadow = host && host.shadowRoot;
+    if (!shadow) return;
+    let sheet = shadow.querySelector("style[data-peacebestill]");
+    if (!sheet) {
+      sheet = document.createElement("style");
+      sheet.setAttribute("data-peacebestill", "");
+      shadow.appendChild(sheet);
+    }
+    const css = SHADOW_RULES
+      .filter(([key]) => settings[key])
+      .map(([, selector]) => selector + " { display: none !important; }")
+      .join("\n");
+    if (sheet.textContent !== css) sheet.textContent = css;
+  }
+
   function apply() {
     document.documentElement.dataset.peacebestill = tokensFor(settings);
     // Which destination this page belongs to, so the stylesheet can take the
@@ -298,6 +325,7 @@
 
   function pass() {
     keepTitle();
+    styleShadow();
     if (MARKED.some((key) => settings[key])) {
       markFeedItems();
       markModules();
@@ -307,7 +335,8 @@
   function watchDom() {
     // Always: this is also how the title is put back when blackout goes off.
     pass();
-    if (!(settings.blackout || settings.notificationCount || MARKED.some((key) => settings[key]))) {
+    const overlayOn = SHADOW_RULES.some(([key]) => settings[key]);
+    if (!(settings.blackout || settings.notificationCount || overlayOn || MARKED.some((key) => settings[key]))) {
       observer?.disconnect();
       observer = null;
       return;
@@ -323,6 +352,7 @@
   function refresh() {
     if (redirectIfAsked()) return;
     apply();
+    styleShadow();
     watchDom();
   }
 

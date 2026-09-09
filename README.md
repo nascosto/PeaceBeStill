@@ -129,6 +129,12 @@ none depends on the desktop layout.
 
 ### How it works, and why it is not all CSS
 
+Some of LinkedIn's overlays -- the chat bubble, the assistant -- live in a
+shadow root on `div#interop-outlet`, and a content script's stylesheet does not
+cross that boundary. `hide.css` cannot reach them however it is written, so
+`content.js` puts a small sheet inside the shadow root and keeps it in step
+with the settings.
+
 LinkedIn's class names are hashed and rotate with every deploy, so nothing here
 keys on one. The durable hooks are ARIA roles and labels (`role="listitem"`,
 `aside[aria-label="Aside"]`), `data-testid`, and the visible label itself.
