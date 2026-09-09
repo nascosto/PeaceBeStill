@@ -191,10 +191,14 @@
         // already panel-sized cannot jump into a bigger one.
         const fromHeight = from.getBoundingClientRect().height;
         const room = root.getBoundingClientRect().height;
+        // A <section> is LinkedIn's own boundary, so it is trusted further than
+        // a box grown through anonymous divs: a real panel can be most of a
+        // short column -- "Suggestions for you" is 1206px of a 1658px one --
+        // and refusing it there left the heading hiding alone.
         const fits = (candidate) => {
           if (foreign.some((other) => candidate.contains(other))) return false;
           const height = candidate.getBoundingClientRect().height;
-          return room === 0 || height <= room * 0.6;
+          return room === 0 || height <= room * 0.85;
         };
         const sections = [];
         for (let node = from; node && node !== root; node = node.parentElement) {
