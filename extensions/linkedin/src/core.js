@@ -26,31 +26,31 @@
   // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
     ["blackout", "Hide everything", false, SITE],
-    ["feed", "Hide the feed entirely", false, HOME, "blackout"],
-    ["composer", "Hide the “Start a post” box above the feed", false, HOME, "feed"],
-    ["homeToMessaging", "Open Messaging instead of the home feed", false, HOME, "blackout"],
-    ["homeToNotifications", "Open Notifications instead of the home feed", false, HOME, "blackout"],
-    ["homeToJobs", "Open Jobs instead of the home feed", false, HOME, "blackout"],
+    ["feed", "Hide feed entirely", false, HOME, "blackout"],
+    ["composer", "Hide “Start a post” box", false, HOME, "feed"],
+    ["homeToMessaging", "Open Messaging instead of feed", false, HOME, "blackout"],
+    ["homeToNotifications", "Open Notifications instead of feed", false, HOME, "blackout"],
+    ["homeToJobs", "Open Jobs instead of feed", false, HOME, "blackout"],
     ["suggested", "Hide suggested posts", false, POSTS, "feed"],
     ["recommended", "Hide “Recommended for you” posts", false, POSTS, "feed"],
-    ["socialProof", "Hide posts shown because someone liked or commented on them", false, POSTS, "feed"],
+    ["socialProof", "Hide posts someone in your network liked or commented on", false, POSTS, "feed"],
     // One switch for every advert on the site, with the individual kinds under
     // it. Adverts turn up in the feed, beside it, on the jobs pages and in the
     // top bar, so grouping them by page would have missed most of them.
     ["ads", "Hide all advertisements", false, ADS, "blackout"],
-    ["sponsored", "Hide advertisements in the feed (promoted and sponsored posts)", false, ADS, "ads"],
-    ["otherAds", "Hide advertisements outside the feed", false, ADS, "ads"],
+    ["sponsored", "Hide advertisements in feed (promoted and sponsored posts)", false, ADS, "ads"],
+    ["otherAds", "Hide advertisements outside feed", false, ADS, "ads"],
     ["premium", "Hide Premium adverts and upsells", false, ADS, "ads"],
     ["jobsPromoted", "Hide promoted job adverts", false, ADS, "ads"],
-    ["rightRail", "Hide the right-hand column entirely", false, RAILS, "blackout"],
-    ["leftRail", "Hide the left-hand column (your profile card and stats)", false, RAILS, "blackout"],
-    ["games", "Hide the puzzles and games", false, ELSEWHERE, "blackout"],
-    ["news", "Hide the LinkedIn News panel", false, ELSEWHERE, "blackout"],
-    ["forBusiness", "Hide the “For Business” menu in the top bar", false, ELSEWHERE, "blackout"],
+    ["rightRail", "Hide right-hand column", false, RAILS, "blackout"],
+    ["leftRail", "Hide left-hand column (your profile card and stats)", false, RAILS, "blackout"],
+    ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
+    ["news", "Hide LinkedIn News panel", false, ELSEWHERE, "blackout"],
+    ["forBusiness", "Hide “For Business” menu in top bar", false, ELSEWHERE, "blackout"],
     ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
-    ["suggestions", "Hide the “suggestions for you” panels on profiles and My Network", false, ELSEWHERE, "blackout"],
+    ["suggestions", "Hide “suggestions for you” panels", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
-    ["notificationCount", "Hide the unread count in the tab title", false, NOTIFICATIONS, "blackout"],
+    ["notificationCount", "Hide unread count in tab title", false, NOTIFICATIONS, "blackout"],
   ];
 
   const KEYS = FEATURES.map(([key]) => key);
