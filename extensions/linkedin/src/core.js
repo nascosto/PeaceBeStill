@@ -3,8 +3,8 @@
 (function (root) {
   // Options-page sections, in display order. Blackout has one to itself, and
   // it comes first, because it is the parent of everything below it.
-  const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
-  const [SITE, HOME, POSTS, RAILS, ELSEWHERE, NOTIFICATIONS] = GROUPS;
+  const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Advertisements", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
+  const [SITE, HOME, POSTS, ADS, RAILS, ELSEWHERE, NOTIFICATIONS] = GROUPS;
 
   // What the page says, and what the tab says, once the site is blacked out.
   // hide.css draws this string; a test holds the two to the same sentence.
@@ -27,24 +27,28 @@
   const FEATURES = [
     ["blackout", "Hide everything", false, SITE],
     ["feed", "Hide the feed entirely", false, HOME, "blackout"],
+    ["composer", "Hide the “Start a post” box above the feed", false, HOME, "feed"],
     ["homeToMessaging", "Open Messaging instead of the home feed", false, HOME, "blackout"],
     ["homeToNotifications", "Open Notifications instead of the home feed", false, HOME, "blackout"],
     ["homeToJobs", "Open Jobs instead of the home feed", false, HOME, "blackout"],
-    ["sponsored", "Hide advertisements in the feed (promoted and sponsored posts)", false, POSTS, "feed"],
     ["suggested", "Hide suggested posts", false, POSTS, "feed"],
     ["recommended", "Hide “Recommended for you” posts", false, POSTS, "feed"],
     ["socialProof", "Hide posts shown because someone liked or commented on them", false, POSTS, "feed"],
+    // One switch for every advert on the site, with the individual kinds under
+    // it. Adverts turn up in the feed, beside it, on the jobs pages and in the
+    // top bar, so grouping them by page would have missed most of them.
+    ["ads", "Hide all advertisements, wherever they are", false, ADS, "blackout"],
+    ["sponsored", "Hide advertisements in the feed (promoted and sponsored posts)", false, ADS, "ads"],
+    ["otherAds", "Hide advertisements everywhere else on the site", false, ADS, "ads"],
+    ["premium", "Hide Premium adverts and upsells", false, ADS, "ads"],
+    ["jobsPromoted", "Hide promoted job adverts", false, ADS, "ads"],
     ["rightRail", "Hide the right-hand column entirely", false, RAILS, "blackout"],
     ["leftRail", "Hide the left-hand column (your profile card and stats)", false, RAILS, "blackout"],
-    ["otherAds", "Hide advertisements everywhere else on the site", false, ELSEWHERE, "blackout"],
     ["games", "Hide the puzzles and games, wherever they appear", false, ELSEWHERE, "blackout"],
     ["news", "Hide the LinkedIn News panel, wherever it appears", false, ELSEWHERE, "blackout"],
-    ["premium", "Hide Premium adverts and upsells", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide the “For Business” menu in the top bar", false, ELSEWHERE, "blackout"],
-    ["jobsPromoted", "Hide promoted job adverts", false, ELSEWHERE, "blackout"],
     ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
     ["suggestions", "Hide the “suggestions for you” panels on profiles and My Network", false, ELSEWHERE, "blackout"],
-    ["composer", "Hide the “Start a post” box above the feed", false, HOME, "feed"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
     ["notificationCount", "Hide the unread count in the tab title", false, NOTIFICATIONS, "blackout"],
   ];

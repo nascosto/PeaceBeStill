@@ -18,19 +18,30 @@
   const rows = [];
   const sections = [];
 
-  function addRow(section, [key, label], indented) {
+  // How deep a switch sits: blackout's children are one level in, theirs two.
+  // The indent shows the nesting even when parent and child are filed under
+  // different headings, which is how "Hide everything" parents the whole page.
+  function depthOf(key) {
+    let depth = 0;
+    const seen = new Set();
+    for (let parent = parentOf(key); parent && !seen.has(parent); parent = parentOf(parent)) {
+      seen.add(parent);
+      depth++;
+    }
+    return depth;
+  }
+
+  function addRow(section, [key, label]) {
     const row = document.createElement("label");
     const box = document.createElement("input");
     box.type = "checkbox";
     box.name = key;
-    const note = document.createElement("span");
-    note.className = "why";
-    note.id = `why-${key}`;
-    box.setAttribute("aria-describedby", note.id);
-    row.classList.toggle("child", indented);
-    row.append(box, document.createTextNode(" " + label), note);
+    const depth = depthOf(key);
+    if (depth === 1) row.classList.add("child");
+    if (depth >= 2) row.classList.add("grandchild");
+    row.append(box, document.createTextNode(" " + label));
     section.append(row);
-    rows.push({ key, label, box, row, note, section, indented });
+    rows.push({ key, label, box, row, section, depth });
   }
 
   for (const group of GROUPS) {
@@ -45,33 +56,32 @@
     const parentIsHere = (feature) => inGroup.some(([key]) => key === feature[4]);
     for (const feature of inGroup) {
       if (parentIsHere(feature)) continue; // rendered under its parent, below
-      addRow(section, feature, false);
-      for (const child of inGroup.filter(([, , , , parent]) => parent === feature[0])) addRow(section, child, true);
+      addRow(section, feature);
+      for (const child of inGroup.filter(([, , , , parent]) => parent === feature[0])) addRow(section, child);
     }
   }
 
-  // A switch whose parent already hides everything it acts on is marked as
-  // disabled for assistive technology and refuses changes, but stays in the
-  // tab order so it can still be read. Its stored value is left alone, so
-  // turning the parent off brings it back exactly as it was.
+  // A switch an ancestor has already covered is taken off the list rather than
+  // greyed out with an explanation: while the thing it acts on is gone there is
+  // nothing to decide about it. Its stored value is untouched, so turning the
+  // ancestor off brings it back exactly as it was. The filter narrows the same
+  // list, and a section with nothing left to show goes too.
   function showState() {
+    const query = filter.value.trim().toLowerCase();
     let on = 0;
-    for (const { key, box, row, note, indented } of rows) {
-      const moot = isMoot(key, settings);
+    let covered = 0;
+    for (const { key, label, box, row } of rows) {
       box.checked = settings[key] === true;
       if (box.checked) on++;
-      row.classList.toggle("moot", moot);
-      if (moot) box.setAttribute("aria-disabled", "true");
-      else box.removeAttribute("aria-disabled");
-      // Every locked switch says why. An indented one sits directly under the
-      // switch that locked it, so naming it again for each of three siblings
-      // is just noise; one that was pushed into another section by its own
-      // subject matter has to name it.
-      note.textContent = !moot ? ""
-        : indented ? "no effect while the switch above is on"
-        : `no effect while “${labelOf(parentOf(key))}” is on`;
+      const moot = isMoot(key, settings);
+      if (moot) covered++;
+      row.hidden = moot || (query !== "" && !label.toLowerCase().includes(query));
     }
-    summary.textContent = `${on} of ${rows.length} on · settings follow your browser account`;
+    for (const section of sections) {
+      section.hidden = rows.filter((entry) => entry.section === section).every((entry) => entry.row.hidden);
+    }
+    const note = covered ? ` · ${covered} covered by a switch above` : "";
+    summary.textContent = `${on} of ${rows.length} on${note} · settings follow your browser account`;
   }
 
   function report(error) {
@@ -142,13 +152,6 @@
     if (keys.length) await api.storage.sync.remove(keys).catch(report);
   });
 
-  // Narrow the list to switches whose label matches, and drop a section
-  // entirely once nothing in it is left.
-  filter.addEventListener("input", () => {
-    const query = filter.value.trim().toLowerCase();
-    for (const { label, row } of rows) row.hidden = query !== "" && !label.toLowerCase().includes(query);
-    for (const section of sections) {
-      section.hidden = rows.filter((entry) => entry.section === section).every((entry) => entry.row.hidden);
-    }
-  });
+  // The filter narrows the same list showState draws.
+  filter.addEventListener("input", showState);
 })();

@@ -81,3 +81,10 @@ html[data-peacebestill~="premium"] [data-pbs~="premium"] { display: none !import
 /* The "For Business" menu in the top bar, which labels its own button, so the
    nav item around it can be named outright. */
 html[data-peacebestill~="forBusiness"] li:has(> button[aria-label="For Business"]) { display: none !important; }
+
+/* Every advert at once, whatever kind and whatever page: the parent switch
+   repeats what its children do, so turning it on needs none of them on. */
+html[data-peacebestill~="ads"] [role="listitem"][data-pbs~="sponsored"],
+html[data-peacebestill~="ads"] [data-pbs~="otherAds"],
+html[data-peacebestill~="ads"] [data-pbs~="premium"],
+html[data-peacebestill~="ads"] [data-pbs~="jobsPromoted"] { display: none !important; }

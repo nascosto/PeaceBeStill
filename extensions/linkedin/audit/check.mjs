@@ -25,6 +25,7 @@ const helpers = content.slice(content.indexOf("  const FEED_ITEMS ="), content.i
 // its own, and are checked by the selector column below instead.
 const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games",
   "news", "otherAds", "premium", "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer"];
+// The advert parent repeats what its children do, so it is checked separately.
 // Where the switch name and the mark differ.
 const MARK_OF = { peopleYouMayKnow: "pymk" };
 // Switches that hide a container outright, with the selector they use.

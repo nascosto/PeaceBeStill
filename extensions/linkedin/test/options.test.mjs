@@ -62,11 +62,10 @@ function rowsOf(root) {
     box,
     row,
     checked: box.checked === true,
-    indented: !!row?.classList.contains("child"),
-    moot: !!row?.classList.contains("moot"),
+    indented: !!(row?.classList.contains("child") || row?.classList.contains("grandchild")),
+    grandchild: !!row?.classList.contains("grandchild"),
     ariaDisabled: box.getAttribute("aria-disabled"),
     reallyDisabled: box.disabled === true,
-    note: (row?.children ?? []).filter((c) => c.tag === "span").map((c) => c.textContent).join(""),
     hidden: row?.hidden === true,
   }));
 }
@@ -102,59 +101,65 @@ test("every feature gets one checkbox, inside a fieldset with its section as the
   );
 });
 
-test("switches are grouped, and only nest where parent and child share a section", async () => {
+test("every switch is nested under the one that covers it, one indent per level", async () => {
   const { rows } = await render();
   assert.deepEqual(rows().map((r) => r.name), [
     "blackout",
     "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
-    "sponsored", "suggested", "recommended", "socialProof",
+    "suggested", "recommended", "socialProof",
+    "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "otherAds", "games", "news", "premium",
-    "forBusiness", "jobsPromoted", "peopleYouMayKnow", "suggestions", "aiAssistant",
+    "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
     "notificationCount",
   ]);
-  // Blackout parents everything but has a section to itself, and the post
-  // kinds sit in their own section away from `feed`, so neither draws an
-  // indent. The three right-rail modules do live beside their parent.
-  const indented = Object.fromEntries(rows().map((r) => [r.name, r.indented]));
-  assert.deepEqual(
-    Object.entries(indented).filter(([, i]) => i).map(([n]) => n),
-    ["composer"],
-  );
+  // "Hide everything" parents the whole page, so it alone sits flush and
+  // everything else is indented -- the switches inside the feed and inside the
+  // rails a further step, since they are two levels down.
+  const depth = Object.fromEntries(rows().map((r) => [r.name, r.indented ? (r.grandchild ? 2 : 1) : 0]));
+  assert.equal(depth.blackout, 0);
+  assert.equal(depth.feed, 1);
+  assert.equal(depth.rightRail, 1);
+  assert.equal(depth.composer, 2, "the composer is inside the feed");
+  assert.equal(depth.suggested, 2, "a post kind is inside the feed");
+  assert.equal(depth.ads, 1);
+  assert.equal(depth.sponsored, 2, "an advert kind is inside the advert switch");
 });
 
-test("with the site blacked out every other switch says so, stays reachable by keyboard, and cannot be changed", async () => {
+test("a switch an ancestor covers is taken off the list, not explained away", async () => {
   const { rows, change, writes, removes } = await render({ blackout: true });
-  for (const row of rows().filter((r) => r.name !== "blackout")) {
-    assert.equal(row.moot, true, row.name);
-    assert.equal(row.ariaDisabled, "true", `${row.name} is announced as disabled`);
-    assert.equal(row.reallyDisabled, false, `${row.name} must stay in the tab order`);
-    // An indented switch points at the row above it; one that was pushed into
-    // another section has to name the switch that locked it.
-    // Blackout is what locked them, so blackout is what every note names --
-    // including the indented ones, whose own parent is off.
-    assert.match(row.note, /Hide everything/, row.name);
-  }
-  assert.equal(rows().find((r) => r.name === "blackout").moot, false);
-
-  // Clicking a locked one changes nothing.
+  const shown = rows().filter((r) => !r.hidden).map((r) => r.name);
+  assert.deepEqual(shown, ["blackout"], "with everything hidden there is nothing left to decide");
+  // The stored values are untouched, so turning it back off restores them.
+  const back = await render({ blackout: false, sponsored: true });
+  assert.equal(back.rows().find((r) => r.name === "sponsored").hidden, false);
+  assert.equal(back.rows().find((r) => r.name === "sponsored").checked, true);
+  // A covered switch still refuses a change, since it cannot be clicked anyway.
   await change("homeToJobs", true);
   assert.deepEqual(plain(writes), []);
   assert.deepEqual(plain(removes), []);
-  assert.equal(rows().find((r) => r.name === "homeToJobs").checked, false, "the tick is put back");
 });
 
-test("a note names the switch that actually locked it, not the parent that is off", async () => {
-  // Hiding the feed makes the post kinds moot; the right rail makes its own
-  // modules moot, and those sit directly beneath it.
-  const feedOff = await render({ feed: true });
-  assert.match(feedOff.rows().find((r) => r.name === "sponsored").note, /Hide the feed entirely/);
-  const feedItself = await render({ feed: true });
-  assert.equal(feedItself.rows().find((r) => r.name === "composer").note, "no effect while the switch above is on");
-  // And a switch nothing has locked says nothing at all: the puzzles are not
-  // part of the right rail, so hiding that leaves them alone.
-  const railOff = await render({ rightRail: true });
-  assert.equal(railOff.rows().find((r) => r.name === "games").note, "");
+test("hiding the feed takes its own switches with it, and leaves the rest", async () => {
+  const { rows } = await render({ feed: true });
+  const hidden = rows().filter((r) => r.hidden).map((r) => r.name);
+  assert.deepEqual(hidden, ["composer", "suggested", "recommended", "socialProof"]);
+  // The puzzles are not part of the feed, so they stay.
+  assert.equal(rows().find((r) => r.name === "games").hidden, false);
+});
+
+test("one switch turns off every advert, and takes their rows with it", async () => {
+  const { rows } = await render({ ads: true });
+  const hidden = rows().filter((r) => r.hidden).map((r) => r.name);
+  assert.deepEqual(hidden, ["sponsored", "otherAds", "premium", "jobsPromoted"]);
+  assert.equal(rows().find((r) => r.name === "ads").hidden, false);
+});
+
+test("a section with nothing left to show goes too", async () => {
+  const { byId } = await render({ blackout: true });
+  const sections = byId.features.children.filter((c) => c.tag === "fieldset");
+  const visible = sections.filter((sec) => !sec.hidden)
+    .map((sec) => sec.children.find((c) => c.tag === "legend").textContent);
+  assert.deepEqual(visible, ["The whole site"], "only the section holding the one switch left");
 });
 
 test("only a switch that differs from its default is stored", async () => {
@@ -171,14 +176,15 @@ test("settings already stored that match their default are cleaned up on load", 
   assert.deepEqual(plain(removes), [["homeToJobs"]], "blackout differs, so it stays");
 });
 
-test("the summary counts what is on, and turning everything off clears the lot", async () => {
+test("the summary counts what is on, and says how much a switch above has covered", async () => {
   const { byId, rows, removes } = await render({ blackout: true, homeToJobs: true });
-  assert.match(byId.summary.textContent, /2 of 22/);
+  assert.match(byId.summary.textContent, /2 of 23/);
+  assert.match(byId.summary.textContent, /22 covered by a switch above/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "homeToJobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 22/);
+  assert.match(byId.summary.textContent, /0 of 23/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

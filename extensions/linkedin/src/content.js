@@ -163,7 +163,7 @@
   }
 
   const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news",
-    "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "premium", "otherAds"];
+    "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "premium", "otherAds", "ads"];
 
   // LinkedIn is a single-page app: it rewrites the title and renders the feed
   // long after load, so everything here is redone on mutation rather than once.

@@ -38,11 +38,7 @@ legend { padding: 0 6px 0 0; font-size: 11px; text-transform: uppercase; letter-
    sits under the text rather than under the box. */
 label { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 7px; padding: 2px 0; }
 label[hidden] { display: none; }
-/* Nested under the switch it depends on. */
+/* Nested under the switch it depends on, one step per level. */
 label.child { margin-left: 22px; }
-/* That switch is on, so this one has nothing to act on. Colour, not opacity,
-   so the explanation stays readable. */
-label.moot { color: var(--muted); }
+label.grandchild { margin-left: 44px; }
 input[type="checkbox"] { margin: 0; }
-.why { grid-column: 2; color: var(--muted); font-style: italic; }
-.why:empty { display: none; }

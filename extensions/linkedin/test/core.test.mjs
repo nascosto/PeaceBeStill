@@ -8,18 +8,18 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 // page, the stylesheet gates and the stored settings all share.
 const DEFAULTS = [
   "blackout",
-  "feed", "homeToMessaging", "homeToNotifications", "homeToJobs",
-  "sponsored", "suggested", "recommended", "socialProof",
+  "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
+  "suggested", "recommended", "socialProof",
+  "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
   "rightRail", "leftRail",
-  "otherAds", "games", "news", "premium",
-  "forBusiness", "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer", "aiAssistant",
+  "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
   "notificationCount",
 ].map((key) => [key, false]);
 
 const KEYS = DEFAULTS.map(([k]) => k);
-const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
+const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Advertisements", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
 
-test("the feature keys are the agreed twenty-two, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed twenty-three, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
@@ -50,14 +50,24 @@ test("blackout is top level and an ancestor of every other switch", () => {
 // The middle of the chain matters too: a post kind cannot matter with the feed
 // gone, and a rail module cannot matter with the rail gone.
 test("feed and rightRail are parents in their own right", () => {
-  for (const key of ["sponsored", "suggested", "recommended", "socialProof"]) {
+  for (const key of ["composer", "suggested", "recommended", "socialProof"]) {
     assert.equal(PeaceBeStill.parentOf(key), "feed", key);
     assert.equal(PeaceBeStill.isMoot(key, { feed: true }), true, key);
   }
-  // The puzzles, the news panel and the adverts turn up outside the right rail
-  // too, so hiding the rail must not grey them out.
-  for (const key of ["games", "news", "otherAds", "premium"]) {
+  // Every kind of advert answers to one switch, whatever page it is on.
+  for (const key of ["sponsored", "otherAds", "premium", "jobsPromoted"]) {
+    assert.equal(PeaceBeStill.parentOf(key), "ads", key);
+    assert.equal(PeaceBeStill.isMoot(key, { ads: true }), true, key);
+    assert.equal(PeaceBeStill.isMoot(key, { feed: true }), false, `${key} is not the feed's business`);
+  }
+  // The puzzles and the news panel turn up outside the right rail too, so
+  // hiding the rail must not grey them out.
+  for (const key of ["games", "news", "forBusiness"]) {
     assert.equal(PeaceBeStill.parentOf(key), "blackout", key);
+    assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), false, key);
+  }
+  // Nor does hiding the rail touch the adverts, which answer to their own.
+  for (const key of ["otherAds", "premium"]) {
     assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), false, key);
   }
 });

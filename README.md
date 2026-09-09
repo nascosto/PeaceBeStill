@@ -95,7 +95,7 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Twenty-two switches, and the first one is the blunt one.
+Twenty-three switches, and the first one is the blunt one.
 
 - **Hide everything** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
@@ -105,17 +105,21 @@ Twenty-two switches, and the first one is the blunt one.
 - the feed: hide it entirely, or send the home page to Messaging,
   Notifications or Jobs instead (with more than one of those on, the first
   wins), and the "Start a post" box above it
-- posts nobody you follow wrote: advertisements in the feed, suggested posts,
-  "Recommended for you", and the ones dragged in because someone reacted to
-  them
+- posts nobody you follow wrote: suggested posts, "Recommended for you", and
+  the ones dragged in because someone reacted to them
+- **advertisements**, under one switch that covers the lot wherever they are,
+  with the kinds under it if you want them separately: in the feed, everywhere
+  else on the site, Premium upsells, and promoted job adverts
 - the two columns beside the feed, together or one at a time
-- things that follow you around the site, wherever they turn up: advertisements
-  outside the feed, the puzzles and games, the LinkedIn News panel, and Premium
-  adverts and upsells
-- elsewhere: the "For Business" menu in the top bar, promoted job adverts,
-  "People you may know", the "suggestions for you" panels, and LinkedIn's AI
-  assistant
+- things that follow you around: the puzzles and games, the LinkedIn News
+  panel, the "For Business" menu in the top bar, "People you may know", the
+  "suggestions for you" panels, and LinkedIn's AI assistant
 - the unread count LinkedIn puts in front of the tab title
+
+Turning a switch on takes away the switches it covers: with **Hide everything**
+on there is one switch left on the page, because there is nothing else to
+decide. Their stored values are untouched, so turning it back off brings them
+back exactly as they were.
 
 Every one of them works on Firefox for Android exactly as on the desktop:
 none depends on the desktop layout.
