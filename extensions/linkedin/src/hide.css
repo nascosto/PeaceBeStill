@@ -68,3 +68,9 @@ html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
 html[data-peacebestill~="jobsPromoted"] [data-pbs~="jobsPromoted"] { display: none !important; }
 html[data-peacebestill~="peopleYouMayKnow"] [data-pbs~="pymk"] { display: none !important; }
 html[data-peacebestill~="suggestions"] [data-pbs~="suggestions"] { display: none !important; }
+
+/* The box that invites you to post, above the feed. */
+html[data-peacebestill~="composer"] [data-pbs~="composer"] { display: none !important; }
+
+/* LinkedIn's AI assistant, which labels its own panel and so needs no mark. */
+html[data-peacebestill~="aiAssistant"] aside[aria-label^="AI-powered assistant"] { display: none !important; }

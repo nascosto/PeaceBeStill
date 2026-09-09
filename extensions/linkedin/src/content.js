@@ -102,6 +102,7 @@
       ["news", () => labelled(/^(LinkedIn News|Top stories)$/)],
       ["ads", () => labelled(/^(Ad Options|Ad)$/)],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
+      ["composer", () => labelled(/^Start a post$/)],
       ["pymk", () => (/^\/(in|mynetwork)\//.test(path) ? labelled(/^People you may know/) : [])],
       ["suggestions", () => (/^\/(in|mynetwork)\//.test(path)
         ? labelled(/^(Suggested|Suggestions|Follow suggestions|More profiles) for you$/) : [])],
@@ -128,7 +129,7 @@
   }
 
   const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news", "rightRailAds",
-    "jobsPromoted", "peopleYouMayKnow", "profileSuggested"];
+    "jobsPromoted", "peopleYouMayKnow", "suggestions", "composer"];
 
   function pass() {
     keepTitle();

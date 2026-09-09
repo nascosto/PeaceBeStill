@@ -106,10 +106,10 @@ test("switches are grouped, and only nest where parent and child share a section
   const { rows } = await render();
   assert.deepEqual(rows().map((r) => r.name), [
     "blackout",
-    "feed", "homeToMessaging", "homeToNotifications", "homeToJobs",
+    "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
     "sponsored", "suggested", "recommended", "socialProof",
     "rightRail", "rightRailAds", "games", "news", "leftRail",
-    "jobsPromoted", "peopleYouMayKnow", "suggestions",
+    "jobsPromoted", "peopleYouMayKnow", "suggestions", "aiAssistant",
     "notificationCount",
   ]);
   // Blackout parents everything but has a section to itself, and the post
@@ -118,7 +118,7 @@ test("switches are grouped, and only nest where parent and child share a section
   const indented = Object.fromEntries(rows().map((r) => [r.name, r.indented]));
   assert.deepEqual(
     Object.entries(indented).filter(([, i]) => i).map(([n]) => n),
-    ["rightRailAds", "games", "news"],
+    ["composer", "rightRailAds", "games", "news"],
   );
 });
 
@@ -170,12 +170,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ blackout: true, homeToJobs: true });
-  assert.match(byId.summary.textContent, /2 of 18/);
+  assert.match(byId.summary.textContent, /2 of 20/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "homeToJobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 18/);
+  assert.match(byId.summary.textContent, /0 of 20/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

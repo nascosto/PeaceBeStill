@@ -42,6 +42,8 @@
     ["jobsPromoted", "Hide promoted job adverts", false, ELSEWHERE, "blackout"],
     ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
     ["suggestions", "Hide the “suggestions for you” panels on profiles and My Network", false, ELSEWHERE, "blackout"],
+    ["composer", "Hide the “Start a post” box above the feed", false, HOME, "feed"],
+    ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
     ["notificationCount", "Hide the unread count in the tab title", false, NOTIFICATIONS, "blackout"],
   ];
 

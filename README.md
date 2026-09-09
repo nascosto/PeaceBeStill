@@ -95,7 +95,7 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Eighteen switches, and the first one is the blunt one.
+Twenty switches, and the first one is the blunt one.
 
 - **Replace LinkedIn with a better idea** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
@@ -112,6 +112,7 @@ Eighteen switches, and the first one is the blunt one.
   right one its advert, the puzzles and the LinkedIn News panel
 - elsewhere: promoted job adverts, "People you may know", and the
   "suggestions for you" panels on profiles and My Network
+- the "Start a post" box above the feed, and LinkedIn's AI assistant panel
 - the unread count LinkedIn puts in front of the tab title
 
 Every one of them works on Firefox for Android exactly as on the desktop:
