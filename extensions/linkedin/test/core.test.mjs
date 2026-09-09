@@ -8,22 +8,24 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 // page, the stylesheet gates and the stored settings all share.
 const DEFAULTS = [
   "blackout",
+  "home", "myNetwork", "jobs", "messaging", "notifications", "profile", "forBusiness",
   "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
   "suggested", "recommended", "socialProof",
   "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
   "rightRail", "leftRail",
-  "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
+  "games", "news", "peopleYouMayKnow", "suggestions", "messagingOverlay", "aiAssistant",
   "notificationCount",
 ].map((key) => [key, false]);
 
 const KEYS = DEFAULTS.map(([k]) => k);
-const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Advertisements", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
+const GROUPS = ["The whole site", "Top bar", "Home and feed", "Feed posts", "Advertisements", "Side rails", "Elsewhere on LinkedIn", "Browser tab"];
 
-test("the feature keys are the agreed twenty-three, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed thirty, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
-    assert.ok(label.length > 10, `label for ${key}`);
+    // Not a placeholder, and not padded: "Hide Home" is as long as it needs.
+    assert.ok(label.trim().length > 4 && label === label.trim(), `label for ${key}: ${JSON.stringify(label)}`);
     assert.equal(typeof defaultOn, "boolean", `default for ${key}`);
     assert.ok(GROUPS.includes(group), `group for ${key}: ${group}`);
   }
@@ -49,8 +51,21 @@ test("blackout is top level and an ancestor of every other switch", () => {
 
 // The middle of the chain matters too: a post kind cannot matter with the feed
 // gone, and a rail module cannot matter with the rail gone.
-test("feed and rightRail are parents in their own right", () => {
+test("hiding Home takes the feed with it, and the feed takes its own posts", () => {
+  // Home is the page the feed lives on, so the feed answers to it.
+  assert.equal(PeaceBeStill.parentOf("feed"), "home");
   for (const key of ["composer", "suggested", "recommended", "socialProof"]) {
+    assert.equal(PeaceBeStill.isMoot(key, { home: true }), true, key);
+  }
+  // The redirects are not the feed's business: with the feed gone, being sent
+  // somewhere else is more useful, not less.
+  for (const key of ["homeToMessaging", "homeToNotifications", "homeToJobs"]) {
+    assert.equal(PeaceBeStill.isMoot(key, { home: true }), false, key);
+  }
+});
+
+test("feed and rightRail are parents in their own right", () => {
+  for (const key of ["suggested", "recommended", "socialProof"]) {
     assert.equal(PeaceBeStill.parentOf(key), "feed", key);
     assert.equal(PeaceBeStill.isMoot(key, { feed: true }), true, key);
   }

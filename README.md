@@ -95,24 +95,27 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Twenty-three switches, and the first one is the blunt one.
+Thirty switches, and the first one is the blunt one.
 
 - **Hide everything** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
   site, with no exceptions; to use LinkedIn again you turn it off. While it is
   on, every other switch is greyed out and says so, because none of them can
   matter when there is no page left to act on.
+- **the top bar**, one switch per item: Home, My Network, Jobs, Messaging,
+  Notifications, Profile, and the "For Business" menu. Hiding Home takes the
+  feed with it, which is why the feed switches sit under it
 - the feed: hide it entirely, or send the home page to Messaging,
   Notifications or Jobs instead (with more than one of those on, the first
   wins), and the "Start a post" box above it
 - posts nobody you follow wrote: suggested posts, "Recommended for you", and
-  the ones dragged in because someone reacted to them
+  the ones someone in your network liked or commented on
 - **advertisements**, under one switch that covers the lot, with the kinds
   under it if you want them separately: in the feed, outside it, Premium
   upsells, and promoted job adverts
 - the two columns beside the feed, together or one at a time
-- the puzzles and games, the LinkedIn News panel, the "For Business" menu in
-  the top bar, "People you may know", the "suggestions for you" panels, and
+- the puzzles and games, the LinkedIn News panel, "People you may know", the
+  "suggestions for you" panels, the messaging overlay pinned to the corner, and
   LinkedIn's AI assistant
 - the unread count LinkedIn puts in front of the tab title
 

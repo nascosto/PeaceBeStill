@@ -105,11 +105,12 @@ test("every switch is nested under the one that covers it, one indent per level"
   const { rows } = await render();
   assert.deepEqual(rows().map((r) => r.name), [
     "blackout",
+    "home", "myNetwork", "jobs", "messaging", "notifications", "profile", "forBusiness",
     "feed", "composer", "homeToMessaging", "homeToNotifications", "homeToJobs",
     "suggested", "recommended", "socialProof",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "games", "news", "forBusiness", "peopleYouMayKnow", "suggestions", "aiAssistant",
+    "games", "news", "peopleYouMayKnow", "suggestions", "messagingOverlay", "aiAssistant",
     "notificationCount",
   ]);
   // "Hide everything" parents the whole page, so it alone sits flush and
@@ -117,7 +118,8 @@ test("every switch is nested under the one that covers it, one indent per level"
   // rails a further step, since they are two levels down.
   const depth = Object.fromEntries(rows().map((r) => [r.name, r.indented ? (r.grandchild ? 2 : 1) : 0]));
   assert.equal(depth.blackout, 0);
-  assert.equal(depth.feed, 1);
+  assert.equal(depth.home, 1);
+  assert.equal(depth.feed, 2, "the feed is inside Home");
   assert.equal(depth.rightRail, 1);
   assert.equal(depth.composer, 2, "the composer is inside the feed");
   assert.equal(depth.suggested, 2, "a post kind is inside the feed");
@@ -178,20 +180,26 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and says how much a switch above has covered", async () => {
   const { byId, rows, removes } = await render({ blackout: true, homeToJobs: true });
-  assert.match(byId.summary.textContent, /2 of 23/);
-  assert.match(byId.summary.textContent, /22 covered by a switch above/);
+  assert.match(byId.summary.textContent, /2 of 30/);
+  assert.match(byId.summary.textContent, /29 covered by a switch above/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "homeToJobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 23/);
+  assert.match(byId.summary.textContent, /0 of 30/);
 });
 
 test("the filter narrows the list to matching switches", async () => {
   const { byId, rows } = await render();
+  byId.filter.value = "puzzles";
+  await byId.filter.listeners.input();
+  assert.deepEqual(rows().filter((r) => !r.hidden).map((r) => r.name), ["games"]);
+
+  // A word several switches share narrows to all of them.
   byId.filter.value = "messaging";
   await byId.filter.listeners.input();
-  assert.deepEqual(rows().filter((r) => !r.hidden).map((r) => r.name), ["homeToMessaging"]);
+  assert.deepEqual(rows().filter((r) => !r.hidden).map((r) => r.name),
+    ["messaging", "homeToMessaging", "messagingOverlay"]);
 
   byId.filter.value = "";
   await byId.filter.listeners.input();

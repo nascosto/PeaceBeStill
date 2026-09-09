@@ -3,8 +3,8 @@
 (function (root) {
   // Options-page sections, in display order. Blackout has one to itself, and
   // it comes first, because it is the parent of everything below it.
-  const GROUPS = ["The whole site", "Home and feed", "Feed posts", "Advertisements", "Side rails", "Elsewhere on LinkedIn", "Notifications"];
-  const [SITE, HOME, POSTS, ADS, RAILS, ELSEWHERE, NOTIFICATIONS] = GROUPS;
+  const GROUPS = ["The whole site", "Top bar", "Home and feed", "Feed posts", "Advertisements", "Side rails", "Elsewhere on LinkedIn", "Browser tab"];
+  const [SITE, TOPBAR, HOME, POSTS, ADS, RAILS, ELSEWHERE, TAB] = GROUPS;
 
   // What the page says, and what the tab says, once the site is blacked out.
   // hide.css draws this string; a test holds the two to the same sentence.
@@ -26,8 +26,19 @@
   // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
     ["blackout", "Hide everything", false, SITE],
-    ["feed", "Hide feed entirely", false, HOME, "blackout"],
+    // The top bar. Hiding Home takes the feed with it, which is why the feed
+    // switches sit under it: there is no Home left for them to act on.
+    ["home", "Hide Home", false, TOPBAR, "blackout"],
+    ["myNetwork", "Hide My Network", false, TOPBAR, "blackout"],
+    ["jobs", "Hide Jobs", false, TOPBAR, "blackout"],
+    ["messaging", "Hide Messaging", false, TOPBAR, "blackout"],
+    ["notifications", "Hide Notifications", false, TOPBAR, "blackout"],
+    ["profile", "Hide Profile", false, TOPBAR, "blackout"],
+    ["forBusiness", "Hide “For Business” menu", false, TOPBAR, "blackout"],
+    ["feed", "Hide feed entirely", false, HOME, "home"],
     ["composer", "Hide “Start a post” box", false, HOME, "feed"],
+    // Not under home: with the feed gone, being sent somewhere else is more
+    // useful, not less.
     ["homeToMessaging", "Open Messaging instead of feed", false, HOME, "blackout"],
     ["homeToNotifications", "Open Notifications instead of feed", false, HOME, "blackout"],
     ["homeToJobs", "Open Jobs instead of feed", false, HOME, "blackout"],
@@ -46,11 +57,11 @@
     ["leftRail", "Hide left-hand column (your profile card and stats)", false, RAILS, "blackout"],
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
     ["news", "Hide LinkedIn News panel", false, ELSEWHERE, "blackout"],
-    ["forBusiness", "Hide “For Business” menu in top bar", false, ELSEWHERE, "blackout"],
     ["peopleYouMayKnow", "Hide “People you may know” suggestions", false, ELSEWHERE, "blackout"],
     ["suggestions", "Hide “suggestions for you” panels", false, ELSEWHERE, "blackout"],
+    ["messagingOverlay", "Hide messaging overlay", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
-    ["notificationCount", "Hide unread count in tab title", false, NOTIFICATIONS, "blackout"],
+    ["notificationCount", "Hide unread count in tab title", false, TAB, "blackout"],
   ];
 
   const KEYS = FEATURES.map(([key]) => key);

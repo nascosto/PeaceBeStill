@@ -32,7 +32,8 @@ test("the feature keys are the agreed forty-three, in order, each with a label, 
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key));
-    assert.ok(label.length > 10, `label for ${key}`);
+    // Not a placeholder, and not padded: "Hide Home" is as long as it needs.
+    assert.ok(label.trim().length > 4 && label === label.trim(), `label for ${key}: ${JSON.stringify(label)}`);
     assert.equal(typeof defaultOn, "boolean", `default for ${key}`);
     assert.ok(GROUPS.includes(group), `group for ${key}: ${group}`);
   }
