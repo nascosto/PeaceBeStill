@@ -155,6 +155,7 @@ profile you sign into by hand, which is why it is not in CI:
     npm run check:linkedin -- /feed/ /in/me/ /jobs/ /mynetwork/grow/
     npm run check:linkedin -- --panels /feed/       # is each panel's box the whole panel?
     npm run check:linkedin -- --collateral /feed/   # does any switch hide what is not its own?
+    npm run live:linkedin -- /feed/ /mynetwork/grow/   # what each setting really takes
 
 The profile lives in `~/.config/peacebestill/linkedin-dev-profile` and keeps
 its session, so signing in is a one-off. `check:linkedin` reports, per switch, how many targets it found on the page and
@@ -163,6 +164,16 @@ resolves to and flags one that leaves an empty container behind; `--collateral`
 turns each switch on alone and reports anything that stopped rendering which
 that switch does not own. Between them they catch the two ways this goes wrong:
 hiding too little of a panel, and hiding something else as well.
+
+Both of those drive the marking code directly, which makes them quick but means
+they only ever prove the harness agrees with itself. `live:linkedin` is the one
+that settles an argument: it writes each setting through the extension's own
+storage, lets the content script act, and compares the page against a baseline
+taken with everything off. It prints, per setting, what actually went. Because
+LinkedIn never serves the same page twice, a removal counts only once the thing
+has come back without the setting and gone again with it -- one round of that
+is a coin toss, which had three unrelated settings appearing to hide the same
+panel.
 it drives the browser over Firefox's remote debugging protocol, the channel
 devtools uses, so it sets no automation flag on your session. It reads the
 extension's own `core.js` and lifts the marking pass out of its `content.js`,

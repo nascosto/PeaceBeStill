@@ -77,6 +77,17 @@
   // them all: LinkedIn puts seven wrappers between "Start a post" and the
   // composer box, while an advert or an upsell is a small box near its label
   // and given the same room swallows the whole column.
+  // Panels that no switch owns, but that a switch must not swallow either.
+  // Every other guard needs a landmark -- another marker, a heading element, a
+  // list -- and LinkedIn's cards often have none: "Manage my network" is a
+  // plain div, so the advert beside it grew straight through. Naming them is
+  // less clever than a rule, and it is the thing that actually holds.
+  const NEIGHBOURS = /^(Manage my network|No pending invitations|Profile viewers|Saved items|Who's viewed your profile|Recent|Connections|Followers)$/;
+
+  // Things no panel may swallow: another page's place in the top bar, or a
+  // post in the feed.
+  const KEEP_OUT = '[data-testid="primary-nav"] li, [data-testid="mainFeed"] [role="listitem"]';
+
   // A box this tall is a panel in its own right, not a label pointing at one.
   const PANEL_SIZE = 100;
   const DEPTH = { composer: 8, premium: 6 };
@@ -92,8 +103,12 @@
       if (!parent || parent === root) break;
       // Another kind of panel: the box would swallow something it should not.
       if (foreign.some((other) => parent.contains(other))) break;
-      // And never swallow the feed itself.
-      if (parent.querySelector('[role="listitem"]')) break;
+      // Never absorb an item that belongs to something else. "Try Premium for
+      // $0" sits beside the navigation list rather than in it, so growing one
+      // step from it took the whole bar -- "For Business" included -- and the
+      // list guard above never saw a list to stop at.
+      const strays = [...parent.querySelectorAll(KEEP_OUT)].filter((e) => !node.contains(e));
+      if (strays.length) break;
       // A panel has one heading. Picking up the first is how a box grows from
       // its label to the whole panel; picking up a second means it has left
       // that panel and started on the next -- which is how hiding the advert
@@ -162,6 +177,8 @@
         .filter((el) => !el.closest('[data-testid="mainFeed"]'))],
     ];
     const found = specs.map(([kind, find]) => [kind, find()]);
+    // Treated as another panel's label by every kind, so no box grows past one.
+    const neighbours = labelled(NEIGHBOURS);
     // An advert sitting inside a panel is part of that panel, so adverts do not
     // fence a panel in: without this the Premium button inside the composer
     // stopped the composer growing past its first row. A panel that swallows an
@@ -170,7 +187,8 @@
     for (const [kind, els] of found) {
       const foreign = found
         .filter(([other]) => other !== kind && !POROUS.has(other))
-        .flatMap(([, e]) => e);
+        .flatMap(([, e]) => e)
+        .concat(neighbours);
       for (const el of els) {
         // Each panel grows inside whichever labelled column it happens to live
         // in: "People you may know" is in the main column on the network page
@@ -208,9 +226,12 @@
         // once stepped out of its menu, is the whole advert, and growing it any
         // further only picks up whatever card sits next to it. A label is small
         // and has to reach out to find the panel it names.
-        const box = fromHeight >= PANEL_SIZE
+        const chosen = fromHeight >= PANEL_SIZE
           ? from
           : (sections.find(fits) || growTo(from, root, foreign, kind));
+        // Whichever rule picked it, a box holding a neighbouring panel is the
+        // wrong box. Better to hide nothing than to hide someone else's card.
+        const box = neighbours.some((other) => chosen.contains(other)) ? null : chosen;
         if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
       }
     }

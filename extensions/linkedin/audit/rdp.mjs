@@ -83,17 +83,28 @@ export async function linkedInTab(port = devPort()) {
     target = await rdp.request({ to: t.actor, type: "getTarget" }, (m) => !!m.frame);
     consoleActor = target.frame.consoleActor;
   };
+  // Every evaluation is matched back by the id the server gives it. Waiting for
+  // "the next evaluationResult" instead looks fine until two are in flight --
+  // the navigation poll and the thing being measured -- and then each gets the
+  // other's answer.
   const evaluate = async (text) => {
-    const res = await rdp.request(
+    // The acknowledgement and the result both carry a resultID, so matching on
+    // that alone hands back a stale result from an earlier evaluation. Only the
+    // result carries type: "evaluationResult".
+    const ack = await rdp.request(
       { to: consoleActor, type: "evaluateJSAsync", text, mapped: { await: true } },
-      (m) => m.type === "evaluationResult" || m.error,
+      (m) => (m.resultID && m.type !== "evaluationResult") || m.error,
     );
-    if (res.error === "noSuchActor") { await reacquire(); return evaluate(text); }
-    if (res.error) throw new Error(`${res.error}: ${res.message}`);
-    if (res.exception) throw new Error("page threw: " + JSON.stringify(res.exceptionMessage ?? res.exception));
-    const v = res.result;
-    return v && typeof v === "object" && "value" in v ? v.value : v;
+    if (ack.error === "noSuchActor") { await reacquire(); return evaluate(text); }
+    if (ack.error) throw new Error(`${ack.error}: ${ack.message}`);
+    const res = await rdp.await((m) => m.type === "evaluationResult" && m.resultID === ack.resultID);
+    if (res.exception) {
+      throw new Error("page threw: " + JSON.stringify(res.exceptionMessage ?? res.exception));
+    }
+    const value = res.result;
+    return value && typeof value === "object" && "value" in value ? value.value : value;
   };
+
   const goTo = async (url) => {
     const actor = target.frame.actor;
     await rdp.request({ to: actor, type: "navigateTo", url }, (m) => m.from === actor || m.error);
