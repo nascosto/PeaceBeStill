@@ -95,7 +95,7 @@ defaults stores nothing at all.
 
 ## PeaceBeStill - LinkedIn
 
-Thirty settings, and the first one is the blunt one.
+Thirty-four settings, and the first one is the blunt one.
 
 - **Hide everything** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
@@ -115,17 +115,26 @@ Thirty settings, and the first one is the blunt one.
 - **advertisements**, under one switch that covers the lot, with the kinds
   under it if you want them separately: in the feed, outside it, Premium
   upsells, and promoted job adverts
-- the two columns beside the feed, together or one at a time
 - the puzzles and games, the LinkedIn News panel, business features, "People
-  you may know", the "suggestions for you" panels, and LinkedIn's AI assistant
+  you may know", the "suggestions for you" panels, the site footer, and
+  LinkedIn's AI assistant. A few of these can be hidden everywhere or on one
+  page only: ticking the global one ticks and locks the smaller ones under it
+- **the prompts to install the app**, which only the mobile site shows: the bar
+  pinned along the bottom, and the sheet that covers the page and holds it
+  still until it is dismissed
 
 Turning a switch on takes away the settings it covers: with **Hide everything**
 on there is one switch left on the page, because there is nothing else to
 decide. Their stored values are untouched, so turning it back off brings them
 back exactly as they were.
 
-Every one of them works on Firefox for Android exactly as on the desktop:
-none depends on the desktop layout.
+**On a phone, most of this does not work yet.** LinkedIn serves a third site
+to mobile browsers, sharing no markup with either of the two it serves a
+desktop: no `data-testid` anywhere, no `role="listitem"`, no `<aside>`, no
+site footer. Measured against it, what works today is **Hide everything**,
+**where the home page goes instead**, and the app prompts written for it.
+The rest need a third set of selectors, and until they have one they do
+nothing there. The options page itself is built for a phone screen.
 
 ### How it works, and why it is not all CSS
 
@@ -137,7 +146,11 @@ with the settings.
 
 LinkedIn's class names are hashed and rotate with every deploy, so nothing here
 keys on one. The durable hooks are ARIA roles and labels (`role="listitem"`,
-`aside[aria-label="Aside"]`), `data-testid`, and the visible label itself.
+`section[aria-label]`), `data-testid`, and the visible label itself.
+
+There are two desktop front ends in service at once -- a newer one with
+`data-testid` and an older Ember one that still runs messaging -- so the rules
+that hide the top bar and the columns name both.
 
 That last one is why this extension has a marking pass where the YouTube one
 does not. What separates a promoted post from an ordinary one is the word
