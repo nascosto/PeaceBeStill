@@ -3,8 +3,8 @@
 (function (root) {
   // Options-page sections, in display order. Blackout has one to itself, and
   // it comes first, because it is the parent of everything below it.
-  const GROUPS = ["The whole site", "Pages", "Advertisements", "Side rails", "Elsewhere on LinkedIn"];
-  const [SITE, PAGES_GROUP, ADS, RAILS, ELSEWHERE] = GROUPS;
+  const GROUPS = ["The whole site", "Pages", "Advertisements", "Elsewhere on LinkedIn"];
+  const [SITE, PAGES_GROUP, ADS, ELSEWHERE] = GROUPS;
 
   // What the page says, and what the tab says, once the site is blacked out.
   // hide.css draws this string; a test holds the two to the same sentence.
@@ -186,8 +186,6 @@
     ["otherAds", "Hide advertisements outside feed", false, ADS, "ads"],
     ["premium", "Hide Premium adverts and upsells", false, ADS, "ads"],
     ["jobsPromoted", "Hide promoted job adverts", false, ADS, "ads"],
-    ["rightRail", "Hide right-hand column", false, RAILS, "blackout"],
-    ["leftRail", "Hide left-hand column", false, RAILS, "blackout"],
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide business features", false, ELSEWHERE, "blackout"],
     ["siteFooter", "Hide the site footer", false, ELSEWHERE, "blackout"],

@@ -24,15 +24,14 @@ const DEFAULTS = [
     "messaging", "notifications", "profile", "profilePeople", "profileSuggestions"].map((key) => [key, false]),
   ["homeRedirect", ""],
   ...["ads", "sponsored", "otherAds", "premium", "jobsPromoted",
-    "rightRail", "leftRail",
     "games", "forBusiness", "siteFooter", "aiAssistant",
     "messagingOverlay", "notificationCount"].map((key) => [key, false]),
 ];
 
 const KEYS = DEFAULTS.map(([k]) => k);
-const GROUPS = ["The whole site", "Pages", "Advertisements", "Side rails", "Elsewhere on LinkedIn"];
+const GROUPS = ["The whole site", "Pages", "Advertisements", "Elsewhere on LinkedIn"];
 
-test("the feature keys are the agreed thirty-five, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed thirty-three, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
@@ -119,7 +118,7 @@ test("hiding Home takes the feed with it, and the feed takes its own posts", () 
   assert.equal(PeaceBeStill.isMoot("homeRedirect", { home: true }), false);
 });
 
-test("feed and rightRail are parents in their own right", () => {
+test("the feed and the advert switch are parents in their own right", () => {
   for (const key of ["suggested", "recommended", "socialProof"]) {
     assert.equal(PeaceBeStill.parentOf(key), "feed", key);
     assert.equal(PeaceBeStill.isMoot(key, { feed: true }), true, key);
@@ -130,21 +129,27 @@ test("feed and rightRail are parents in their own right", () => {
     assert.equal(PeaceBeStill.isMoot(key, { ads: true }), true, key);
     assert.equal(PeaceBeStill.isMoot(key, { feed: true }), false, `${key} is not the feed's business`);
   }
-  // The puzzles turn up outside the right rail too, so hiding the rail must
-  // not grey them out.
+  // The puzzles turn up on more than one page, so they answer to nothing
+  // smaller than the whole site.
   for (const key of ["games", "forBusiness"]) {
     assert.equal(PeaceBeStill.parentOf(key), "blackout", key);
-    assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), false, key);
   }
-  // The news panel is only ever on the home page, so it answers to that -- but
-  // it sits in the rail rather than being the rail, so the rail does not own it.
+  // The news panel is only ever on the home page, so it answers to that.
   assert.equal(PeaceBeStill.parentOf("news"), "home");
   assert.equal(PeaceBeStill.isMoot("news", { home: true }), true);
-  assert.equal(PeaceBeStill.isMoot("news", { rightRail: true }), false);
-  // Nor does hiding the rail touch the adverts, which answer to their own.
-  for (const key of ["otherAds", "premium"]) {
-    assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), false, key);
+});
+
+// There is no switch for either column beside the feed. Hiding a whole column
+// is a layout change rather than a thing hidden: it takes with it whatever
+// LinkedIn has put there today, which is how the site footer went on the older
+// front end, and on a phone there are no columns to hide at all. Everything
+// that was ever worth hiding in one has a switch of its own.
+test("no switch hides a column, only what is in one", () => {
+  for (const [key, label] of PeaceBeStill.FEATURES) {
+    assert.doesNotMatch(key, /Rail$/, key);
+    assert.doesNotMatch(label, /column/i, key);
   }
+  assert.ok(!PeaceBeStill.GROUPS.some((group) => /rail/i.test(group)));
 });
 
 // The feed labels are the only durable hook: LinkedIn's class names are hashed

@@ -48,16 +48,13 @@ html[data-peacebestill~="suggested"] [role="listitem"][data-pbs~="suggested"] { 
 html[data-peacebestill~="recommended"] [role="listitem"][data-pbs~="recommended"] { display: none !important; }
 html[data-peacebestill~="socialProof"] [role="listitem"][data-pbs~="socialProof"] { display: none !important; }
 
-/* ---- Side rails --------------------------------------------------------- */
+/* ---- Panels beside the feed --------------------------------------------- */
 
-/* The two columns either side of the feed. The right one carries the advert,
-   the puzzles and the news panel, which are also switchable on their own; it
-   is one unlabelled container, so content.js marks the three modules inside. */
-/* Two names for the same rail, one per front end: the newer bar labels it, the
-   older one only classes it. */
-html[data-peacebestill~="rightRail"] aside[aria-label="Aside"],
-html[data-peacebestill~="rightRail"] aside.scaffold-layout__aside { display: none !important; }
-html[data-peacebestill~="leftRail"] aside[aria-label="Sidebar"] { display: none !important; }
+/* The column beside the feed carries the advert, the puzzles and the news
+   panel. Each is switchable on its own; the column is one unlabelled
+   container, so content.js marks the modules inside it rather than the column,
+   which is also what makes these work on a phone, where there is no column and
+   the same modules are stacked into the one column there is. */
 html[data-peacebestill~="otherAds"] [data-pbs~="otherAds"] { display: none !important; }
 /* The banner beside the messages. It is an iframe, so it carries no words for
    the marking pass to read -- but it says what it is in an attribute, which is

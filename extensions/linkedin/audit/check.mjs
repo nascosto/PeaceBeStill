@@ -21,7 +21,7 @@ const content = readFileSync(SRC + "content.js", "utf8");
 const helpers = content.slice(content.indexOf("  const FEED_ITEMS ="), content.indexOf("  const MARKED = ["));
 
 // Switches whose target is something content.js marks. The rest (the whole
-// feed, the two rails, blackout) hide a container the stylesheet can name on
+// feed, blackout) hide a container the stylesheet can name on
 // its own, and are checked by the selector column below instead.
 const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games",
   "news", "otherAds", "premium", "jobsPromoted", "networkPeople", "profilePeople", "composer",
@@ -34,8 +34,6 @@ const CONTAINERS = {
   // The parent switch repeats what its children do, so it is checked as one.
   ads: '[data-pbs~="sponsored"], [data-pbs~="otherAds"], [data-pbs~="premium"], [data-pbs~="jobsPromoted"]',
   feed: '[data-testid="mainFeed"]',
-  rightRail: 'aside[aria-label="Aside"]',
-  leftRail: 'aside[aria-label="Sidebar"]',
   aiAssistant: 'aside[aria-label^="AI-powered assistant"]',
   forBusiness: 'li:has(> button[aria-label="For Business"])',
 };
