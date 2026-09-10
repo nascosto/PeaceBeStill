@@ -115,8 +115,8 @@ test("every switch is nested under the one that covers it, one indent per level"
     "blackout",
     // "sponsored" appears twice on purpose: an advert in the feed is both an
     // advert and part of the feed, so it is offered in both places.
-    "home", "feed", "composer", "suggested", "recommended", "socialProof", "sponsored",
-    "myNetwork", "networkPeople", "networkSuggestions", "jobs", "jobsSuggestions",
+    "home", "feed", "composer", "suggested", "recommended", "socialProof", "sponsored", "homeGames",
+    "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "jobs", "jobsSuggestions",
     "messaging", "notifications", "profile", "profilePeople", "profileSuggestions", "homeRedirect",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
@@ -233,20 +233,23 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and says how much a switch above has covered", async () => {
   const { byId, rows, removes } = await render({ blackout: true, jobs: true });
-  assert.match(byId.summary.textContent, /2 of 31/);
-  assert.match(byId.summary.textContent, /30 covered by a switch above/);
+  assert.match(byId.summary.textContent, /2 of 33/);
+  assert.match(byId.summary.textContent, /32 covered by a switch above/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "jobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 31/);
+  assert.match(byId.summary.textContent, /0 of 33/);
 });
 
 test("the filter narrows the list to matching switches", async () => {
   const { byId, rows } = await render();
+  // Puzzles can be hidden on one page or on all of them, so the word finds the
+  // per-page switches under their pages as well as the global one.
   byId.filter.value = "puzzles";
   await byId.filter.listeners.input();
-  assert.deepEqual(rows().filter((r) => !r.hidden).map((r) => r.name), ["games"]);
+  assert.deepEqual(rows().filter((r) => !r.hidden).map((r) => r.name),
+    ["homeGames", "networkGames", "games"]);
 
   // A word several switches share narrows to all of them.
   byId.filter.value = "messaging";
@@ -273,4 +276,34 @@ test("a storage failure is reported rather than silently pretended", async () =>
   const { byId, change } = await render({}, { failWrites: true });
   await change("blackout", true);
   assert.match(byId.status.textContent, /could not be saved/i);
+});
+
+// Puzzles turn up on more than one page, so they can be hidden page by page or
+// everywhere at once. The global one is not their parent -- they sit under
+// their own pages -- so it has to say so itself.
+test("hiding puzzles everywhere ticks and locks the per-page switches", async () => {
+  const { rows } = await render({ games: true });
+  for (const name of ["homeGames", "networkGames"]) {
+    const row = rows().find((r) => r.name === name);
+    assert.equal(row.checked, true, `${name} should show as happening`);
+    assert.equal(row.disabled, true, `${name} should not be yours to set while the global one is on`);
+    assert.equal(row.hidden, false, `${name} should stay on the page, not vanish`);
+  }
+});
+
+test("hiding puzzles on one page leaves the other page alone", async () => {
+  const { rows } = await render({ homeGames: true });
+  assert.equal(rows().find((r) => r.name === "homeGames").checked, true);
+  assert.equal(rows().find((r) => r.name === "networkGames").checked, false);
+  assert.equal(rows().find((r) => r.name === "games").checked, false);
+  for (const name of ["homeGames", "networkGames"]) {
+    assert.equal(rows().find((r) => r.name === name).disabled, false, `${name} is still yours to set`);
+  }
+});
+
+test("a page that is hidden takes its puzzle switch with it", async () => {
+  // Nothing to decide about puzzles on a page you cannot reach.
+  const { rows } = await render({ home: true });
+  assert.equal(rows().find((r) => r.name === "homeGames").hidden, true);
+  assert.equal(rows().find((r) => r.name === "networkGames").hidden, false);
 });

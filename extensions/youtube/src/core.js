@@ -206,6 +206,24 @@
   // acts on is already hidden, so the feature cannot have any effect. The
   // options page greys such a switch out; its stored value is left alone, so
   // turning the parent off brings it back exactly as it was.
+  // A switch that does something everywhere, and the per-page switches doing
+  // the same thing in one place each. Nothing here needs it yet; it exists so
+  // that both extensions' options pages stay the one piece of code.
+  const COVERS = [];
+
+  function coverOf(key) {
+    for (const [global, covered] of COVERS) if (covered.includes(key)) return global;
+    return null;
+  }
+
+  // The global doing this switch's job for it, or null. Kept apart from isMoot:
+  // a switch whose parent has gone is not worth showing at all, while one
+  // covered by a global is worth showing as the settled fact it is.
+  function coveredBy(key, settings) {
+    const global = coverOf(key);
+    return global && withDefaults(settings)[global] === true ? global : null;
+  }
+
   function isMoot(key, settings) {
     const merged = withDefaults(settings);
     const seen = new Set();
@@ -229,5 +247,5 @@
     return merged;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, COVERS, coverOf, coveredBy, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

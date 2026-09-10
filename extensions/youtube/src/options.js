@@ -4,7 +4,7 @@
 // tabs at once.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, MIRRORS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
+  const { GROUPS, FEATURES, KEYS, MIRRORS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, coveredBy, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
   const form = document.getElementById("features");
   const filter = document.getElementById("filter");
   const summary = document.getElementById("summary");
@@ -128,6 +128,13 @@
         row.hidden = filtered || isMoot(mirrorParent, settings);
         continue;
       }
+      // A global switch doing this one's job everywhere leaves it ticked and
+      // locked, so that what is happening is plain rather than looking as
+      // though the page's own switch were simply off. It still goes when its
+      // page goes: a lone row under a page that is not there means nothing.
+      const covering = choices ? null : coveredBy(key, settings);
+      box.disabled = Boolean(covering);
+      if (covering) box.checked = true;
       // A chooser counts as on when it has been moved off its default.
       if (choices ? !isDefaultValue(key, settings[key]) : box.checked) on++;
       if (moot) covered++;

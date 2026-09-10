@@ -407,6 +407,7 @@
   }
 
   const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news",
+    "homeGames", "networkGames",
     "jobsPromoted", "networkPeople", "profilePeople", "profileSuggestions", "networkSuggestions",
     "jobsSuggestions", "composer", "premium", "otherAds", "ads"];
 

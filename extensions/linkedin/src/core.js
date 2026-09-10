@@ -157,9 +157,11 @@
     ["suggested", "Hide suggested posts", false, PAGES_GROUP, "feed"],
     ["recommended", "Hide “Recommended for you” posts", false, PAGES_GROUP, "feed"],
     ["socialProof", "Hide posts someone in your network liked or commented on", false, PAGES_GROUP, "feed"],
+    ["homeGames", "Hide puzzles and games", false, PAGES_GROUP, "home"],
     ["myNetwork", "Hide My Network", false, PAGES_GROUP, "blackout"],
     ["networkPeople", "Hide “People you may know”", false, PAGES_GROUP, "myNetwork"],
     ["networkSuggestions", "Hide suggestion panels on My Network", false, PAGES_GROUP, "myNetwork"],
+    ["networkGames", "Hide puzzles and games", false, PAGES_GROUP, "myNetwork"],
     ["jobs", "Hide Jobs", false, PAGES_GROUP, "blackout"],
     ["jobsSuggestions", "Hide “More jobs for you”", false, PAGES_GROUP, "jobs"],
     ["messaging", "Hide Messaging", false, PAGES_GROUP, "blackout"],
@@ -197,6 +199,28 @@
   // things at once: an advert in the feed is both an advert and part of the
   // feed. [key, the group it also appears in, the switch it sits under there].
   // The second row is the same setting, not a copy of it.
+  // A switch that does something everywhere, and the per-page switches doing
+  // the same thing in one place each. They sit under their own page rather than
+  // under the global one, so the nesting alone cannot say the global covers
+  // them -- but it does, and the options page shows them ticked and locked
+  // while it is on rather than pretending they are still yours to set.
+  const COVERS = [
+    ["games", ["homeGames", "networkGames"]],
+  ];
+
+  function coverOf(key) {
+    for (const [global, covered] of COVERS) if (covered.includes(key)) return global;
+    return null;
+  }
+
+  // The global doing this switch's job for it, or null. Kept apart from
+  // isMoot: a switch whose page has gone is not worth showing at all, while one
+  // covered by a global is worth showing as the settled fact it is.
+  function coveredBy(key, settings) {
+    const global = coverOf(key);
+    return global && withDefaults(settings)[global] === true ? global : null;
+  }
+
   const MIRRORS = [
     ["sponsored", PAGES_GROUP, "feed"],
   ];
@@ -322,5 +346,5 @@
     return calm === title ? null : calm;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, BLACKOUT_TITLE, KINDS, SOCIAL, CUTOFF_RUN, cutoffAt, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, BLACKOUT_TITLE, KINDS, SOCIAL, CUTOFF_RUN, cutoffAt, COVERS, coverOf, coveredBy, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
 })(globalThis);
