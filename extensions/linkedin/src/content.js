@@ -236,8 +236,11 @@
       // "Suggested for you" is a post, which the feed pass already deals with.
       ["profileSuggestions", () => (path.startsWith("/in/")
         ? labelled(/^(Suggested for you|Pages for you|You might like|More profiles for you)$/) : [])],
+      // "People skilled in Java also follow these people" names a skill, so it
+      // matches the opening rather than the whole string.
       ["networkSuggestions", () => (path.startsWith("/mynetwork")
-        ? labelled(/^(Suggestions for you|Follow suggestions for you)$/) : [])],
+        ? labelled(/^(Suggestions for you|Follow suggestions for you)$/)
+          .concat(labelled(/^People skilled in .+ also follow/)) : [])],
       ["jobsSuggestions", () => (path.startsWith("/jobs")
         ? labelled(/^More jobs for you$/) : [])],
     ];

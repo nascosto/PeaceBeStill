@@ -3,7 +3,7 @@
 // lone backslash, so /\s+/ arrived as /s+/ and split the mark attribute on the
 // letter s -- quietly losing every kind with one in its name, which was most of
 // them. Stringifying a function keeps the source exactly as written.
-export function snapshot(probeSelectors, probeText) {
+export function snapshot(probeSelectors, probeText, shadowSelectors) {
   const shown = (selector) => [...document.querySelectorAll(selector)]
     .filter((e) => e.getClientRects().length).length;
   const shownText = (needle) => [...document.querySelectorAll("h1,h2,h3,p,span,div,button")]
@@ -32,5 +32,22 @@ export function snapshot(probeSelectors, probeText) {
   }
   for (const [name, selector] of Object.entries(probeSelectors)) out.probes[name] = shown(selector);
   for (const [name, needle] of Object.entries(probeText)) out.probes[name] = shownText(needle);
+
+  // The overlays -- the chat bubble and the AI assistant -- live in a shadow
+  // root, which document.querySelectorAll cannot see into. Hiding them means a
+  // stylesheet injected inside that root, so an audit looking only at the
+  // document proves nothing about them either way, and said so by reporting
+  // there was nothing there to hide. There was.
+  const host = document.querySelector('#interop-outlet, [data-testid="interop-shadowdom"]');
+  const shadow = host && host.shadowRoot;
+  for (const [name, selector] of Object.entries(shadowSelectors)) {
+    out.probes[name] = shadow
+      ? [...shadow.querySelectorAll(selector)].filter((e) => e.getClientRects().length).length
+      : 0;
+  }
+
+  // The unread count is in the tab title, not on the page at all.
+  out.title = document.title;
+  out.probes["unread count in the title"] = /^\(\d+\)\s/.test(document.title) ? 1 : 0;
   return out;
 }

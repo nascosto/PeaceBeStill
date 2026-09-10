@@ -20,7 +20,7 @@ const core = readFileSync(SRC + "core.js", "utf8");
 const context = { URLSearchParams, globalThis: null };
 context.globalThis = context;
 (await import("node:vm")).runInNewContext(core, context);
-const { FEATURES, KEYS, parentOf } = context.PeaceBeStill;
+const { FEATURES, KEYS, parentOf, BLACKOUT_TITLE, choicesFor, redirectFor } = context.PeaceBeStill;
 
 // A switch and everything nested under it. Turning on a parent marks the page
 // with the children's names, not the parent's -- switching off every advert
@@ -83,7 +83,15 @@ const BY_TEXT = {
   "Start a post": "Start a post",
 };
 
-const SNAPSHOT = `JSON.stringify((${snapshot})(${JSON.stringify(PROBES)}, ${JSON.stringify(BY_TEXT)}))`;
+// Looked for inside the shadow root rather than the document. Written out here
+// rather than taken from content.js: an audit that reuses the code it is
+// checking only ever proves that the harness agrees with itself.
+const IN_SHADOW = {
+  "messaging overlay": "aside#msg-overlay, aside[class*='msg-overlay'], [class*='msg-overlay-list-bubble']",
+  "AI assistant": "aside#coach-container, aside[aria-label^='AI-powered assistant']",
+};
+
+const SNAPSHOT = `JSON.stringify((${snapshot})(${JSON.stringify(PROBES)}, ${JSON.stringify(BY_TEXT)}, ${JSON.stringify(IN_SHADOW)}))`;
 
 // Nothing here may hang in silence. Every stage says what it is doing, and a
 // watchdog gives up if a stage stops making progress -- a run that sat for
@@ -264,6 +272,38 @@ try {
       }
       const phantom = suspected.filter((name) => !took.includes(name));
       if (phantom.length) console.log(`  ${"".padEnd(17)} (unconfirmed, absent either way: ${phantom.join(", ")})`);
+    }
+
+    // Two settings the loop above cannot take: blackout makes every other
+    // switch moot and replaces the page rather than hiding parts of it, and
+    // the redirect is a choice of destination, not a switch.
+    await store({ blackout: true });
+    const dark = await look();
+    const stillShowing = Object.entries(dark.probes).filter(([, n]) => n > 0).map(([name]) => name);
+    console.log(`  ${"blackout".padEnd(17)} ${
+      stillShowing.length
+        ? `FAILED: still showing ${stillShowing.join(", ")}`
+        : dark.title === BLACKOUT_TITLE
+          ? "the whole page, and the tab says so"
+          : `the whole page, but the tab still says ${JSON.stringify(dark.title)}`
+    }`);
+    await store({});
+    await goToPage(path);
+
+    // The redirect only applies to the home page, so it is only worth asking
+    // there. Each destination is set in turn and the tab has to arrive at it.
+    if (redirectFor(path, {}) !== null || path === "/feed/" || path === "/") {
+      for (const [value] of choicesFor("homeRedirect") || []) {
+        const want = redirectFor(path, { homeRedirect: value });
+        if (!want) continue;
+        await store({ homeRedirect: value });
+        await goToPage(path);
+        const where = await look();
+        const ok = where.path === want || where.path.startsWith(want);
+        console.log(`  ${`homeRedirect=${value}`.padEnd(17)} ${ok ? `sent us to ${where.path}` : `FAILED: wanted ${want}, got ${where.path}`}`);
+      }
+      await store({});
+      await goToPage(path);
     }
   }
 } finally {
