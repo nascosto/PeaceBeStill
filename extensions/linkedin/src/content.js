@@ -185,6 +185,12 @@
 
   function growTo(el, root, foreign, kind) {
     let node = el;
+    // The last thing on the way up that actually draws. A box may pass through
+    // a wrapper set to display:contents but must never come to rest on one:
+    // it has no size of its own, so every guard below measures it as nothing
+    // and none of them can stop it -- while hiding it still takes everything
+    // inside it away, which is how switching off adverts took the site footer.
+    let box = el;
     const limit = DEPTH[kind] ?? DEFAULT_DEPTH;
     for (let level = 0; level < limit; ) {
       const parent = node.parentElement;
@@ -231,8 +237,9 @@
       const nodeHeight = node.getBoundingClientRect().height;
       if (nodeHeight >= PANEL_SIZE && parentHeight > nodeHeight * 2.5) break;
       node = parent;
+      if (!drawsNothing(node)) box = node;
     }
-    return node;
+    return box;
   }
 
   // Elements whose whole text is the label, innermost first: LinkedIn wraps

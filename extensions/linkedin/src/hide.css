@@ -105,6 +105,10 @@ html[data-peacebestill~="jobs"] [data-testid="primary-nav"] li:has(> a[href*="/j
 html[data-peacebestill~="messaging"] [data-testid="primary-nav"] li:has(> a[href*="/messaging"]) { display: none !important; }
 html[data-peacebestill~="notifications"] [data-testid="primary-nav"] li:has(> a[href*="/notifications"]) { display: none !important; }
 html[data-peacebestill~="profile"] [data-testid="primary-nav"] li:has(> button img) { display: none !important; }
+/* The row of links at the foot of the page, and the copyright line under it.
+   They are one block, so the block goes: naming the footer alone would leave
+   the line below it sitting on its own. */
+html[data-peacebestill~="siteFooter"] :has(> footer) { display: none !important; }
 html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(> button[aria-label="For Business"]) { display: none !important; }
 
 /* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's

@@ -186,6 +186,7 @@
     ["leftRail", "Hide left-hand column", false, RAILS, "blackout"],
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide business features", false, ELSEWHERE, "blackout"],
+    ["siteFooter", "Hide the site footer", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
     // Neither of these belongs to the page it is named after: the chat bubble
     // is pinned to every page, and LinkedIn puts the unread count in the tab
