@@ -62,7 +62,12 @@
         || [...el.querySelectorAll("*")].slice(0, 40).some((e) => e.getClientRects().length > 0));
       const before = kin.slice(0, at).reverse().find((el) => el.tagName !== "HR");
       const after = kin.slice(at + 1).find((el) => el.tagName !== "HR");
-      const wanted = renders(before) && renders(after) ? "" : "none";
+      // A rule at the head or foot of a list has nothing on one side of it by
+      // nature, and LinkedIn drew it there on purpose, so it is judged by the
+      // side it does have. Judging it by both hid it for good, even with
+      // everything switched off.
+      const sides = [before, after].filter(Boolean);
+      const wanted = sides.length && sides.every(renders) ? "" : "none";
       if (rule.style.display !== wanted) rule.style.display = wanted;
     }
   }
