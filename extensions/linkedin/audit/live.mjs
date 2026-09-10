@@ -58,18 +58,27 @@ const labelOf = (key) => (FEATURES.find(([k]) => k === key) || [])[1] || key;
 // from <a school>" reads as having vanished no matter what was switched on.
 // So: a fixed list of things that either are on the page or are not, plus
 // counts. Anything volatile is deliberately absent.
+// Half of LinkedIn is still served by the older front end -- messaging is,
+// today -- and it shares none of the newer one's hooks. A probe written for
+// only one of them reads nothing on the other, and a page where every probe
+// reads nothing is reported as a page with nothing on it to hide, which is the
+// most convincing way for an audit to measure nothing and call it a pass. So
+// each landmark names itself in both.
+const NEW_NAV = '[data-testid="primary-nav"] li';
+const OLD_NAV = "li.global-nav__primary-item";
 const PROBES = {
-  "Home (nav)": '[data-testid="primary-nav"] li:has(> button[aria-label^="Home"])',
-  "My Network (nav)": '[data-testid="primary-nav"] li:has(> a[href*="/mynetwork"])',
-  "Jobs (nav)": '[data-testid="primary-nav"] li:has(> a[href*="/jobs"])',
-  "Messaging (nav)": '[data-testid="primary-nav"] li:has(> a[href*="/messaging"])',
-  "Notifications (nav)": '[data-testid="primary-nav"] li:has(> a[href*="/notifications"])',
-  "Profile (nav)": '[data-testid="primary-nav"] li:has(> button img)',
-  "For Business (nav)": '[data-testid="primary-nav"] li:has(> button[aria-label="For Business"])',
+  "Home (nav)": `${NEW_NAV}:has(> button[aria-label^="Home"]), ${OLD_NAV}:has(a[href*="/feed"])`,
+  "My Network (nav)": `${NEW_NAV}:has(> a[href*="/mynetwork"]), ${OLD_NAV}:has(a[href*="/mynetwork"])`,
+  "Jobs (nav)": `${NEW_NAV}:has(> a[href*="/jobs"]), ${OLD_NAV}:has(a[href*="/jobs"])`,
+  "Messaging (nav)": `${NEW_NAV}:has(> a[href*="/messaging"]), ${OLD_NAV}:has(a[href*="/messaging"])`,
+  "Notifications (nav)": `${NEW_NAV}:has(> a[href*="/notifications"]), ${OLD_NAV}:has(a[href*="/notifications"])`,
+  "Profile (nav)": `${NEW_NAV}:has(> button img), ${OLD_NAV}:has(button img)`,
+  "For Business (nav)": `${NEW_NAV}:has(> button[aria-label="For Business"]), ${OLD_NAV}:has(button[aria-label="For Business"])`,
   "the feed": '[data-testid="mainFeed"]',
   "left column": 'aside[aria-label="Sidebar"]',
-  "right column": 'aside[aria-label="Aside"]',
+  "right column": 'aside[aria-label="Aside"], aside.scaffold-layout__aside',
   "the page itself": 'section[aria-label="Primary content"]',
+  "the site footer": 'footer:has(a[href*="about.linkedin.com"])',
 };
 // Panels named by their words rather than a selector.
 const BY_TEXT = {
