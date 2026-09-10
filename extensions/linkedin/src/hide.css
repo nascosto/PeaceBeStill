@@ -56,6 +56,14 @@ html[data-peacebestill~="socialProof"] [role="listitem"][data-pbs~="socialProof"
 html[data-peacebestill~="rightRail"] aside[aria-label="Aside"] { display: none !important; }
 html[data-peacebestill~="leftRail"] aside[aria-label="Sidebar"] { display: none !important; }
 html[data-peacebestill~="otherAds"] [data-pbs~="otherAds"] { display: none !important; }
+/* The banner beside the messages. It is an iframe, so it carries no words for
+   the marking pass to read -- but it says what it is in an attribute, which is
+   better than a class here: these are the old-style class names, and the rest
+   of the site has moved on from them. The card around it goes, or a bordered
+   space is left where the advert was. Asking for a <section> keeps this to the
+   card itself rather than whatever else might hold such a frame. */
+html[data-peacebestill~="otherAds"] iframe[data-ad-banner] { display: none !important; }
+html[data-peacebestill~="otherAds"] section:has(> iframe[data-ad-banner]) { display: none !important; }
 html[data-peacebestill~="games"] [data-pbs~="games"] { display: none !important; }
 /* The same thing on one page only. What a puzzle is does not change with the
    page, so the mark stays "games" and the page decides whether it applies. */
@@ -91,7 +99,9 @@ html[data-peacebestill~="premium"] [data-pbs~="premium"] { display: none !import
 html[data-peacebestill~="ads"] [role="listitem"][data-pbs~="sponsored"],
 html[data-peacebestill~="ads"] [data-pbs~="otherAds"],
 html[data-peacebestill~="ads"] [data-pbs~="premium"],
-html[data-peacebestill~="ads"] [data-pbs~="jobsPromoted"] { display: none !important; }
+html[data-peacebestill~="ads"] [data-pbs~="jobsPromoted"],
+html[data-peacebestill~="ads"] iframe[data-ad-banner],
+html[data-peacebestill~="ads"] section:has(> iframe[data-ad-banner]) { display: none !important; }
 
 /* ---- The top bar -------------------------------------------------------- */
 

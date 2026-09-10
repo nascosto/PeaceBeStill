@@ -235,7 +235,13 @@
       // A list item is its own thing. Growing out of one into the list takes
       // its neighbours with it -- which is how hiding Premium adverts was
       // hiding the "For Business" menu sitting beside one in the top bar.
-      if (/^(UL|OL|NAV)$/.test(parent.tagName)) break;
+      // A list item is its own thing. Growing out of one into the list takes
+      // its neighbours with it -- which is how hiding Premium adverts was
+      // hiding the "For Business" menu sitting beside one in the top bar. But
+      // a list of one has no neighbours to take, and is only a wrapper: "Post
+      // a free job" is a single item in its own nav, and stopping at the item
+      // left the empty nav and the rule above it on the page.
+      if (/^(UL|OL|NAV)$/.test(parent.tagName) && parent.children.length > 1) break;
       // And a panel is never most of the column it sits in. The rules above
       // depend on finding a landmark -- another label, a second heading, a
       // list -- and a column of plain divs offers none, which is how hiding
@@ -257,6 +263,9 @@
       if (nodeHeight >= PANEL_SIZE && parentHeight > nodeHeight * 2.5) break;
       node = parent;
       if (!drawsNothing(node)) box = node;
+      // Having stepped up through a wrapper of one, the nav around it is the
+      // thing to hide -- not the row of other navs it stands in.
+      if (node.tagName === "NAV") break;
     }
     return box;
   }
@@ -269,6 +278,14 @@
     const matches = [...document.querySelectorAll("span,p,h1,h2,h3,div,button")]
       .filter((el) => pattern.test((el.textContent || "").trim()));
     return matches.filter((el) => !matches.some((other) => other !== el && el.contains(other)));
+  }
+
+  // Another kind for something already spoken for: a promoted job inside a
+  // panel is both, and the panel must not rub out what the advert switch knows.
+  function mark(el, kind) {
+    const had = (el.getAttribute("data-pbs") || "").split(/\s+/).filter(Boolean);
+    if (had.includes(kind)) return;
+    el.setAttribute("data-pbs", [...had, kind].join(" "));
   }
 
   function markModules() {
@@ -409,7 +426,21 @@
         // Whichever rule picked it, a box holding a neighbouring panel is the
         // wrong box. Better to hide nothing than to hide someone else's card.
         const box = neighbours.some((other) => chosen.contains(other)) ? null : chosen;
-        if (box && box !== root && box.getAttribute("data-pbs") !== kind) box.setAttribute("data-pbs", kind);
+        if (box && box !== root) mark(box, kind);
+        // A panel is not always one box. LinkedIn sometimes puts a heading in
+        // one element and the things it heads in the next, with several such
+        // runs sharing a container -- so the box holding the title holds
+        // nothing else, and hiding it leaves every card behind. What follows
+        // belongs to the heading until the next heading starts.
+        if (box && box !== root && headings(box) >= 1) {
+          for (let next = box.nextElementSibling; next; next = next.nextElementSibling) {
+            if (headings(next) >= 1) break;
+            if (foreign.some((other) => next === other || next.contains(other))) break;
+            if (neighbours.some((other) => next === other || next.contains(other))) break;
+            if (next.querySelectorAll(KEEP_OUT).length) break;
+            mark(next, kind);
+          }
+        }
       }
     }
     // LinkedIn rules off its lists with <hr> between the items rather than a
