@@ -433,7 +433,15 @@
         // nothing else, and hiding it leaves every card behind. What follows
         // belongs to the heading until the next heading starts.
         if (box && box !== root && headings(box) >= 1) {
-          for (let next = box.nextElementSibling; next; next = next.nextElementSibling) {
+          // Start from as high as the box goes while it is still an only
+          // child. The heading's box is often wrapped once or twice before it
+          // stands beside the things it heads, and a box with no siblings has
+          // no run to walk -- which is why looking from the box itself found
+          // nothing and left every card on the page.
+          let from = box;
+          while (from.parentElement && from.parentElement !== root
+            && from.parentElement.children.length === 1) from = from.parentElement;
+          for (let next = from.nextElementSibling; next; next = next.nextElementSibling) {
             if (headings(next) >= 1) break;
             if (foreign.some((other) => next === other || next.contains(other))) break;
             if (neighbours.some((other) => next === other || next.contains(other))) break;
