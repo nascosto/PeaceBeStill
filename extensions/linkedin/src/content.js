@@ -77,10 +77,14 @@
   // hidden yet. This is read at once instead, and whatever storage says a
   // moment later replaces it.
   const REMEMBERED = "peacebestill.tokens";
+  // And where the home page goes, which is not a switch and so is not among
+  // the tokens. Without it the redirect had to wait for storage, and waiting
+  // means the page you asked never to see is drawn before you leave it.
+  const REMEMBERED_GOES = "peacebestill.goes";
 
-  function remember(tokens) {
+  function remember(key, value) {
     try {
-      globalThis.localStorage.setItem(REMEMBERED, tokens);
+      globalThis.localStorage.setItem(key, value);
     } catch {
       // Site storage can be blocked. The page simply draws before we answer.
     }
@@ -88,7 +92,8 @@
 
   function apply() {
     const tokens = tokensFor(settings);
-    remember(tokens);
+    remember(REMEMBERED, tokens);
+    remember(REMEMBERED_GOES, redirectFor("/feed/", settings) || "");
     document.documentElement.dataset.peacebestill = tokens;
     // Which destination this page belongs to, so the stylesheet can take the
     // page away as well as its place in the top bar.
@@ -627,6 +632,17 @@
   // The redirect is left out: it is not a switch, so it is not among the
   // tokens, and acting on a guess about where you want to be sent is worse
   // than waiting the moment it takes to know.
+  // First of all, and before a pixel of it is drawn: if the home page is one
+  // you have asked never to see, leave now. Waiting for storage to say so
+  // means arriving, being shown it, and only then being sent away.
+  try {
+    const goes = globalThis.localStorage.getItem(REMEMBERED_GOES);
+    if (goes && pageFor(location.pathname) === "home") {
+      location.replace(goes);
+      return;
+    }
+  } catch { /* nothing remembered, or site storage is blocked */ }
+
   try {
     const remembered = globalThis.localStorage.getItem(REMEMBERED);
     if (remembered !== null) {

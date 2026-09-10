@@ -53,7 +53,10 @@ html[data-peacebestill~="socialProof"] [role="listitem"][data-pbs~="socialProof"
 /* The two columns either side of the feed. The right one carries the advert,
    the puzzles and the news panel, which are also switchable on their own; it
    is one unlabelled container, so content.js marks the three modules inside. */
-html[data-peacebestill~="rightRail"] aside[aria-label="Aside"] { display: none !important; }
+/* Two names for the same rail, one per front end: the newer bar labels it, the
+   older one only classes it. */
+html[data-peacebestill~="rightRail"] aside[aria-label="Aside"],
+html[data-peacebestill~="rightRail"] aside.scaffold-layout__aside { display: none !important; }
 html[data-peacebestill~="leftRail"] aside[aria-label="Sidebar"] { display: none !important; }
 html[data-peacebestill~="otherAds"] [data-pbs~="otherAds"] { display: none !important; }
 /* The banner beside the messages. It is an iframe, so it carries no words for
