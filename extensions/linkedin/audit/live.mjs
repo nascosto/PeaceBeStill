@@ -34,6 +34,13 @@ function family(key) {
   return all;
 }
 
+// LinkedIn signs a session out when it dislikes the traffic, and every reading
+// after that is of a page nobody is logged into -- which reads as every switch
+// working perfectly, since nothing is there to hide. Better to stop and say so.
+function signedOut(path) {
+  return /^\/(authwall|login|checkpoint|uas)(\/|$)/.test(path || "");
+}
+
 function tally(marks, key) {
   let found = 0;
   let showing = 0;
@@ -158,6 +165,11 @@ try {
       if (key === "blackout" || key === "homeRedirect") continue;
       await store({ [key]: true });
       const now = await look(path);
+      if (signedOut(now.path)) {
+        console.log(`\n  Signed out at ${now.path} -- LinkedIn ended the session.`);
+        console.log("  Sign in again in the dev browser, then re-run. Nothing below here was measured.");
+        process.exit(1);
+      }
       // Where the page actually is, and what the extension actually applied.
       // Without these, a tab that drifted to another page and a switch that
       // does nothing print the same thing: nothing.
