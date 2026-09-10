@@ -26,6 +26,12 @@ html[data-peacebestill~="exploreTrending"] :is(ytd-guide-section-renderer:has(a[
 /* Sidebar: Subscriptions (the entry, the channel list section, the feed page) */
 html[data-peacebestill~="subscriptions"] :is(ytd-guide-entry-renderer:has(a[href^="/feed/subscriptions"]), ytd-mini-guide-entry-renderer:has(a[href^="/feed/subscriptions"]), ytd-guide-section-renderer:has(a[href^="/feed/subscriptions"]), ytd-browse[page-subtype="subscriptions"]) { display: none !important; }
 
+/* Sidebar: Home (the entry and the page). The href is matched exactly: every
+   other entry's begins with "/" too, and a prefix match here would take the
+   whole sidebar with it. The logo is a link to "/" as well, and stays -- it is
+   the top bar's, and `header` is the switch for that. */
+html[data-peacebestill~="home"] :is(ytd-guide-entry-renderer:has(a[href="/"]), ytd-mini-guide-entry-renderer:has(a[href="/"]), ytd-browse[page-subtype="home"]) { display: none !important; }
+
 /* Sidebar: the new-video dot beside a subscribed channel, in the expanded
    sidebar (#newness-dot) and in the flyout the mini sidebar shows when
    "Subscriptions" is hovered (a list-item "new content indicator") */
@@ -155,6 +161,9 @@ html[data-peacebestill~="notifications"] ytm-mobile-topbar-renderer button[aria-
 
 /* Sidebar: Subscriptions is a pivot-bar item on mobile. Signed in only. */
 html[data-peacebestill~="subscriptions"] ytm-pivot-bar-item-renderer:has(.pivot-subscriptions) { display: none !important; }
+
+/* Sidebar: Home is a pivot-bar item on mobile too. */
+html[data-peacebestill~="home"] ytm-pivot-bar-item-renderer:has(.pivot-home) { display: none !important; }
 
 /* Feeds: Shorts, including the pivot-bar entry that has no desktop equivalent */
 html[data-peacebestill~="shorts"] :is(ytm-pivot-bar-item-renderer:has(.pivot-shorts), ytm-shorts-lockup-view-model, ytm-reel-shelf-renderer, ytm-video-with-context-renderer:has(a[href*="/shorts/"]), ytm-compact-video-renderer:has(a[href*="/shorts/"])) { display: none !important; }

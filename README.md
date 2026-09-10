@@ -7,6 +7,7 @@ install changes nothing at all.
 | Extension | Site | Source |
 | --- | --- | --- |
 | PeaceBeStill - YouTube | www.youtube.com | [`extensions/youtube`](extensions/youtube) |
+| PeaceBeStill - LinkedIn | www.linkedin.com | [`extensions/linkedin`](extensions/linkedin) |
 
 Each extension is Manifest V3, works in both Firefox and Chromium from one
 codebase, has no background script, asks only for the `storage` permission,
@@ -92,6 +93,116 @@ Settings live in `storage.sync`, so they follow your Firefox or Chrome account.
 Only switches that differ from their default are stored, so a profile on the
 defaults stores nothing at all.
 
+## PeaceBeStill - LinkedIn
+
+Thirty-four settings, and the first one is the blunt one.
+
+- **Hide everything** — every page on the site becomes one
+  line of ordinary text reading "You made the right choice." It is the whole
+  site, with no exceptions; to use LinkedIn again you turn it off. While it is
+  on, every other switch is greyed out and says so, because none of them can
+  matter when there is no page left to act on.
+- **the pages**, one switch each: Home, My Network, Jobs, Messaging,
+  Notifications and Profile. A page switch takes the page itself as well as its
+  place in the top bar, which is why everything belonging to a page sits under
+  it — the feed and its posts under Home, the chat overlay under Messaging, the
+  unread tab count under Notifications
+- the feed: hide it entirely, or just the "Start a post" box, suggested posts,
+  "Recommended for you", and posts someone in your network liked or commented on
+- **where the home page goes instead**, chosen from a list rather than ticked.
+  Somewhere you have hidden is not offered, and not obeyed if it was chosen
+  before you hid it
+- **advertisements**, under one switch that covers the lot, with the kinds
+  under it if you want them separately: in the feed, outside it, Premium
+  upsells, and promoted job adverts
+- the puzzles and games, the LinkedIn News panel, business features, "People
+  you may know", the "suggestions for you" panels, the site footer, and
+  LinkedIn's AI assistant. A few of these can be hidden everywhere or on one
+  page only: ticking the global one ticks and locks the smaller ones under it
+- **the prompts to install the app**, which only the mobile site shows: the bar
+  pinned along the bottom, and the sheet that covers the page and holds it
+  still until it is dismissed
+
+Turning a switch on takes away the settings it covers: with **Hide everything**
+on there is one switch left on the page, because there is nothing else to
+decide. Their stored values are untouched, so turning it back off brings them
+back exactly as they were.
+
+**On a phone, most of this does not work yet.** LinkedIn serves a third site
+to mobile browsers, sharing no markup with either of the two it serves a
+desktop: no `data-testid` anywhere, no `role="listitem"`, no `<aside>`, no
+site footer. Measured against it, what works today is **Hide everything**,
+**where the home page goes instead**, and the app prompts written for it.
+The rest need a third set of selectors, and until they have one they do
+nothing there. The options page itself is built for a phone screen.
+
+### How it works, and why it is not all CSS
+
+Some of LinkedIn's overlays -- the chat bubble, the assistant -- live in a
+shadow root on `div#interop-outlet`, and a content script's stylesheet does not
+cross that boundary. `hide.css` cannot reach them however it is written, so
+`content.js` puts a small sheet inside the shadow root and keeps it in step
+with the settings.
+
+LinkedIn's class names are hashed and rotate with every deploy, so nothing here
+keys on one. The durable hooks are ARIA roles and labels (`role="listitem"`,
+`section[aria-label]`), `data-testid`, and the visible label itself.
+
+There are two desktop front ends in service at once -- a newer one with
+`data-testid` and an older Ember one that still runs messaging -- so the rules
+that hide the top bar and the columns name both.
+
+That last one is why this extension has a marking pass where the YouTube one
+does not. What separates a promoted post from an ordinary one is the word
+"Promoted" in its header, and CSS has no text selector. So `content.js` reads
+each feed item's labels, marks it `data-pbs="sponsored"`, and `hide.css` hides
+the mark. The panels in the side columns are found the same way, growing from
+the label outwards to the largest box that does not also contain a different
+panel's label.
+
+Because it keys on words, it is language-dependent: the switches are written
+against LinkedIn in English.
+
+### Checking it still works
+
+LinkedIn is behind a login, so the signed-out headless audits that keep the
+YouTube extension honest cannot run here. There is an audit, but it drives a
+profile you sign into by hand, which is why it is not in CI:
+
+    npm run dev:linkedin       # once, in a terminal of its own; sign in if asked
+    npm run check:linkedin     # check every switch against the page it is showing
+    npm run check:linkedin -- /feed/ /in/me/ /jobs/ /mynetwork/grow/
+    npm run check:linkedin -- --panels /feed/       # is each panel's box the whole panel?
+    npm run check:linkedin -- --collateral /feed/   # does any switch hide what is not its own?
+    npm run live:linkedin -- /feed/ /mynetwork/grow/   # what each setting really takes
+
+The profile lives in `~/.config/peacebestill/linkedin-dev-profile` and keeps
+its session, so signing in is a one-off. `check:linkedin` reports, per switch, how many targets it found on the page and
+how many actually stopped rendering. `--panels` reports the box each panel
+resolves to and flags one that leaves an empty container behind; `--collateral`
+turns each switch on alone and reports anything that stopped rendering which
+that switch does not own. Between them they catch the two ways this goes wrong:
+hiding too little of a panel, and hiding something else as well.
+
+Both of those drive the marking code directly, which makes them quick but means
+they only ever prove the harness agrees with itself. `live:linkedin` is the one
+that settles an argument: it writes each setting through the extension's own
+storage, lets the content script act, and compares the page against a baseline
+taken with everything off. It prints, per setting, what actually went. Because
+LinkedIn never serves the same page twice, a removal counts only once the thing
+has come back without the setting and gone again with it -- one round of that
+is a coin toss, which had three unrelated settings appearing to hide the same
+panel.
+it drives the browser over Firefox's remote debugging protocol, the channel
+devtools uses, so it sets no automation flag on your session. It reads the
+extension's own `core.js` and lifts the marking pass out of its `content.js`,
+so what it tests is what ships.
+
+Pages read this way are never committed, in any form — this repository is
+public, and a signed-in LinkedIn page carries real names and profile
+identifiers. When LinkedIn changes its markup a switch stops working silently;
+the fix is to open the page again and correct the rule.
+
 ## Developing
 
     npm install
@@ -99,16 +210,19 @@ defaults stores nothing at all.
     npm run lint             # web-ext lint
     npm run build            # both packages per extension, into dist/
     npm run bump patch       # one version across package.json and every manifest
-    npm run start:firefox    # throwaway Firefox profile with the extension loaded
-    npm run start:chromium
+    npm run start:firefox:youtube     # throwaway profile with that extension loaded
+    npm run start:chromium:youtube
+    npm run start:firefox:linkedin
+    npm run start:chromium:linkedin
 
-To try it in your real, signed-in profile: Firefox → `about:debugging` → This
-Firefox → Load Temporary Add-on → `extensions/youtube/src/manifest.json`;
+To try one in your real, signed-in profile: Firefox → `about:debugging` → This
+Firefox → Load Temporary Add-on → `extensions/<site>/src/manifest.json`;
 Chromium → `chrome://extensions` → Developer mode → Load unpacked →
-`extensions/youtube/src`.
+`extensions/<site>/src`.
 
-A site's markup is undocumented and changes. When a switch stops working, run
-the audits, which drive a signed-out headless browser through a live page and
+A site's markup is undocumented and changes. The audits below are the YouTube
+extension's; LinkedIn has none, for the reason given above. When one of its
+switches stops working, run the audits, which drive a signed-out headless browser through a live page and
 report, per switch, how many targets exist and how many are still rendered
 (screenshots land in `extensions/youtube/audit/out/`):
 
@@ -134,7 +248,7 @@ signed in, so those two are checked by hand.
 ```
 extensions/<site>/src     the extension itself
 extensions/<site>/test    its unit tests
-extensions/<site>/audit   its live-page audits
+extensions/<site>/audit   its live-page audits, where the site allows one
 scripts/                  release tooling, shared by every extension
 test/                     tests for that tooling, and the shared test helper
 ```
@@ -158,10 +272,13 @@ Each extension goes out down four channels, built from two packages:
 
 | Channel | Package | Add-on ID | Updates come from |
 | --- | --- | --- | --- |
-| addons.mozilla.org | the source tree | `youtube@peacebestill.fyi` | Mozilla |
+| addons.mozilla.org | the source tree | `<site>@peacebestill.fyi` | Mozilla |
 | Chrome Web Store | the source tree | assigned by Google | Google |
-| Self-hosted Firefox | + `update_url`s, own ID | `youtube-selfhosted@peacebestill.fyi` | the `.json` below |
+| Self-hosted Firefox | + `update_url`s, own ID | `<site>-selfhosted@peacebestill.fyi` | the `.json` below |
 | Self-hosted Chromium | + `update_url`s | derived from the CRX key | the `.xml` below |
+
+`<site>` is `youtube` or `linkedin`; the self-hosted Firefox ID is derived from
+the store one by `scripts/variant.mjs`, so it is never chosen by hand.
 
 Both stores reject a package that names its own update service, so the source
 tree carries no `update_url` at all and `scripts/variant.mjs` adds the two keys
@@ -179,6 +296,10 @@ constant names, so these URLs are always the newest version:
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.crx
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json
     https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin.xpi
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin.crx
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin-updates.json
+    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin-updates.xml
 
 ### First listing on each store, by hand
 
@@ -206,6 +327,12 @@ way back from a rejection — fix the listing, dispatch the same tag again.
   dislike count is the only outbound request, it is off by default, and
   `PRIVACY.md` is the policy to link.
 
+Each extension has its own pair of variables, so each store's step is gated per
+extension: `YOUTUBE_AMO_SLUG` / `YOUTUBE_CWS_ITEM_ID`, and `LINKEDIN_AMO_SLUG` /
+`LINKEDIN_CWS_ITEM_ID`. The LinkedIn listings are the simpler pair to fill in:
+that extension makes no network request at all, in any configuration, so every
+data-use question is answered "nothing collected".
+
 ### Secrets (repository settings → Secrets and variables → Actions)
 
 | Secret | Where it comes from |
@@ -213,14 +340,17 @@ way back from a rejection — fix the listing, dispatch the same tag again.
 | `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account, and one pair signs every extension on both channels) |
 | `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` | a Google Cloud OAuth client with the Chrome Web Store API enabled, authorised once against the developer account |
 | `YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the self-hosted Chromium ID is derived from it, so it must never change |
+| `LINKEDIN_CRX_PRIVATE_KEY` | the same, for the LinkedIn extension |
 
-And two variables, not secrets: `YOUTUBE_AMO_SLUG` and `YOUTUBE_CWS_ITEM_ID`.
-Each names a listing that exists, and each gates its own store's step, so a
-release before either listing simply skips it.
+And four variables, not secrets: `YOUTUBE_AMO_SLUG`, `YOUTUBE_CWS_ITEM_ID`,
+`LINKEDIN_AMO_SLUG` and `LINKEDIN_CWS_ITEM_ID`. Each names a listing that
+exists, and each gates one store's step for one extension, so a release before
+a listing simply skips it.
 
     mkdir -p ~/.config/peacebestill
     openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
-    node scripts/pack-crx.mjs --key ~/.config/peacebestill/youtube-crx-key.pem --id   # the Chromium ID
+    openssl genrsa -out ~/.config/peacebestill/linkedin-crx-key.pem 2048
+    node scripts/pack-crx.mjs --key ~/.config/peacebestill/linkedin-crx-key.pem --id   # the Chromium ID
 
 Each extension needs its own key, since the Chromium ID is derived from it and
 two extensions cannot share an ID. Keep the PEMs out of the repo (`.gitignore`

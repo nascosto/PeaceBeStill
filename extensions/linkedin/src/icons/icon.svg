@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="PeaceBeStill">
+  <!-- One swell, then stillness: the wave gives up its motion and lies flat. -->
+  <rect width="128" height="128" rx="30" fill="#1d4e89"/>
+  <path d="M13 86 C23 42 45 42 55 71 L115 71"
+        fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

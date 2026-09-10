@@ -29,6 +29,7 @@ function fakeDocument() {
         contains(n) { return this.names.has(n); },
       },
       append(...nodes) { this.children.push(...nodes); },
+      replaceChildren(...nodes) { this.children = [...nodes]; },
       setAttribute(k, v) { this.attrs[k] = String(v); },
       removeAttribute(k) { delete this.attrs[k]; },
       getAttribute(k) { return this.attrs[k] ?? null; },
@@ -52,7 +53,7 @@ function rowsOf(root) {
   const out = [];
   const walk = (node, label) => {
     for (const child of node.children ?? []) {
-      if (child.type === "checkbox") out.push({ box: child, row: label, node });
+      if (child.type === "checkbox" || child.tag === "select") out.push({ box: child, row: label, node });
       walk(child, child.tag === "label" ? child : label);
     }
   };
@@ -62,11 +63,12 @@ function rowsOf(root) {
     box,
     row,
     checked: box.checked === true,
-    indented: !!row?.classList.contains("child"),
-    moot: !!row?.classList.contains("moot"),
+    value: box.value,
+    isSelect: box.tag === "select",
+    depth: Number(row?.getAttribute("data-depth") ?? 0),
+    indented: Number(row?.getAttribute("data-depth") ?? 0) > 0,
     ariaDisabled: box.getAttribute("aria-disabled"),
     reallyDisabled: box.disabled === true,
-    note: (row?.children ?? []).filter((c) => c.tag === "span").map((c) => c.textContent).join(""),
     hidden: row?.hidden === true,
   }));
 }
@@ -116,25 +118,24 @@ test("a child is indented directly under its parent when they share a section", 
   ]) {
     assert.deepEqual(order.slice(at(parent) + 1, at(parent) + 1 + children.length), children, parent);
     for (const child of children) assert.equal(rows()[at(child)].indented, true, child);
+    assert.equal(rows()[at(parent)].indented, false, parent);
   }
 });
 
-test("a switch its parent made pointless says so, stays reachable by keyboard, and cannot be changed", async () => {
+test("a switch its parent covers is taken off the list, not explained away", async () => {
   const { rows, change, writes, removes } = await render({ header: true, comments: true, relatedVideos: true });
-  for (const key of ["create", "notifications", "profilePhotos", "liveChat"]) {
-    const row = rows().find((r) => r.name === key);
-    assert.equal(row.moot, true, key);
-    assert.equal(row.ariaDisabled, "true", `${key} is announced as disabled`);
-    assert.equal(row.reallyDisabled, false, `${key} must stay in the tab order`);
-    assert.match(row.note, /no effect while/, `${key} explains itself`);
+  for (const key of ["create", "notifications", "profilePhotos", "liveChat", "recommended", "playlistPanel"]) {
+    assert.equal(rows().find((r) => r.name === key).hidden, true, key);
   }
-  // An indented switch points at the row above; one locked from another
-  // section has to name the switch that locked it.
-  assert.equal(rows().find((r) => r.name === "liveChat").note, "no effect while the switch above is on");
+  // The switches that did the covering are still there to turn back off.
+  for (const key of ["header", "comments", "relatedVideos"]) {
+    assert.equal(rows().find((r) => r.name === key).hidden, false, key);
+  }
+  // Cross-section: hiding Subscriptions strands the home redirect.
   const stranded = await render({ subscriptions: true });
-  assert.match(stranded.rows().find((r) => r.name === "homeToSubscriptions").note, /Hide Subscriptions/);
+  assert.equal(stranded.rows().find((r) => r.name === "homeToSubscriptions").hidden, true);
 
-  // Clicking one changes nothing.
+  // A covered switch refuses a change, since it cannot be clicked anyway.
   await change("liveChat", true);
   assert.deepEqual(plain(writes), []);
   assert.deepEqual(plain(removes), []);
@@ -157,12 +158,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ footer: true, create: true });
-  assert.match(byId.summary.textContent, /2 of 43/);
+  assert.match(byId.summary.textContent, /2 of 44/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["footer", "create"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 43/);
+  assert.match(byId.summary.textContent, /0 of 44/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

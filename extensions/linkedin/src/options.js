@@ -2,6 +2,9 @@
 // under the switch each one depends on, read from and written to storage.sync.
 // The content script listens for those writes, so a change shows up in open
 // tabs at once.
+//
+// Nothing here makes a network request, so unlike the YouTube page there is no
+// optional data-collection permission to ask for before ticking a box.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
   const { GROUPS, FEATURES, KEYS, MIRRORS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, coveredBy, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
@@ -125,7 +128,10 @@
         const covered = isMoot(key, settings) || settings[mirrorParent] === true;
         box.checked = covered || settings[key] === true;
         box.disabled = covered;
-        row.hidden = filtered || isMoot(mirrorParent, settings);
+        // And it goes when the switch it is shown under is on, not only when
+        // that switch has itself been taken over: hiding the feed hides the
+        // adverts in the feed, and a locked tick saying so is only noise.
+        row.hidden = filtered || isMoot(mirrorParent, settings) || settings[mirrorParent] === true;
         continue;
       }
       // A global switch doing this one's job everywhere leaves it ticked and
@@ -179,21 +185,6 @@
     }
   }).catch(report);
 
-  // The dislike count sends the video ID to a third party, which Firefox tracks
-  // as an optional data-collection permission: ask for it on the way in, and
-  // take the tick back if it is refused. Chromium has no such permission and
-  // rejects the request, which is not a refusal, so treat a throw as consent
-  // already given.
-  async function consentFor(box) {
-    if (box.name !== "dislikeCount" || !box.checked) return true;
-    if (!api.permissions?.request) return true;
-    try {
-      return await api.permissions.request({ data_collection: ["browsingActivity"] });
-    } catch {
-      return true;
-    }
-  }
-
   form.addEventListener("change", async (event) => {
     const box = event.target;
     // Only a control this page drew, and one it still knows about. A change
@@ -205,10 +196,6 @@
       // whatever it was back and ignore this.
       if (box.type === "checkbox") box.checked = settings[box.name] === true;
       else box.value = settings[box.name] ?? "";
-      return;
-    }
-    if (!(await consentFor(box))) {
-      box.checked = false;
       return;
     }
     const value = box.type === "checkbox" ? box.checked : box.value;

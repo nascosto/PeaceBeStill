@@ -14,10 +14,13 @@ your bookmarks do. A profile still on the defaults stores nothing at all.
 
 Nothing else is written anywhere, and the settings never leave your browser.
 
-## The one network request
+## Network requests
 
-Every switch works entirely inside the page except **Show the dislike count**,
-which is off until you turn it on.
+**PeaceBeStill - LinkedIn** makes none, in any configuration. Every one of its
+switches works entirely inside the page.
+
+**PeaceBeStill - YouTube** makes none either, except **Show the dislike
+count**, which is off until you turn it on.
 
 While it is on, the watch page asks the Return YouTube Dislike API for the
 count:
@@ -36,11 +39,11 @@ box; Chrome has no equivalent prompt, so the switch itself is the consent.
 
 ## Permissions
 
-`storage`, to keep your settings, and a content script on `www.youtube.com`,
-to hide things on the page. There are no host permissions for any other site,
-no `tabs`, no `history`, and no background script. The extension cannot see any
-page but YouTube, and does not read your account, watch history or viewing
-activity on that one.
+Each extension asks for `storage`, to keep your settings, and a content script
+on its own site — `www.youtube.com` for one, `www.linkedin.com` for the other.
+There are no host permissions for any other site, no `tabs`, no `history`, and
+no background script. Neither extension can see any page but its own site, and
+neither reads your account or your activity on it.
 
 ## Changes
 

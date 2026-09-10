@@ -25,6 +25,8 @@ jobs:
       YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
       CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
       YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
+      LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
+      LINKEDIN_CWS_ITEM_ID: ${{ vars.LINKEDIN_CWS_ITEM_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,7 +37,7 @@ jobs:
       - run: npm run lint
 
       - name: The tag must match every extension's manifest version
-        run: node scripts/check-version.mjs "$GITHUB_REF_NAME" extensions/youtube/src
+        run: node scripts/check-version.mjs "$GITHUB_REF_NAME" extensions/youtube/src extensions/linkedin/src
 
       # The store package is the source tree; the self-hosted one is that tree
       # with the update_url keys and its own Firefox ID (scripts/variant.mjs).
@@ -51,6 +53,15 @@ jobs:
             --artifacts-dir dist --channel unlisted
           mv dist/*.xpi dist/peacebestill-youtube.xpi
 
+      - name: Sign the self-hosted LinkedIn build (Mozilla's unlisted channel)
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx web-ext sign --source-dir dist/self-hosted/linkedin \
+            --artifacts-dir dist --channel unlisted
+          mv dist/*.xpi dist/peacebestill-linkedin.xpi
+
       - name: Pack the CRX and write the update manifests
         env:
           YOUTUBE_CRX_PRIVATE_KEY: ${{ secrets.YOUTUBE_CRX_PRIVATE_KEY }}
@@ -63,6 +74,18 @@ jobs:
             --assets peacebestill-youtube --out dist
           rm -f "$RUNNER_TEMP/youtube.pem"
 
+      - name: Pack the LinkedIn CRX and write its update manifests
+        env:
+          LINKEDIN_CRX_PRIVATE_KEY: ${{ secrets.LINKEDIN_CRX_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$LINKEDIN_CRX_PRIVATE_KEY" > "$RUNNER_TEMP/linkedin.pem"
+          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/linkedin.pem" \
+            --zip dist/peacebestill-linkedin.zip --out dist/peacebestill-linkedin.crx
+          node scripts/update-manifests.mjs --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" \
+            --key "$RUNNER_TEMP/linkedin.pem" --src dist/self-hosted/linkedin \
+            --assets peacebestill-linkedin --out dist
+          rm -f "$RUNNER_TEMP/linkedin.pem"
+
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -70,6 +93,8 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             dist/peacebestill-youtube.xpi dist/peacebestill-youtube.crx \
             dist/peacebestill-youtube-updates.json dist/peacebestill-youtube-updates.xml \
+            dist/peacebestill-linkedin.xpi dist/peacebestill-linkedin.crx \
+            dist/peacebestill-linkedin-updates.json dist/peacebestill-linkedin-updates.xml \
             --title "$GITHUB_REF_NAME" \
             --notes "PeaceBeStill $GITHUB_REF_NAME. Also on addons.mozilla.org and the Chrome Web Store; the assets below are the self-hosted copies, which system-setups' browser policies fetch."
 
@@ -96,3 +121,22 @@ jobs:
         run: |
           node scripts/publish-cws.mjs --item "$YOUTUBE_CWS_ITEM_ID" \
             --zip dist/peacebestill-youtube-store.zip
+
+      - name: Submit LinkedIn to addons.mozilla.org (listed)
+        if: env.AMO_JWT_ISSUER != '' && env.LINKEDIN_AMO_SLUG != ''
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx web-ext sign --source-dir extensions/linkedin/src \
+            --artifacts-dir dist/amo --channel listed
+
+      - name: Publish LinkedIn to the Chrome Web Store
+        if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          node scripts/publish-cws.mjs --item "$LINKEDIN_CWS_ITEM_ID" \
+            --zip dist/peacebestill-linkedin-store.zip
