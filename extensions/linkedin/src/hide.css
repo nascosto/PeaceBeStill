@@ -106,9 +106,17 @@ html[data-peacebestill~="messaging"] [data-testid="primary-nav"] li:has(> a[href
 html[data-peacebestill~="notifications"] [data-testid="primary-nav"] li:has(> a[href*="/notifications"]) { display: none !important; }
 html[data-peacebestill~="profile"] [data-testid="primary-nav"] li:has(> button img) { display: none !important; }
 /* The row of links at the foot of the page, and the copyright line under it.
-   They are one block, so the block goes: naming the footer alone would leave
-   the line below it sitting on its own. */
-html[data-peacebestill~="siteFooter"] :has(> footer) { display: none !important; }
+   Named by the one link in it that does not move, since the class names are
+   hashed and rotate. Whatever follows it inside the same parent goes with it:
+   that is the copyright line, and naming the footer alone would leave it
+   sitting there on its own.
+
+   What this must not do is hide the parent. It did, and on a profile that
+   parent is the page: everything vanished. A form's own <footer> holding a
+   submit button must be left alone as well, which is the other reason this
+   names the site's footer rather than every footer. */
+html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]),
+html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]) ~ * { display: none !important; }
 html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(> button[aria-label="For Business"]) { display: none !important; }
 
 /* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's
