@@ -72,6 +72,11 @@ html[data-peacebestill~="networkGames"][data-pbs-page="myNetwork"] [data-pbs~="g
 html[data-peacebestill~="networkPremium"][data-pbs-page="myNetwork"] [data-pbs~="premium"] { display: none !important; }
 html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
 
+/* The mobile site's prompts to install the app, marked by content.js. The
+   blocking one also holds the page still while it is up; letting it go again
+   is content.js's job, since a rule here may only ever hide. */
+html[data-peacebestill~="appNag"] [data-pbs~="appNag"] { display: none !important; }
+
 /* ---- Elsewhere on LinkedIn ---------------------------------------------- */
 
 /* Panels found by a label inside them and marked by content.js, the same way

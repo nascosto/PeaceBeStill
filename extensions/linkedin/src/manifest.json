@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PeaceBeStill - LinkedIn",
   "version": "1.0.0",
-  "description": "Make LinkedIn \"Be Still\". Fully configurable with 33 options.",
+  "description": "Make LinkedIn \"Be Still\". Fully configurable with 34 options.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",

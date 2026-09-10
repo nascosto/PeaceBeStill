@@ -119,8 +119,11 @@ watchdog.unref();
 const paths = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!paths.length) paths.push("/feed/");
 
+// More than one dev browser can be running -- a second one presenting itself
+// as a phone, say -- and scraping the process list finds whichever came first.
+// PBS_PORT says which, and `npm run dev:linkedin` prints the port it took.
 step("finding the debugging port");
-const port = devPort();
+const port = Number(process.env.PBS_PORT) || devPort();
 step("connecting to " + port);
 const rdp = await RDP.connect(port);
 step("waiting for the greeting");
@@ -141,7 +144,7 @@ const OPTIONS = (mine.manifestURL || "").replace(/manifest\.json$/, "") + "optio
 // settings arrive over storage.onChanged, which is how they reach an open tab
 // for a real user anyway.
 step("attaching to the browser");
-const live = await session();
+const live = await session(port);
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
 
 step("opening the options page");

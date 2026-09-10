@@ -189,6 +189,10 @@
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide business features", false, ELSEWHERE, "blackout"],
     ["siteFooter", "Hide the site footer", false, ELSEWHERE, "blackout"],
+    // Only the mobile site nags you to leave it for the app, so this does
+    // nothing on a desktop -- which is the same as every other switch that
+    // names something a given page does not have.
+    ["appNag", "Hide prompts to install the app", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
     // Neither of these belongs to the page it is named after: the chat bubble
     // is pinned to every page, and LinkedIn puts the unread count in the tab

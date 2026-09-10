@@ -549,9 +549,49 @@
     for (let el = node; el; el = el.nextElementSibling) el.setAttribute("data-pbs-cutoff", "");
   }
 
+  // The prompts to stop using the site and install the app. They are the one
+  // thing with no desktop equivalent: a bar pinned along the bottom, and a
+  // sheet that covers the page and holds it still until it is dismissed.
+  //
+  // Found by their words, and marked at whichever ancestor is pinned to the
+  // screen, because that is what makes one an overlay rather than part of the
+  // page. Nothing here names a class: the mobile site's are readable rather
+  // than hashed, which makes them tempting and no more durable.
+  const APP_NAG = /^(?:Use the LinkedIn app|Get the full app experience|Open in app|Continue in app|Continue to the app|See more (?:on|in) the app|Get the app|Download the (?:LinkedIn )?app|View in app)\b/i;
+
+  function markAppNags(wanted) {
+    let blocking = false;
+    for (const label of wanted ? labelled(APP_NAG) : []) {
+      let pinned = null;
+      // Outermost wins: the sheet is pinned and so is a row inside it, and the
+      // one worth hiding is the whole sheet.
+      for (let el = label; el && el !== document.body; el = el.parentElement) {
+        if (getComputedStyle(el).position === "fixed") pinned = el;
+      }
+      const panel = pinned || label.closest("section, div");
+      if (!panel || panel === document.body || panel === document.documentElement) continue;
+      mark(panel, "appNag");
+      blocking = true;
+    }
+    // The sheet holds the page still while it is up, and hiding it does not
+    // let go. The stylesheet may only ever hide, so the page is let go from
+    // here -- and only while something is actually being hidden, so a scroll
+    // LinkedIn stops for its own reasons is left alone.
+    const lock = document.body && document.body.style;
+    if (!lock) return;
+    const ours = lock.getPropertyValue("overflow") === "auto"
+      && lock.getPropertyPriority("overflow") === "important";
+    if (blocking && getComputedStyle(document.body).overflow === "hidden") {
+      lock.setProperty("overflow", "auto", "important");
+    } else if (!blocking && ours) {
+      lock.removeProperty("overflow");
+    }
+  }
+
   function pass() {
     keepTitle();
     styleShadow();
+    markAppNags(settings.appNag === true);
     if (MARKED.some((key) => settings[key])) {
       markFeedItems();
       markModules();
@@ -564,7 +604,7 @@
     // Always: this is also how the title is put back when blackout goes off.
     pass();
     const overlayOn = SHADOW_RULES.some(([key]) => settings[key]);
-    if (!(settings.blackout || settings.notificationCount || overlayOn || MARKED.some((key) => settings[key]))) {
+    if (!(settings.blackout || settings.notificationCount || settings.appNag || overlayOn || MARKED.some((key) => settings[key]))) {
       observer?.disconnect();
       observer = null;
       return;

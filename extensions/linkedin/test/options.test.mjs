@@ -132,7 +132,7 @@ test("every switch is nested under the one that covers it, one indent per level"
     "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "networkPremium", "jobs", "jobsSuggestions",
     "messaging", "notifications", "profile", "profilePeople", "profileSuggestions", "homeRedirect",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
-    "games", "forBusiness", "siteFooter", "aiAssistant",
+    "games", "forBusiness", "siteFooter", "appNag", "aiAssistant",
     "messagingOverlay", "notificationCount",
   ]);
   // "Hide everything" parents the whole page, so it alone sits flush and
@@ -246,13 +246,13 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and says how much a switch above has covered", async () => {
   const { byId, rows, removes } = await render({ blackout: true, jobs: true });
-  assert.match(byId.summary.textContent, /2 of 33/);
-  assert.match(byId.summary.textContent, /32 covered by a switch above/);
+  assert.match(byId.summary.textContent, /2 of 34/);
+  assert.match(byId.summary.textContent, /33 covered by a switch above/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "jobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 33/);
+  assert.match(byId.summary.textContent, /0 of 34/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

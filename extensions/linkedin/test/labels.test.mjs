@@ -161,3 +161,33 @@ test("a short run, an empty feed and a feed with nothing hidden are all left alo
   assert.equal(cutoffAt([], 3), -1);
   assert.equal(cutoffAt(feed("....."), 3), -1);
 });
+
+// The prompts to leave the mobile site for the app. Both of the ones LinkedIn
+// shows today are here -- the bar pinned along the bottom and the sheet that
+// covers the page -- next to the ordinary posts they must not touch. A post
+// about an app is still a post.
+const APP_NAG = new Function(`return ${
+  content.slice(content.indexOf("  const APP_NAG ="))
+    .match(/const APP_NAG = (\/.*\/i);/)[1]
+};`)();
+
+test("the app prompts are known by their words, and posts about apps are not", () => {
+  for (const words of [
+    "Use the LinkedIn app",
+    "Get the full app experience",
+    "Get the full app experience\n      Don’t miss out",
+    "Open in app",
+    "Continue in app",
+    "See more on the app",
+    "Download the LinkedIn app",
+    "View in app",
+  ]) assert.match(words, APP_NAG, words);
+
+  for (const words of [
+    "We shipped the app experience I have been hinting at",
+    "Our app is now in the App Store",
+    "Get the full picture before you decide",
+    "Applications are open",
+    "App developers: we are hiring",
+  ]) assert.doesNotMatch(words, APP_NAG, words);
+});
