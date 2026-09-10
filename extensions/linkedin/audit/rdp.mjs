@@ -68,89 +68,119 @@ export class RDP {
   close() { this.socket.end(); }
 }
 
-// Connect, find the LinkedIn tab, return a function that evaluates JS in it.
-export async function linkedInTab(port = devPort()) {
+// Connect once and attach to as many tabs as needed. Evaluations across every
+// attached tab share a single queue: they also share one socket, and two in
+// flight can take each other's acknowledgement.
+//
+// Two tabs is the point. Writing a setting means reaching the extension's
+// storage, which only an extension page can do; reading the result means
+// looking at LinkedIn. Doing both in one tab meant navigating between them for
+// every setting -- hundreds of full page loads an hour from one profile, at
+// machine speed, which is exactly what a bot looks like and got the session
+// stopped. With a tab each, the LinkedIn page is loaded once and never again:
+// settings arrive through storage.onChanged, which is how they reach a real
+// user's open tab anyway.
+export async function session(port = devPort()) {
   const rdp = await RDP.connect(port);
   await rdp.await((m) => m.from === "root");
-  const { tabs } = await rdp.request({ to: "root", type: "listTabs" }, (m) => Array.isArray(m.tabs));
+  let queue = Promise.resolve();
+  const serialise = (run) => {
+    const done = queue.then(run, run);
+    queue = done.then(() => {}, () => {});
+    return done;
+  };
+
+  const listTabs = async () =>
+    (await rdp.request({ to: "root", type: "listTabs" }, (m) => Array.isArray(m.tabs))).tabs;
+
+  const attach = async (tab) => {
+    // A tab's own actor outlives the pages loaded in it; the target inside it
+    // does not. So the target is looked up again from the tab we already have,
+    // rather than searched for by URL -- that search stopped finding a tab the
+    // moment it showed something other than what it was found by.
+    let target = await rdp.request({ to: tab.actor, type: "getTarget" }, (m) => !!m.frame);
+    let consoleActor = target.frame.consoleActor;
+    const reacquire = async () => {
+      target = await rdp.request({ to: tab.actor, type: "getTarget" }, (m) => !!m.frame);
+      consoleActor = target.frame.consoleActor;
+    };
+
+    const evaluateNow = async (text, ms = 15000) => {
+      // Anything left over from an evaluation nobody is waiting for any more --
+      // an abandoned navigation poll, say -- would otherwise be sitting in the
+      // buffer ready to be handed to the next caller.
+      rdp.events = rdp.events.filter((m) => m.type !== "evaluationResult");
+      // The acknowledgement and the result both carry a resultID, so matching on
+      // that alone hands back a stale result from an earlier evaluation. Only the
+      // result carries type: "evaluationResult".
+      const ack = await rdp.request(
+        { to: consoleActor, type: "evaluateJSAsync", text, mapped: { await: true } },
+        (m) => (m.resultID && m.type !== "evaluationResult") || m.error,
+        ms,
+      );
+      if (ack.error === "noSuchActor") { await reacquire(); return evaluateNow(text, ms); }
+      if (ack.error) throw new Error(`${ack.error}: ${ack.message}`);
+      const res = await rdp.await((m) => m.type === "evaluationResult" && m.resultID === ack.resultID, ms);
+      if (res.exception) {
+        throw new Error("page threw: " + JSON.stringify(res.exceptionMessage ?? res.exception));
+      }
+      const value = res.result;
+      return value && typeof value === "object" && "value" in value ? value.value : value;
+    };
+
+    const evaluate = (text, ms) => serialise(() => evaluateNow(text, ms));
+
+    const goTo = async (url) => {
+      const want = new URL(url).pathname;
+      const actor = target.frame.actor;
+      await rdp.request({ to: actor, type: "navigateTo", url }, (m) => m.from === actor || m.error);
+      // Navigating destroys the page we were talking to. Reaching for its
+      // replacement straight away gets one that is itself about to go, and every
+      // question after that goes to something not there any more -- which reads
+      // as a long wait, not an error. So ask with a short patience, and only pick
+      // up a new target when asking fails.
+      const deadline = Date.now() + 45000;
+      let elsewhere = "";
+      let held = 0;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 500));
+        try {
+          const at = await evaluate("document.readyState + '|' + location.pathname + '|' + document.body.innerText.length", 3000);
+          if (typeof at !== "string") continue;
+          const [state, path, len] = at.split("|");
+          if (state !== "complete" || Number(len) <= 400) continue;
+          if (path === want) return path;
+          // Somewhere else, and staying there: the extension sends some pages on
+          // to another one, and where it settled is the answer worth having.
+          held = path === elsewhere ? held + 1 : 0;
+          elsewhere = path;
+          if (held >= 4) return path;
+        } catch {
+          await reacquire().catch(() => {});
+        }
+      }
+      return elsewhere || null;
+    };
+
+    return { tab, evaluate, goTo };
+  };
+
+  const attachMatching = async (pattern) => {
+    const tabs = await listTabs();
+    const tab = tabs.find((t) => pattern.test(t.url ?? ""));
+    if (!tab) throw new Error(`no tab showing ${pattern}`);
+    return attach(tab);
+  };
+
+  return { rdp, listTabs, attach, attachMatching, close: () => rdp.close() };
+}
+
+// The single-tab shape the panel and collateral audits still use.
+export async function linkedInTab(port = devPort()) {
+  const s = await session(port);
+  const tabs = await s.listTabs();
   const tab = tabs.find((t) => /linkedin\.com/.test(t.url ?? "")) ?? tabs[0];
   if (!tab) throw new Error("no tabs");
-  // A tab's own actor outlives the pages loaded in it; the target inside it
-  // does not. So the target is looked up again from the tab we already have,
-  // rather than searched for by URL again -- that search stopped finding this
-  // tab the moment it was showing the options page instead of LinkedIn, and
-  // fell back to whichever tab happened to be first.
-  let target = await rdp.request({ to: tab.actor, type: "getTarget" }, (m) => !!m.frame);
-  let consoleActor = target.frame.consoleActor;
-  const reacquire = async () => {
-    target = await rdp.request({ to: tab.actor, type: "getTarget" }, (m) => !!m.frame);
-    consoleActor = target.frame.consoleActor;
-  };
-  // Evaluations run one at a time. Correlating results by id is not enough on
-  // its own: the acknowledgements are alike too, so two in flight can take each
-  // other's, and then each waits on the other's result. Queueing them removes
-  // the question rather than answering it.
-  let queue = Promise.resolve();
-  const evaluate = (text, ms) => {
-    const run = queue.then(() => evaluateNow(text, ms), () => evaluateNow(text, ms));
-    queue = run.then(() => {}, () => {});
-    return run;
-  };
-
-  const evaluateNow = async (text, ms = 15000) => {
-    // Anything left over from an evaluation nobody is waiting for any more --
-    // an abandoned navigation poll, say -- would otherwise be sitting in the
-    // buffer ready to be handed to the next caller.
-    rdp.events = rdp.events.filter((m) => m.type !== "evaluationResult");
-    // The acknowledgement and the result both carry a resultID, so matching on
-    // that alone hands back a stale result from an earlier evaluation. Only the
-    // result carries type: "evaluationResult".
-    const ack = await rdp.request(
-      { to: consoleActor, type: "evaluateJSAsync", text, mapped: { await: true } },
-      (m) => (m.resultID && m.type !== "evaluationResult") || m.error,
-      ms,
-    );
-    if (ack.error === "noSuchActor") { await reacquire(); return evaluateNow(text, ms); }
-    if (ack.error) throw new Error(`${ack.error}: ${ack.message}`);
-    const res = await rdp.await((m) => m.type === "evaluationResult" && m.resultID === ack.resultID, ms);
-    if (res.exception) {
-      throw new Error("page threw: " + JSON.stringify(res.exceptionMessage ?? res.exception));
-    }
-    const value = res.result;
-    return value && typeof value === "object" && "value" in value ? value.value : value;
-  };
-
-  const goTo = async (url) => {
-    const want = new URL(url).pathname;
-    const actor = target.frame.actor;
-    await rdp.request({ to: actor, type: "navigateTo", url }, (m) => m.from === actor || m.error);
-    // Navigating destroys the page we were talking to. Reaching for its
-    // replacement straight away gets one that is itself about to go, and every
-    // question after that goes to something not there any more -- which reads
-    // as a long wait, not an error. So ask with a short patience, and only pick
-    // up a new target when asking fails.
-    const deadline = Date.now() + 45000;
-    let elsewhere = "";
-    let held = 0;
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 500));
-      try {
-        const at = await evaluate("document.readyState + '|' + location.pathname + '|' + document.body.innerText.length", 3000);
-        if (typeof at !== "string") continue;
-        const [state, path, len] = at.split("|");
-        if (state !== "complete" || Number(len) <= 400) continue;
-        if (path === want) return path;
-        // Somewhere else, and staying there: the extension sends some pages on
-        // to another one, and where it settled is the answer worth having.
-        held = path === elsewhere ? held + 1 : 0;
-        elsewhere = path;
-        if (held >= 4) return path;
-      } catch {
-        await reacquire().catch(() => {});
-      }
-    }
-    return elsewhere || null;
-  };
-
-  return { rdp, tab, evaluate, goTo, close: () => rdp.close() };
+  const attached = await s.attach(tab);
+  return { rdp: s.rdp, tab, evaluate: attached.evaluate, goTo: attached.goTo, close: s.close };
 }

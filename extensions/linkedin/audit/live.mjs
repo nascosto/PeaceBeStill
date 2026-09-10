@@ -12,7 +12,7 @@
 // with everything off. What it prints is what a person would see go.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { RDP, devPort, linkedInTab } from "./rdp.mjs";
+import { RDP, devPort, session } from "./rdp.mjs";
 import { snapshot } from "./snapshot.mjs";
 
 const SRC = fileURLToPath(new URL("../src/", import.meta.url));
@@ -115,35 +115,63 @@ rdp.close();
 if (!mine) throw new Error("the extension is not loaded; run npm run dev:linkedin");
 const OPTIONS = (mine.manifestURL || "").replace(/manifest\.json$/, "") + "options.html";
 
-step("finding the LinkedIn tab");
-const tab = await linkedInTab();
-step("ready");
+// Two tabs, so that neither has to become the other. The extension's storage
+// is reachable only from an extension page, and the thing to look at is
+// LinkedIn: with one tab those alternated, and every setting cost a pair of
+// full page loads. Hundreds an hour from one profile is what a bot looks like,
+// and LinkedIn stopped the session over it. Now the options page keeps its own
+// tab, and LinkedIn is loaded once per page audited and then left alone --
+// settings arrive over storage.onChanged, which is how they reach an open tab
+// for a real user anyway.
+step("attaching to the browser");
+const live = await session();
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function store(settings) {
-  step("opening the options page");
-  await tab.goTo(OPTIONS);
-  await settle(1200);
-  step("writing " + (Object.keys(settings)[0] || "nothing"));
-  await tab.evaluate(`(async () => {
+step("opening the options page");
+const existing = await live.listTabs();
+const settings = await live.attach(existing[0]);
+await settings.goTo(OPTIONS);
+
+step("opening a tab for LinkedIn");
+await settings.evaluate(`browser.tabs.create({ url: ${JSON.stringify("https://www.linkedin.com" + paths[0])} }).then((t) => t.id)`);
+await settle(4000);
+const page = await live.attachMatching(/linkedin\.com/);
+step("ready");
+
+async function store(values) {
+  step("writing " + (Object.keys(values)[0] || "nothing"));
+  await settings.evaluate(`(async () => {
     await browser.storage.sync.clear();
-    ${Object.keys(settings).length ? `await browser.storage.sync.set(${JSON.stringify(settings)});` : ""}
+    ${Object.keys(values).length ? `await browser.storage.sync.set(${JSON.stringify(values)});` : ""}
     return "ok";
   })()`);
+  // Long enough for the content script to hear the change and re-apply: it
+  // runs at once, and its marking pass is debounced by 200ms.
+  await settle(900);
 }
 
-async function look(path) {
+// Every full load of a real LinkedIn page is a cost to the account, so they are
+// counted and the total is printed. A run that starts making hundreds of these
+// again should be obvious from its own output.
+let loads = 0;
+
+async function goToPage(path) {
+  loads += 1;
   step("opening " + path);
-  const landed = await tab.goTo("https://www.linkedin.com" + path);
+  const landed = await page.goTo("https://www.linkedin.com" + path);
   step("landed at " + (landed || "(timed out)"));
-  await settle(7000);
+  await settle(6000);
+  return landed;
+}
+
+async function look() {
   // Three attempts at getting our own answer back. The debugging protocol has
   // handed us another evaluation's result more than once, and rather than keep
   // guessing at why, the reading is simply checked and taken again: a snapshot
   // is a known shape, so a wrong answer is obvious.
   for (let attempt = 0; attempt < 3; attempt++) {
     step("reading the page");
-    const raw = await tab.evaluate(SNAPSHOT);
+    const raw = await page.evaluate(SNAPSHOT);
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.probes && typeof parsed.feedItems === "number") return parsed;
@@ -156,7 +184,8 @@ async function look(path) {
 try {
   for (const path of paths) {
     await store({});
-    const base = await look(path);
+    await goToPage(path);
+    const base = await look();
     const present = Object.entries(base.probes).filter(([, n]) => n > 0).map(([name]) => name);
     console.log(`\n${path}`);
     console.log(`  on the page: ${present.join(", ")}${base.feedItems ? `, ${base.feedItems} feed items` : ""}`);
@@ -164,16 +193,17 @@ try {
     for (const key of KEYS) {
       if (key === "blackout" || key === "homeRedirect") continue;
       await store({ [key]: true });
-      const now = await look(path);
+      const now = await look();
       if (signedOut(now.path)) {
         console.log(`\n  Signed out at ${now.path} -- LinkedIn ended the session.`);
         console.log("  Sign in again in the dev browser, then re-run. Nothing below here was measured.");
         process.exit(1);
       }
-      // Where the page actually is, and what the extension actually applied.
-      // Without these, a tab that drifted to another page and a switch that
-      // does nothing print the same thing: nothing.
-      const landed = now.path === path || path.startsWith(now.path) || now.path.startsWith(path.replace(/\/$/, ""));
+      // The page is not reloaded between settings, so it can only have moved
+      // because the extension moved it. What the extension applied is worth
+      // checking too: a switch that never arrived and a switch that does
+      // nothing otherwise print the same thing, which is nothing.
+      const landed = now.path === base.path;
       const applied = now.attr === key;
       const suspected = present.filter((name) => now.probes[name] === 0);
       const feedTook = base.feedItems - now.feedItems;
@@ -185,8 +215,11 @@ try {
       }
       if (!landed) {
         // Taking a page away is supposed to take you off it, so being somewhere
-        // else is the feature working, not the measurement failing.
+        // else is the feature working, not the measurement failing. It is also
+        // the one thing that costs a page load: we have to come back.
         console.log(`  ${key.padEnd(17)} sent us to ${now.path}`);
+        await store({});
+        await goToPage(path);
         continue;
       }
       if (!suspected.length && !marked && feedTook <= 0) {
@@ -194,14 +227,16 @@ try {
         continue;
       }
 
-      // LinkedIn does not put the same page up twice: a panel missing once is
-      // as likely to be a panel that did not render as one that was hidden. So
-      // switch it back off and look again, then on again. A take counts only
-      // if the thing came back without the setting and went again with it.
+      // A panel missing once is as likely to be a panel that never rendered as
+      // one that was hidden, so it is switched off and looked at again, then on
+      // again: a take counts only if the thing came back without the setting
+      // and went again with it. Because the page is never reloaded, all three
+      // readings are of the very same elements -- which is a far better control
+      // than three renders of a page LinkedIn never serves the same way twice.
       await store({});
-      const after = await look(path);
+      const after = await look();
       await store({ [key]: true });
-      const again = await look(path);
+      const again = await look();
       const took = suspected.filter((name) => after.probes[name] > 0 && again.probes[name] === 0);
       // The extension's own ledger, read from the settled reading rather than
       // the first: marking happens after the feed renders, and the first look
@@ -232,6 +267,9 @@ try {
     }
   }
 } finally {
+  // Leave every switch off, and leave the LinkedIn tab open: closing it would
+  // only mean loading it again next time.
   await store({});
-  tab.close();
+  console.log(`\n${loads} LinkedIn page load${loads === 1 ? "" : "s"} for ${paths.length} page${paths.length === 1 ? "" : "s"}.`);
+  live.close();
 }
