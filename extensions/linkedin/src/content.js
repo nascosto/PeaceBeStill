@@ -395,12 +395,40 @@
     observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   }
 
+  // LinkedIn is a single-page app: clicking the logo or the top bar changes the
+  // URL without a load, and nothing above re-reads it. Left alone, a page taken
+  // out of the top bar is still reachable by clicking through to it, and every
+  // rule keeps applying to whichever page happened to load first. Polling the
+  // path is cheaper than watching the whole document for it, and it cannot be
+  // outrun by a router that changes the URL before the DOM.
+  let seenPath = location.pathname;
+  let pathTimer = null;
+
+  function watchPath() {
+    // Nothing switched on means nothing to keep up to date. Asking what the
+    // home page would do is how we tell a redirect is set: it is the only page
+    // that has one, and we are not necessarily standing on it.
+    const busy = tokensFor(settings) !== "" || redirectFor("/feed/", settings) !== null;
+    if (!busy) {
+      clearInterval(pathTimer);
+      pathTimer = null;
+      return;
+    }
+    if (pathTimer) return;
+    pathTimer = setInterval(() => {
+      if (location.pathname === seenPath) return;
+      seenPath = location.pathname;
+      refresh();
+    }, 300);
+  }
+
   function refresh() {
     if (redirectIfAsked()) return;
     apply();
     styleShadow();
     tidyRules();
     watchDom();
+    watchPath();
   }
 
   api.storage.sync.get(KEYS).then((values) => {

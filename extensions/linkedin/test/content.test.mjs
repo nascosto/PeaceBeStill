@@ -43,7 +43,13 @@ function fakeWorld({ stored = {}, failStorage = false, pathname = "/feed/", titl
     observe() { this.observing = true; }
     disconnect() { this.observing = false; }
   }
-  return { root, document, api, location, MutationObserver, changed, replaced, listeners };
+  // The path is polled rather than watched, so the test drives the clock: tick()
+  // is one turn of that poll, with no real timer involved.
+  const ticks = [];
+  const setInterval = (fn) => { ticks.push(fn); return ticks.length; };
+  const clearInterval = (id) => { if (id) ticks[id - 1] = null; };
+  const tick = () => ticks.forEach((fn) => fn && fn());
+  return { root, document, api, location, MutationObserver, changed, replaced, listeners, setInterval, clearInterval, tick, ticks };
 }
 
 async function run(options) {
@@ -56,6 +62,7 @@ async function run(options) {
     location: world.location,
     MutationObserver: world.MutationObserver,
     setTimeout, clearTimeout,
+    setInterval: world.setInterval, clearInterval: world.clearInterval,
   });
   // Let the storage promise settle.
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -110,4 +117,31 @@ test("the tab title says the blackout sentence, and loses the unread count", asy
   assert.equal(black.document.title, "You made the right choice.");
   const counted = await run({ stored: { notificationCount: true }, title: "(3) Feed | LinkedIn" });
   assert.equal(counted.document.title, "Feed | LinkedIn");
+});
+
+// LinkedIn is a single-page app: the top bar changes the URL without a load.
+// Nothing re-read it, so a page taken out of the top bar stayed reachable by
+// clicking through to it, and every rule went on applying to whichever page
+// happened to load first.
+test("a page hidden from the top bar cannot be reached by navigating to it", async () => {
+  const world = await run({ stored: { homeRedirect: "jobs", jobs: false }, pathname: "/mynetwork/" });
+  assert.deepEqual(world.replaced, [], "nothing to redirect: we did not start on the home page");
+
+  world.location.pathname = "/feed/";
+  world.tick();
+  assert.deepEqual(world.replaced, ["/jobs/"], "navigating to the home page did not send us onward");
+});
+
+test("the page a rule applies to follows the URL, rather than the page that loaded", async () => {
+  const world = await run({ stored: { myNetwork: true }, pathname: "/feed/" });
+  assert.equal(world.root.dataset.pbsPage, "home");
+
+  world.location.pathname = "/mynetwork/grow/";
+  world.tick();
+  assert.equal(world.root.dataset.pbsPage, "myNetwork", "the page was still the one we loaded on");
+});
+
+test("with everything off, nothing is left polling the URL", async () => {
+  const world = await run();
+  assert.deepEqual(world.ticks.filter(Boolean), [], "a poll was left running with no switch on");
 });
