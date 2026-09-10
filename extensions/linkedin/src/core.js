@@ -60,7 +60,11 @@
     // what follows it is a separator or "by" -- never another word.
     ["sponsored", /^(Promoted|Sponsored)$|^(?:Promoted|Sponsored)\s*(?:[\u2022\u00b7|]|by\b)/],
     ["suggested", /^Suggested(?: for you)?$/],
-    ["recommended", /^Recommended(?: for you)?$/],
+    // "Recommended for you", and the same thing with the kind of thing named
+    // first: "Jobs recommended for you". A leading word is only allowed when
+    // the phrase is complete, so a line that merely ends in "recommended" is
+    // left where it is.
+    ["recommended", /^recommended(?: for you)?$|^\w+ recommended for you$/i],
   ];
   // The "someone you know reacted to this" line that drags a stranger's post
   // into your feed. One line, a name and a verb, so it is matched loosely.

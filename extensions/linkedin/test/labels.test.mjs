@@ -112,3 +112,25 @@ test("a post that merely mentions promotion is left alone", () => {
     assert.deepEqual([...kindsFor([text])], [], `${JSON.stringify(text)} was taken for an advert`);
   }
 });
+
+// A panel of recommendations names what it is recommending before saying so:
+// "Jobs recommended for you". The pattern was anchored at "Recommended", so a
+// word in front of it was enough to get the whole carousel through.
+test("a carousel of recommendations is recommended, whatever it recommends", () => {
+  for (const heading of ["Recommended for you", "Jobs recommended for you",
+                         "Courses recommended for you"]) {
+    const item = node("div",
+      node("h2", node("span", "Feed post")),
+      node("p", node("span", heading)),
+      node("p", node("span", "Some Job Title")),
+      node("p", "Some Company"));
+    assert.ok(kindsFor(labelsIn(item)).includes("recommended"),
+      `${JSON.stringify(heading)} was not recognised`);
+  }
+});
+
+test("a post that merely ends in the word is left where it is", () => {
+  for (const text of ["I recommended", "a book I recommended", "Highly recommended"]) {
+    assert.deepEqual([...kindsFor([text])], [], `${JSON.stringify(text)} was taken for a panel`);
+  }
+});
