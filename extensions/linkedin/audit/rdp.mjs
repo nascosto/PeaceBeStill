@@ -60,8 +60,8 @@ export class RDP {
     const body = Buffer.from(JSON.stringify(packet), "utf8");
     this.socket.write(Buffer.concat([Buffer.from(`${body.length}:`, "ascii"), body]));
   }
-  async request(packet, match) {
-    const p = this.await(match ?? ((m) => m.from === packet.to));
+  async request(packet, match, ms) {
+    const p = this.await(match ?? ((m) => m.from === packet.to), ms);
     this.send(packet);
     return p;
   }
@@ -75,12 +75,15 @@ export async function linkedInTab(port = devPort()) {
   const { tabs } = await rdp.request({ to: "root", type: "listTabs" }, (m) => Array.isArray(m.tabs));
   const tab = tabs.find((t) => /linkedin\.com/.test(t.url ?? "")) ?? tabs[0];
   if (!tab) throw new Error("no tabs");
+  // A tab's own actor outlives the pages loaded in it; the target inside it
+  // does not. So the target is looked up again from the tab we already have,
+  // rather than searched for by URL again -- that search stopped finding this
+  // tab the moment it was showing the options page instead of LinkedIn, and
+  // fell back to whichever tab happened to be first.
   let target = await rdp.request({ to: tab.actor, type: "getTarget" }, (m) => !!m.frame);
   let consoleActor = target.frame.consoleActor;
   const reacquire = async () => {
-    const { tabs } = await rdp.request({ to: "root", type: "listTabs" }, (m) => Array.isArray(m.tabs));
-    const t = tabs.find((x) => /linkedin\.com/.test(x.url ?? "")) ?? tabs[0];
-    target = await rdp.request({ to: t.actor, type: "getTarget" }, (m) => !!m.frame);
+    target = await rdp.request({ to: tab.actor, type: "getTarget" }, (m) => !!m.frame);
     consoleActor = target.frame.consoleActor;
   };
   // Evaluations run one at a time. Correlating results by id is not enough on
@@ -88,13 +91,13 @@ export async function linkedInTab(port = devPort()) {
   // other's, and then each waits on the other's result. Queueing them removes
   // the question rather than answering it.
   let queue = Promise.resolve();
-  const evaluate = (text) => {
-    const run = queue.then(() => evaluateNow(text), () => evaluateNow(text));
+  const evaluate = (text, ms) => {
+    const run = queue.then(() => evaluateNow(text, ms), () => evaluateNow(text, ms));
     queue = run.then(() => {}, () => {});
     return run;
   };
 
-  const evaluateNow = async (text) => {
+  const evaluateNow = async (text, ms = 15000) => {
     // Anything left over from an evaluation nobody is waiting for any more --
     // an abandoned navigation poll, say -- would otherwise be sitting in the
     // buffer ready to be handed to the next caller.
@@ -105,10 +108,11 @@ export async function linkedInTab(port = devPort()) {
     const ack = await rdp.request(
       { to: consoleActor, type: "evaluateJSAsync", text, mapped: { await: true } },
       (m) => (m.resultID && m.type !== "evaluationResult") || m.error,
+      ms,
     );
-    if (ack.error === "noSuchActor") { await reacquire(); return evaluateNow(text); }
+    if (ack.error === "noSuchActor") { await reacquire(); return evaluateNow(text, ms); }
     if (ack.error) throw new Error(`${ack.error}: ${ack.message}`);
-    const res = await rdp.await((m) => m.type === "evaluationResult" && m.resultID === ack.resultID);
+    const res = await rdp.await((m) => m.type === "evaluationResult" && m.resultID === ack.resultID, ms);
     if (res.exception) {
       throw new Error("page threw: " + JSON.stringify(res.exceptionMessage ?? res.exception));
     }
@@ -117,20 +121,36 @@ export async function linkedInTab(port = devPort()) {
   };
 
   const goTo = async (url) => {
+    const want = new URL(url).pathname;
     const actor = target.frame.actor;
     await rdp.request({ to: actor, type: "navigateTo", url }, (m) => m.from === actor || m.error);
-    await reacquire().catch(() => {});
-    const want = new URL(url).pathname;
-    for (let i = 0; i < 60; i++) {
+    // Navigating destroys the page we were talking to. Reaching for its
+    // replacement straight away gets one that is itself about to go, and every
+    // question after that goes to something not there any more -- which reads
+    // as a long wait, not an error. So ask with a short patience, and only pick
+    // up a new target when asking fails.
+    const deadline = Date.now() + 45000;
+    let elsewhere = "";
+    let held = 0;
+    while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 500));
       try {
-        const at = await evaluate("document.readyState + '|' + location.pathname + '|' + document.body.innerText.length");
+        const at = await evaluate("document.readyState + '|' + location.pathname + '|' + document.body.innerText.length", 3000);
         if (typeof at !== "string") continue;
         const [state, path, len] = at.split("|");
-        if (state === "complete" && path === want && Number(len) > 400) return path;
-      } catch {}
+        if (state !== "complete" || Number(len) <= 400) continue;
+        if (path === want) return path;
+        // Somewhere else, and staying there: the extension sends some pages on
+        // to another one, and where it settled is the answer worth having.
+        held = path === elsewhere ? held + 1 : 0;
+        elsewhere = path;
+        if (held >= 4) return path;
+      } catch {
+        await reacquire().catch(() => {});
+      }
     }
-    return null;
+    return elsewhere || null;
   };
+
   return { rdp, tab, evaluate, goTo, close: () => rdp.close() };
 }
