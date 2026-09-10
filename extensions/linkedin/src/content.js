@@ -212,9 +212,13 @@
     // heading names a place -- "People you may know in Salt Lake City" -- so it
     // matches the opening rather than the whole string.
     const specs = [
-      // A game tile is a div; "Play video" is the button on a post's video.
+      // A game tile is a div; "Play video" is the button on a post's video. The
+      // invitation to a puzzle is text rather than a tile, and opens with an
+      // emoji, so the leading punctuation is skipped -- and the apostrophe is
+      // the typographic one, which is not the one on a keyboard.
       ["games", () => [...document.querySelectorAll('div[aria-label^="Play "]')]
-        .filter((el) => el.getAttribute("aria-label") !== "Play video")],
+        .filter((el) => el.getAttribute("aria-label") !== "Play video")
+        .concat(labelled(/^\W*You[’']ve been selected to join/))],
       ["news", () => labelled(/^(LinkedIn News|Top stories)$/)],
       ["otherAds", () => labelled(/^(Ad Options|Ad|Advertisement|Promoted by)$/)],
       // Upsells, told from the "Premium" badge a company or member carries by
