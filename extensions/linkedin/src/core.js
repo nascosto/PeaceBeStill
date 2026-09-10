@@ -36,12 +36,16 @@
     ["jobs", "Jobs", "jobs"],
     ["messaging", "Messaging", "messaging"],
     ["notifications", "Notifications", "notifications"],
+    // Last, as it is in the top bar. "/in/me/" is LinkedIn's own way of saying
+    // "whoever is signed in", so this does not need to know who that is.
+    ["profile", "Profile", "profile"],
   ];
   const REDIRECT_PATHS = {
     messaging: "/messaging/",
     notifications: "/notifications/",
     jobs: "/jobs/",
     mynetwork: "/mynetwork/",
+    profile: "/in/me/",
   };
 
   // A feed item's kind, decided from the short label LinkedIn puts in its

@@ -200,15 +200,15 @@ test("the chooser's list is replaced on every render, not added to", async () =>
   const { rows, change } = await render();
   const chooser = () => rows().find((r) => r.name === "homeRedirect").box;
   const count = chooser().children.length;
-  assert.equal(count, 5, "Home plus the four places it can send you");
+  assert.equal(count, 6, "Home plus the five places it can send you");
   // Every change redraws the page; the list must not grow each time.
   await change("myNetwork", true);
-  assert.equal(chooser().children.length, 4, "My Network drops out, nothing is duplicated");
+  assert.equal(chooser().children.length, 5, "My Network drops out, nothing is duplicated");
   await change("myNetwork", false);
-  assert.equal(chooser().children.length, 5, "and comes back, still once");
+  assert.equal(chooser().children.length, 6, "and comes back, still once");
   await change("jobs", true);
   await change("jobs", false);
-  assert.equal(chooser().children.length, 5, "still once after several redraws");
+  assert.equal(chooser().children.length, 6, "still once after several redraws");
 });
 
 test("a section with nothing left to show goes too", async () => {

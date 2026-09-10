@@ -252,9 +252,12 @@ test("redirectFor sends the home page where the chooser says, and nowhere else",
 test("somewhere you have hidden is neither offered nor obeyed", () => {
   const offered = (settings) => [...PeaceBeStill.choicesOffered("homeRedirect", settings)].map(([value]) => value);
   // Listed in the order the top bar lists them, so the two read alike.
-  assert.deepEqual(offered({}), ["", "mynetwork", "jobs", "messaging", "notifications"]);
-  assert.deepEqual(offered({ jobs: true }), ["", "mynetwork", "messaging", "notifications"]);
-  assert.deepEqual(offered({ jobs: true, messaging: true }), ["", "mynetwork", "notifications"]);
+  assert.deepEqual(offered({}), ["", "mynetwork", "jobs", "messaging", "notifications", "profile"]);
+  assert.deepEqual(offered({ jobs: true }), ["", "mynetwork", "messaging", "notifications", "profile"]);
+  assert.deepEqual(offered({ jobs: true, messaging: true }), ["", "mynetwork", "notifications", "profile"]);
+  // Your own profile is a place to be sent too, and goes when it is hidden.
+  assert.deepEqual(offered({ profile: true }), ["", "mynetwork", "jobs", "messaging", "notifications"]);
+  assert.equal(PeaceBeStill.redirectFor("/", { homeRedirect: "profile" }), "/in/me/");
   // And the setting stops working, not just showing: hiding Jobs after picking
   // it must not land you on a page you have taken away.
   assert.equal(PeaceBeStill.redirectFor("/", { homeRedirect: "jobs" }), "/jobs/");
