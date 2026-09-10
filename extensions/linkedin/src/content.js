@@ -164,7 +164,10 @@
 
   // Things no panel may swallow: another page's place in the top bar, or a
   // post in the feed.
-  const KEEP_OUT = '[data-testid="primary-nav"] li, [data-testid="mainFeed"] [role="listitem"]';
+  // Things a panel must never take with it. The footer is the whole site's, not
+  // any panel's: an advert in the rail sits above it, and a box that grew one
+  // step too far took About, Help Center and the copyright line with it.
+  const KEEP_OUT = '[data-testid="primary-nav"] li, [data-testid="mainFeed"] [role="listitem"], footer';
 
   // A box this tall is a panel in its own right, not a label pointing at one.
   const PANEL_SIZE = 100;
@@ -343,8 +346,19 @@
         // and refusing it there left the heading hiding alone.
         const fits = (candidate) => {
           if (foreign.some((other) => candidate.contains(other))) return false;
+          // Asked here rather than only of the winner, so that a section
+          // holding someone else's card is passed over for a smaller one
+          // inside it instead of leaving the label to hide on its own.
+          if (neighbours.some((other) => candidate.contains(other))) return false;
+          // The same things growing refuses to swallow, refused here too: a
+          // section is trusted, but not far enough to take the site's footer.
+          if ([...candidate.querySelectorAll(KEEP_OUT)].some((e) => !from.contains(e))) return false;
           const height = candidate.getBoundingClientRect().height;
-          return room === 0 || height <= room * 0.85;
+          // A panel really can be nearly all of a short column: the suggestions
+          // on My Network are two dozen people, and refusing them at 85% left
+          // the heading hidden with all the people still under it. What a
+          // section must not be is the column itself.
+          return room === 0 || height <= room * 0.95;
         };
         const sections = [];
         for (let node = from; node && node !== root; node = node.parentElement) {

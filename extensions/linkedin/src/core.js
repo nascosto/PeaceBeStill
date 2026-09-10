@@ -161,7 +161,7 @@
     ["news", "Hide LinkedIn News panel", false, PAGES_GROUP, "home"],
     ["myNetwork", "Hide My Network", false, PAGES_GROUP, "blackout"],
     ["networkPeople", "Hide “People you may know”", false, PAGES_GROUP, "myNetwork"],
-    ["networkSuggestions", "Hide suggestion panels on My Network", false, PAGES_GROUP, "myNetwork"],
+    ["networkSuggestions", "Hide suggestion panels", false, PAGES_GROUP, "myNetwork"],
     ["networkGames", "Hide puzzles and games", false, PAGES_GROUP, "myNetwork"],
     ["networkPremium", "Hide Premium adverts and upsells", false, PAGES_GROUP, "myNetwork"],
     ["jobs", "Hide Jobs", false, PAGES_GROUP, "blackout"],
