@@ -13,13 +13,37 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { RDP, devPort, linkedInTab } from "./rdp.mjs";
+import { snapshot } from "./snapshot.mjs";
 
 const SRC = fileURLToPath(new URL("../src/", import.meta.url));
 const core = readFileSync(SRC + "core.js", "utf8");
 const context = { URLSearchParams, globalThis: null };
 context.globalThis = context;
 (await import("node:vm")).runInNewContext(core, context);
-const { FEATURES, KEYS } = context.PeaceBeStill;
+const { FEATURES, KEYS, parentOf } = context.PeaceBeStill;
+
+// A switch and everything nested under it. Turning on a parent marks the page
+// with the children's names, not the parent's -- switching off every advert
+// leaves marks reading "sponsored" and "premium", never "ads" -- so a parent's
+// tally has to gather its family's.
+function family(key) {
+  const all = [key];
+  for (let i = 0; i < all.length; i++) {
+    for (const k of KEYS) if (parentOf(k) === all[i] && !all.includes(k)) all.push(k);
+  }
+  return all;
+}
+
+function tally(marks, key) {
+  let found = 0;
+  let showing = 0;
+  for (const k of family(key)) {
+    if (!marks[k]) continue;
+    found += marks[k].found;
+    showing += marks[k].showing;
+  }
+  return found ? { found, showing } : null;
+}
 const labelOf = (key) => (FEATURES.find(([k]) => k === key) || [])[1] || key;
 
 // What the page shows. Free-form landmarks proved useless: LinkedIn's
@@ -52,44 +76,48 @@ const BY_TEXT = {
   "Start a post": "Start a post",
 };
 
-const SNAPSHOT = `JSON.stringify((() => {
-  const shown = (selector) => [...document.querySelectorAll(selector)]
-    .filter((e) => e.getClientRects().length).length;
-  const shownText = (needle) => [...document.querySelectorAll("h1,h2,h3,p,span,div,button")]
-    .filter((e) => !e.children.length && (e.textContent || "").trim().startsWith(needle) && e.getClientRects().length).length;
-  const out = { probes: {}, feedItems: shown('[data-testid="mainFeed"] [role="listitem"]'), marks: {} };
-  // What the extension itself marked, and how much of it still renders. This
-  // is the extension's own record, not the harness's, and it tells "took
-  // nothing" apart from "had nothing to take".
-  for (const el of document.querySelectorAll("[data-pbs]")) {
-    for (const kind of (el.getAttribute("data-pbs") || "").split(/\s+/).filter(Boolean)) {
-      const seen = out.marks[kind] || (out.marks[kind] = { found: 0, showing: 0 });
-      seen.found++;
-      if (el.getClientRects().length) seen.showing++;
-    }
-  }
-  for (const [name, selector] of Object.entries(${JSON.stringify(PROBES)})) out.probes[name] = shown(selector);
-  for (const [name, needle] of Object.entries(${JSON.stringify(BY_TEXT)})) out.probes[name] = shownText(needle);
-  return out;
-})())`;
+const SNAPSHOT = `JSON.stringify((${snapshot})(${JSON.stringify(PROBES)}, ${JSON.stringify(BY_TEXT)}))`;
+
+// Nothing here may hang in silence. Every stage says what it is doing, and a
+// watchdog gives up if a stage stops making progress -- a run that sat for
+// eleven minutes without printing a byte is what this exists to prevent.
+let doing = "starting up";
+let ticked = Date.now();
+const step = (what) => { doing = what; ticked = Date.now(); process.stderr.write(`    .. ${what}\n`); };
+const STALL_MS = 90000;
+const watchdog = setInterval(() => {
+  if (Date.now() - ticked < STALL_MS) return;
+  process.stderr.write(`\nGave up: stuck on "${doing}" for ${Math.round((Date.now() - ticked) / 1000)}s.\n`);
+  process.exit(1);
+}, 5000);
+watchdog.unref();
 
 const paths = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!paths.length) paths.push("/feed/");
 
-const rdp = await RDP.connect(devPort());
+step("finding the debugging port");
+const port = devPort();
+step("connecting to " + port);
+const rdp = await RDP.connect(port);
+step("waiting for the greeting");
 await rdp.await((m) => m.from === "root");
+step("asking which add-ons are loaded");
 const { addons } = await rdp.request({ to: "root", type: "listAddons" }, (m) => Array.isArray(m.addons));
 const mine = addons.find((a) => /PeaceBeStill - LinkedIn/.test(String(a.name)));
 rdp.close();
 if (!mine) throw new Error("the extension is not loaded; run npm run dev:linkedin");
 const OPTIONS = (mine.manifestURL || "").replace(/manifest\.json$/, "") + "options.html";
 
+step("finding the LinkedIn tab");
 const tab = await linkedInTab();
+step("ready");
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function store(settings) {
+  step("opening the options page");
   await tab.goTo(OPTIONS);
   await settle(1200);
+  step("writing " + (Object.keys(settings)[0] || "nothing"));
   await tab.evaluate(`(async () => {
     await browser.storage.sync.clear();
     ${Object.keys(settings).length ? `await browser.storage.sync.set(${JSON.stringify(settings)});` : ""}
@@ -98,13 +126,16 @@ async function store(settings) {
 }
 
 async function look(path) {
-  await tab.goTo("https://www.linkedin.com" + path);
+  step("opening " + path);
+  const landed = await tab.goTo("https://www.linkedin.com" + path);
+  step("landed at " + (landed || "(timed out)"));
   await settle(7000);
   // Three attempts at getting our own answer back. The debugging protocol has
   // handed us another evaluation's result more than once, and rather than keep
   // guessing at why, the reading is simply checked and taken again: a snapshot
   // is a known shape, so a wrong answer is obvious.
   for (let attempt = 0; attempt < 3; attempt++) {
+    step("reading the page");
     const raw = await tab.evaluate(SNAPSHOT);
     try {
       const parsed = JSON.parse(raw);
@@ -127,53 +158,65 @@ try {
       if (key === "blackout" || key === "homeRedirect") continue;
       await store({ [key]: true });
       const now = await look(path);
+      // Where the page actually is, and what the extension actually applied.
+      // Without these, a tab that drifted to another page and a switch that
+      // does nothing print the same thing: nothing.
+      const landed = now.path === path || path.startsWith(now.path) || now.path.startsWith(path.replace(/\/$/, ""));
+      const applied = now.attr === key;
       const suspected = present.filter((name) => now.probes[name] === 0);
       const feedTook = base.feedItems - now.feedItems;
-      const marked = now.marks[key === "peopleYouMayKnow" ? "pymk" : key];
-      // A setting with targets that hid none of them is the interesting case,
-      // and it used to look exactly like a setting with nothing to do.
-      if (marked && marked.showing > 0) {
-        console.log(`  ${key.padEnd(17)} FAILED: ${marked.showing} of ${marked.found} marked still showing`);
+      const marked = tally(now.marks, key);
+
+      if (!applied) {
+        console.log(`  ${key.padEnd(17)} SKIPPED: the setting never reached the page (attribute was ${JSON.stringify(now.attr)})`);
         continue;
       }
-      if (!suspected.length && feedTook <= 0 && !marked) continue;
-      if (!suspected.length && feedTook <= 0 && marked) {
-        console.log(`  ${key.padEnd(17)} ${marked.found} marked, all hidden`);
+      if (!landed) {
+        // Taking a page away is supposed to take you off it, so being somewhere
+        // else is the feature working, not the measurement failing.
+        console.log(`  ${key.padEnd(17)} sent us to ${now.path}`);
+        continue;
+      }
+      if (!suspected.length && !marked && feedTook <= 0) {
+        console.log(`  ${key.padEnd(17)} nothing on this page to hide`);
         continue;
       }
 
       // LinkedIn does not put the same page up twice: a panel missing once is
       // as likely to be a panel that did not render as one that was hidden. So
-      // switch it back off and look again, then switch it on and look again.
-      // A take counts only if the thing came back without the setting and went
-      // again with it -- one round of that is a coin toss, which is how three
-      // unrelated settings all appeared to hide "People you may know".
+      // switch it back off and look again, then on again. A take counts only
+      // if the thing came back without the setting and went again with it.
       await store({});
       const after = await look(path);
       await store({ [key]: true });
       const again = await look(path);
       const took = suspected.filter((name) => after.probes[name] > 0 && again.probes[name] === 0);
-      const feedBack = after.feedItems;
-      const what = [...took];
-      // The feed count has to earn its place the same way a probe does. It
-      // drifts on its own -- LinkedIn mounts and unmounts posts as you go --
-      // so a drop counts only if it happened both times the setting was on and
-      // did not happen when it was off. Without this, seven settings that
-      // never touch a post each appeared to take one.
-      const droppedTwice = feedTook > 0 && base.feedItems - again.feedItems > 0;
-      const recovered = after.feedItems >= base.feedItems - 1;
-      if (droppedTwice && recovered) {
-        const drop = Math.min(feedTook, base.feedItems - again.feedItems);
-        what.push(`${drop} of ${base.feedItems} feed items`);
+      // The extension's own ledger, read from the settled reading rather than
+      // the first: marking happens after the feed renders, and the first look
+      // can be taken before it has caught up.
+      const ledger = tally(again.marks, key) || marked;
+
+      // Judged on the settled reading: the first one can be taken mid-render,
+      // when something marked has not been hidden yet and looks like a failure.
+      if (ledger && ledger.showing > 0) {
+        console.log(`  ${key.padEnd(17)} FAILED: ${ledger.showing} of ${ledger.found} marked still showing`);
+        continue;
       }
-      // What the extension marked for this setting, and whether it went.
-      const MARK_OF = { rightRailAds: "otherAds", peopleYouMayKnow: "pymk" };
-      const mark = now.marks[MARK_OF[key] || key];
-      if (mark) what.push(`${mark.found - mark.showing} of ${mark.found} marked`);
+      const what = [...took];
+      if (ledger) what.push(`${ledger.found - ledger.showing} of ${ledger.found} marked`);
+      console.log(`  ${key.padEnd(17)} ${what.length ? what.join(", ") : "no confirmed effect"}`);
+
+      // Feed length is not the same twice, so a count is a hint and never a
+      // verdict. It is worth printing only when nothing else explains posts
+      // going missing -- that is the shape collateral damage takes.
+      // Posts live inside the feed, so taking the feed takes them with it:
+      // that is the switch working, not damage to something else.
+      const feedItself = took.includes("the feed");
+      if (!ledger && !feedItself && feedTook > 0 && base.feedItems - again.feedItems > 0) {
+        console.log(`  ${"".padEnd(17)} (unexplained: ${feedTook} fewer feed items, with nothing marked)`);
+      }
       const phantom = suspected.filter((name) => !took.includes(name));
-      if (!what.length && !phantom.length) continue;
-      if (what.length) console.log(`  ${key.padEnd(17)} ${what.join(", ")}`);
-      if (phantom.length) console.log(`  ${"".padEnd(17)} (not confirmed, absent either way: ${phantom.join(", ")})`);
+      if (phantom.length) console.log(`  ${"".padEnd(17)} (unconfirmed, absent either way: ${phantom.join(", ")})`);
     }
   }
 } finally {
