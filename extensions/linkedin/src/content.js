@@ -4,7 +4,7 @@
 // when asked, and keeps the tab title in step with both.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor, kindsFor, pageFor } = globalThis.PeaceBeStill;
+  const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor, kindsFor, pageFor, cutoffAt } = globalThis.PeaceBeStill;
 
   // What storage holds, and what that means once defaults are filled in and
   // anything blackout has made moot is forced off. Only `settings` is ever
@@ -417,6 +417,37 @@
   let observer = null;
   let observeTimer = null;
 
+  const FEED = '[data-testid="mainFeed"]';
+
+  // Stop the feed once it is only bringing more of what is being hidden.
+  //
+  // Hidden items take up no room, so the page stays short, so whatever the site
+  // keeps at the bottom to notice you have got there never leaves the screen.
+  // It fetches, we hide what arrives, and it fetches again -- for as long as
+  // the tab is open, without anyone scrolling. Cutting the feed off hides that
+  // last part along with the rest, and something with no box is never in view,
+  // so the fetching stops.
+  function capFeed() {
+    const feed = document.querySelector(FEED);
+    if (!feed) return;
+    // Lifted before measuring: a cut hides the very items it was decided from,
+    // so left in place it would always agree with itself and never come back.
+    for (const el of feed.querySelectorAll("[data-pbs-cutoff]")) el.removeAttribute("data-pbs-cutoff");
+    if (!MARKED.some((key) => settings[key])) return;
+
+    const items = [...feed.querySelectorAll('[role="listitem"]')]
+      .filter((el) => !el.parentElement || !el.parentElement.closest('[role="listitem"]'));
+    const at = cutoffAt(items.map((el) => el.getClientRects().length === 0));
+    if (at < 0) return;
+
+    // Everything from there on, counted in what the feed itself holds, so that
+    // whatever fetches the next lot goes with it rather than being looked for.
+    let node = items[at];
+    while (node.parentElement && node.parentElement !== feed) node = node.parentElement;
+    if (!node.parentElement) return;
+    for (let el = node; el; el = el.nextElementSibling) el.setAttribute("data-pbs-cutoff", "");
+  }
+
   function pass() {
     keepTitle();
     styleShadow();
@@ -425,6 +456,7 @@
       markModules();
       tidyRules();
     }
+    capFeed();
   }
 
   function watchDom() {

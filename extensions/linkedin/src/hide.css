@@ -116,3 +116,9 @@ html[data-peacebestill~="myNetwork"][data-pbs-page="myNetwork"] section[aria-lab
 html[data-peacebestill~="jobs"][data-pbs-page="jobs"] section[aria-label="Primary content"] { display: none !important; }
 html[data-peacebestill~="messaging"][data-pbs-page="messaging"] section[aria-label="Primary content"] { display: none !important; }
 html[data-peacebestill~="notifications"][data-pbs-page="notifications"] section[aria-label="Primary content"] { display: none !important; }
+
+/* Where the feed was cut off. Not a switch: content.js sets this when the feed
+   has stopped bringing anything that survives being hidden, and clears it the
+   moment it does again. Hiding it takes the site's own "you are at the bottom"
+   marker with it, which is what stops the fetching. */
+[data-pbs-cutoff] { display: none !important; }

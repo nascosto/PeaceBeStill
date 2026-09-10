@@ -105,6 +105,28 @@
     return kinds;
   }
 
+  // How many hidden feed items in a row mean the feed has stopped being worth
+  // waiting for. Generous on purpose: a run of adverts is common, and cutting a
+  // feed off early would lose whatever came after them.
+  const CUTOFF_RUN = 15;
+
+  // Where to stop the feed, or -1 to let it run.
+  //
+  // Hiding most of what arrives leaves the page short, so whatever the site
+  // watches to decide you have reached the bottom stays in view, and it fetches
+  // again. If what comes back is more of the same, that repeats for as long as
+  // the tab is open, with nothing to show for it and no scrolling needed to
+  // keep it going.
+  //
+  // The signature of that loop is a long run of hidden items with nothing kept
+  // after them. A run in the middle of the feed is not it -- something was
+  // worth keeping further down -- so only a run reaching the end counts.
+  function cutoffAt(hidden, run = CUTOFF_RUN) {
+    let streak = 0;
+    for (let i = hidden.length - 1; i >= 0 && hidden[i]; i--) streak += 1;
+    return streak >= run ? hidden.length - streak : -1;
+  }
+
   // Which of the site's destinations a path belongs to, or "". Hiding a
   // destination hides its page as well as its place in the top bar, and CSS
   // cannot read a URL, so content.js puts this on the root element.
@@ -300,5 +322,5 @@
     return calm === title ? null : calm;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, BLACKOUT_TITLE, KINDS, SOCIAL, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, BLACKOUT_TITLE, KINDS, SOCIAL, CUTOFF_RUN, cutoffAt, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
 })(globalThis);

@@ -134,3 +134,30 @@ test("a post that merely ends in the word is left where it is", () => {
     assert.deepEqual([...kindsFor([text])], [], `${JSON.stringify(text)} was taken for a panel`);
   }
 });
+
+// Hiding most of what the feed brings leaves the page short, so the site never
+// stops thinking you are at the bottom: it fetches, we hide it, it fetches
+// again, for as long as the tab is open and without anyone scrolling. A long
+// run of hidden items with nothing kept after them is that loop.
+const { cutoffAt } = loadClassic(new URL("core.js", SRC)).PeaceBeStill;
+const feed = (pattern) => [...pattern].map((c) => c === "h");
+
+test("a feed that keeps bringing nothing worth keeping is cut off", () => {
+  assert.equal(cutoffAt(feed(".hhh"), 3), 1);
+  assert.equal(cutoffAt(feed("hhhhh"), 3), 0);
+});
+
+test("a run in the middle is not the loop: something after it was kept", () => {
+  assert.equal(cutoffAt(feed("hhh.."), 3), -1);
+  assert.equal(cutoffAt(feed("hhh.h"), 3), -1);
+});
+
+test("the cut falls at the start of the run, not the end of the feed", () => {
+  assert.equal(cutoffAt(feed(".hhh.hhh"), 3), 5);
+});
+
+test("a short run, an empty feed and a feed with nothing hidden are all left alone", () => {
+  assert.equal(cutoffAt(feed(".hh"), 3), -1);
+  assert.equal(cutoffAt([], 3), -1);
+  assert.equal(cutoffAt(feed("....."), 3), -1);
+});
