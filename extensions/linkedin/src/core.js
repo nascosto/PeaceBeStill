@@ -50,10 +50,15 @@
   // and hide.css hides the mark. Exact matches only, against leaf elements, so
   // a post that merely mentions the word is not caught by it.
   const KINDS = [
-    // An advert in the feed is labelled "Promoted", "Sponsored", or "Promoted
-    // by <company>" -- the last one under a real person's name, so the post
-    // reads as theirs until you notice who paid for it.
-    ["sponsored", /^(Promoted|Sponsored)$|^Promoted by\b/],
+    // An advert in the feed is labelled "Promoted" or "Sponsored" on its own,
+    // or names who paid: "Promoted by <company>", "Promoted \u2022 Partnership
+    // with <company>". Those last two run under a real person's name and job
+    // title, so the post reads as theirs until you notice the line underneath.
+    //
+    // The word alone is not enough to go on. "Promoted to Senior Engineer" is
+    // an ordinary post somebody is pleased about, so the word only counts when
+    // what follows it is a separator or "by" -- never another word.
+    ["sponsored", /^(Promoted|Sponsored)$|^(?:Promoted|Sponsored)\s*(?:[\u2022\u00b7|]|by\b)/],
     ["suggested", /^Suggested(?: for you)?$/],
     ["recommended", /^Recommended(?: for you)?$/],
   ];

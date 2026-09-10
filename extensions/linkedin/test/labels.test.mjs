@@ -86,24 +86,29 @@ test("the body of a post is too long to be mistaken for a label", () => {
 // depend on how long that company's name is.
 //
 // <span>Promoted by<span> </span><a><strong>Company</strong></a></span>
-const promoted = (company) =>
-  node("p", node("span", "Promoted by", node("span", " "), node("a", node("strong", company))));
+const promoted = (words, company) =>
+  node("p", node("span", words, node("span", " "), node("a", node("strong", company))));
 
 test("an advert labelled by its buyer is an advert", () => {
-  const kinds = kindsFor(labelsIn(promoted("Some Hospital")));
-  assert.ok(kinds.includes("sponsored"), "a promoted post was not recognised as an advert");
+  for (const words of ["Promoted by", "Promoted \u2022 Partnership with"]) {
+    const kinds = kindsFor(labelsIn(promoted(words, "Some Company")));
+    assert.ok(kinds.includes("sponsored"), `"${words}" was not recognised as an advert`);
+  }
 });
 
 test("and stays one however long the buyer's name is", () => {
   const long = "The Royal Institute for the Advancement of Very Long Organisational Names Indeed";
-  const labels = labelsIn(promoted(long));
+  const labels = labelsIn(promoted("Promoted by", long));
   assert.ok(labels.includes("Promoted by"),
     `the words alone were never read; all that was found was ${JSON.stringify(labels)}`);
   assert.ok(kindsFor(labels).includes("sponsored"));
 });
 
 test("a post that merely mentions promotion is left alone", () => {
-  for (const text of ["Promoted bystander", "Self-Promoted by me", "I was promoted by my boss"]) {
+  // Being promoted at work is a thing people post about, and the word on its
+  // own must not be enough to take the post away.
+  for (const text of ["Promoted to Senior Engineer", "Promoted to Director at Acme",
+                      "Promoted bystander", "Self-Promoted by me", "I was promoted by my boss"]) {
     assert.deepEqual([...kindsFor([text])], [], `${JSON.stringify(text)} was taken for an advert`);
   }
 });
