@@ -61,6 +61,7 @@ html[data-peacebestill~="games"] [data-pbs~="games"] { display: none !important;
    page, so the mark stays "games" and the page decides whether it applies. */
 html[data-peacebestill~="homeGames"][data-pbs-page="home"] [data-pbs~="games"] { display: none !important; }
 html[data-peacebestill~="networkGames"][data-pbs-page="myNetwork"] [data-pbs~="games"] { display: none !important; }
+html[data-peacebestill~="networkPremium"][data-pbs-page="myNetwork"] [data-pbs~="premium"] { display: none !important; }
 html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
 
 /* ---- Elsewhere on LinkedIn ---------------------------------------------- */

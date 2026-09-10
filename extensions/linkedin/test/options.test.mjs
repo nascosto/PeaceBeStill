@@ -115,12 +115,12 @@ test("every switch is nested under the one that covers it, one indent per level"
     "blackout",
     // "sponsored" appears twice on purpose: an advert in the feed is both an
     // advert and part of the feed, so it is offered in both places.
-    "home", "feed", "composer", "suggested", "recommended", "socialProof", "sponsored", "homeGames",
-    "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "jobs", "jobsSuggestions",
+    "home", "feed", "composer", "suggested", "recommended", "socialProof", "sponsored", "homeGames", "news",
+    "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "networkPremium", "jobs", "jobsSuggestions",
     "messaging", "notifications", "profile", "profilePeople", "profileSuggestions", "homeRedirect",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "games", "news", "forBusiness", "aiAssistant",
+    "games", "forBusiness", "aiAssistant",
     "messagingOverlay", "notificationCount",
   ]);
   // "Hide everything" parents the whole page, so it alone sits flush and
@@ -155,7 +155,9 @@ test("a switch an ancestor covers is taken off the list, not explained away", as
 test("hiding the feed takes its own switches with it, and leaves the rest", async () => {
   const { rows } = await render({ feed: true });
   const hidden = rows().filter((r) => r.hidden).map((r) => r.name);
-  assert.deepEqual(hidden, ["composer", "suggested", "recommended", "socialProof"]);
+  // "sponsored" here is the second row, shown under the feed. With no feed to
+  // advertise in, a ticked and locked copy of it says nothing worth the space.
+  assert.deepEqual(hidden, ["composer", "suggested", "recommended", "socialProof", "sponsored"]);
   // The puzzles are not part of the feed, so they stay.
   assert.equal(rows().find((r) => r.name === "games").hidden, false);
 });
@@ -177,10 +179,10 @@ test("the mirrored advert switch is ticked and locked when the global one is on"
   // Its own row, under Advertisements, is taken away as any covered row is.
   assert.equal(global.rows().find((r) => r.name === "sponsored" && !r.mirror).hidden, true);
 
-  // Hiding the feed covers it too, since there is no feed left to advertise in.
+  // Hiding the feed covers it too -- but there it goes rather than staying on
+  // as a locked tick, because the switch above it has already said as much.
   const noFeed = await render({ feed: true });
-  assert.equal(mirror(noFeed).checked, true);
-  assert.equal(mirror(noFeed).disabled, true);
+  assert.equal(mirror(noFeed).hidden, true);
 
   // And it goes entirely when the switch it is shown under has itself gone.
   const noHome = await render({ home: true });
@@ -233,13 +235,13 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and says how much a switch above has covered", async () => {
   const { byId, rows, removes } = await render({ blackout: true, jobs: true });
-  assert.match(byId.summary.textContent, /2 of 33/);
-  assert.match(byId.summary.textContent, /32 covered by a switch above/);
+  assert.match(byId.summary.textContent, /2 of 34/);
+  assert.match(byId.summary.textContent, /33 covered by a switch above/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "jobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 33/);
+  assert.match(byId.summary.textContent, /0 of 34/);
 });
 
 test("the filter narrows the list to matching switches", async () => {
@@ -306,4 +308,24 @@ test("a page that is hidden takes its puzzle switch with it", async () => {
   const { rows } = await render({ home: true });
   assert.equal(rows().find((r) => r.name === "homeGames").hidden, true);
   assert.equal(rows().find((r) => r.name === "networkGames").hidden, false);
+});
+
+// "People who viewed your profile" is a Premium panel, and it is on My Network
+// as well as on a profile, so it can be hidden there without hiding Premium
+// everywhere.
+test("hiding Premium everywhere ticks and locks the My Network switch", async () => {
+  for (const stored of [{ premium: true }, { ads: true }]) {
+    const { rows } = await render(stored);
+    const row = rows().find((r) => r.name === "networkPremium");
+    assert.equal(row.checked, true, `covered by ${Object.keys(stored)[0]}`);
+    assert.equal(row.disabled, true, `covered by ${Object.keys(stored)[0]}`);
+    assert.equal(row.hidden, false, `covered by ${Object.keys(stored)[0]}`);
+  }
+});
+
+test("hiding Premium on My Network alone leaves the global switch off", async () => {
+  const { rows } = await render({ networkPremium: true });
+  assert.equal(rows().find((r) => r.name === "networkPremium").checked, true);
+  assert.equal(rows().find((r) => r.name === "networkPremium").disabled, false);
+  assert.equal(rows().find((r) => r.name === "premium").checked, false);
 });

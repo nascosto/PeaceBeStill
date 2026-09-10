@@ -158,10 +158,12 @@
     ["recommended", "Hide “Recommended for you” posts", false, PAGES_GROUP, "feed"],
     ["socialProof", "Hide posts someone in your network liked or commented on", false, PAGES_GROUP, "feed"],
     ["homeGames", "Hide puzzles and games", false, PAGES_GROUP, "home"],
+    ["news", "Hide LinkedIn News panel", false, PAGES_GROUP, "home"],
     ["myNetwork", "Hide My Network", false, PAGES_GROUP, "blackout"],
     ["networkPeople", "Hide “People you may know”", false, PAGES_GROUP, "myNetwork"],
     ["networkSuggestions", "Hide suggestion panels on My Network", false, PAGES_GROUP, "myNetwork"],
     ["networkGames", "Hide puzzles and games", false, PAGES_GROUP, "myNetwork"],
+    ["networkPremium", "Hide Premium adverts and upsells", false, PAGES_GROUP, "myNetwork"],
     ["jobs", "Hide Jobs", false, PAGES_GROUP, "blackout"],
     ["jobsSuggestions", "Hide “More jobs for you”", false, PAGES_GROUP, "jobs"],
     ["messaging", "Hide Messaging", false, PAGES_GROUP, "blackout"],
@@ -183,7 +185,6 @@
     ["rightRail", "Hide right-hand column", false, RAILS, "blackout"],
     ["leftRail", "Hide left-hand column", false, RAILS, "blackout"],
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
-    ["news", "Hide LinkedIn News panel", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide business features", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
     // Neither of these belongs to the page it is named after: the chat bubble
@@ -206,6 +207,9 @@
   // while it is on rather than pretending they are still yours to set.
   const COVERS = [
     ["games", ["homeGames", "networkGames"]],
+    // "People who viewed your profile" is a Premium panel, and it is on My
+    // Network as well as on a profile.
+    ["premium", ["networkPremium"]],
   ];
 
   function coverOf(key) {
@@ -218,7 +222,11 @@
   // covered by a global is worth showing as the settled fact it is.
   function coveredBy(key, settings) {
     const global = coverOf(key);
-    return global && withDefaults(settings)[global] === true ? global : null;
+    if (!global) return null;
+    const merged = withDefaults(settings);
+    // On itself, or with something above it already doing its job: hiding every
+    // advert covers the Premium ones, and so covers the per-page switch too.
+    return merged[global] === true || isMoot(global, merged) ? global : null;
   }
 
   const MIRRORS = [

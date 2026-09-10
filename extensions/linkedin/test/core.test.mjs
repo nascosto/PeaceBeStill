@@ -19,20 +19,20 @@ const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url))
 // Every setting, in order, with its default. All the switches are off, and the
 // one chooser is empty, so a fresh install changes nothing and stores nothing.
 const DEFAULTS = [
-  ...["blackout", "home", "feed", "composer", "suggested", "recommended", "socialProof", "homeGames",
-    "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "jobs", "jobsSuggestions",
+  ...["blackout", "home", "feed", "composer", "suggested", "recommended", "socialProof", "homeGames", "news",
+    "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "networkPremium", "jobs", "jobsSuggestions",
     "messaging", "notifications", "profile", "profilePeople", "profileSuggestions"].map((key) => [key, false]),
   ["homeRedirect", ""],
   ...["ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "rightRail", "leftRail",
-    "games", "news", "forBusiness", "aiAssistant",
+    "games", "forBusiness", "aiAssistant",
     "messagingOverlay", "notificationCount"].map((key) => [key, false]),
 ];
 
 const KEYS = DEFAULTS.map(([k]) => k);
 const GROUPS = ["The whole site", "Pages", "Advertisements", "Side rails", "Elsewhere on LinkedIn"];
 
-test("the feature keys are the agreed thirty-three, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed thirty-four, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key), key);
@@ -93,7 +93,7 @@ test("pageFor names the destination a path belongs to, and nothing else", () => 
 test("the suggestion panels belong to the pages they appear on", () => {
   for (const [key, page] of [["profileSuggestions", "profile"], ["networkSuggestions", "myNetwork"],
     ["jobsSuggestions", "jobs"], ["networkPeople", "myNetwork"], ["profilePeople", "profile"],
-    ["homeGames", "home"], ["networkGames", "myNetwork"]]) {
+    ["homeGames", "home"], ["networkGames", "myNetwork"], ["networkPremium", "myNetwork"]]) {
     assert.equal(PeaceBeStill.parentOf(key), page, key);
     assert.equal(PeaceBeStill.isMoot(key, { [page]: true }), true, key);
   }
@@ -130,12 +130,17 @@ test("feed and rightRail are parents in their own right", () => {
     assert.equal(PeaceBeStill.isMoot(key, { ads: true }), true, key);
     assert.equal(PeaceBeStill.isMoot(key, { feed: true }), false, `${key} is not the feed's business`);
   }
-  // The puzzles and the news panel turn up outside the right rail too, so
-  // hiding the rail must not grey them out.
-  for (const key of ["games", "news", "forBusiness"]) {
+  // The puzzles turn up outside the right rail too, so hiding the rail must
+  // not grey them out.
+  for (const key of ["games", "forBusiness"]) {
     assert.equal(PeaceBeStill.parentOf(key), "blackout", key);
     assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), false, key);
   }
+  // The news panel is only ever on the home page, so it answers to that -- but
+  // it sits in the rail rather than being the rail, so the rail does not own it.
+  assert.equal(PeaceBeStill.parentOf("news"), "home");
+  assert.equal(PeaceBeStill.isMoot("news", { home: true }), true);
+  assert.equal(PeaceBeStill.isMoot("news", { rightRail: true }), false);
   // Nor does hiding the rail touch the adverts, which answer to their own.
   for (const key of ["otherAds", "premium"]) {
     assert.equal(PeaceBeStill.isMoot(key, { rightRail: true }), false, key);

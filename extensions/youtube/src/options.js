@@ -132,7 +132,8 @@
       // locked, so that what is happening is plain rather than looking as
       // though the page's own switch were simply off. It still goes when its
       // page goes: a lone row under a page that is not there means nothing.
-      const covering = choices ? null : coveredBy(key, settings);
+      // Not worth dressing a row that is about to be taken off the page.
+      const covering = choices || moot ? null : coveredBy(key, settings);
       box.disabled = Boolean(covering);
       if (covering) box.checked = true;
       // A chooser counts as on when it has been moved off its default.

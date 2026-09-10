@@ -128,14 +128,18 @@
         const covered = isMoot(key, settings) || settings[mirrorParent] === true;
         box.checked = covered || settings[key] === true;
         box.disabled = covered;
-        row.hidden = filtered || isMoot(mirrorParent, settings);
+        // And it goes when the switch it is shown under is on, not only when
+        // that switch has itself been taken over: hiding the feed hides the
+        // adverts in the feed, and a locked tick saying so is only noise.
+        row.hidden = filtered || isMoot(mirrorParent, settings) || settings[mirrorParent] === true;
         continue;
       }
       // A global switch doing this one's job everywhere leaves it ticked and
       // locked, so that what is happening is plain rather than looking as
       // though the page's own switch were simply off. It still goes when its
       // page goes: a lone row under a page that is not there means nothing.
-      const covering = choices ? null : coveredBy(key, settings);
+      // Not worth dressing a row that is about to be taken off the page.
+      const covering = choices || moot ? null : coveredBy(key, settings);
       box.disabled = Boolean(covering);
       if (covering) box.checked = true;
       // A chooser counts as on when it has been moved off its default.
