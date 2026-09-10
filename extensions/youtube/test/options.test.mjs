@@ -158,12 +158,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ footer: true, create: true });
-  assert.match(byId.summary.textContent, /2 of 43/);
+  assert.match(byId.summary.textContent, /2 of 44/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["footer", "create"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 43/);
+  assert.match(byId.summary.textContent, /0 of 44/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

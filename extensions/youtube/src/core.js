@@ -38,7 +38,12 @@
     ["notifications", "Hide notifications bell and unread count in tab title", false, HEADER, "header"],
     ["exploreTrending", "Hide Explore section, Trending, and their pages", false, HEADER],
     ["subscriptions", "Hide Subscriptions (sidebar entry, channel list and feed page)", false, HEADER],
-    ["homeFeed", "Hide home page feed", false, HOME],
+    // Home had no switch of its own: hiding its feed left the entry in the
+    // sidebar pointing at an empty page, and nothing at all took the entry
+    // away. This is the same shape as Subscriptions above -- the entry, and
+    // the page behind it.
+    ["home", "Hide Home (sidebar entry and the page)", false, HEADER],
+    ["homeFeed", "Hide home page feed", false, HOME, "home"],
     ["homeToSubscriptions", "Send home page to Subscriptions feed", false, HOME, "subscriptions"],
     ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", false, HOME],
     ["mixes", "Hide Mixes (auto-generated playlists)", false, HOME],
