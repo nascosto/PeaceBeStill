@@ -15,7 +15,9 @@ export function snapshot(probeSelectors, probeText, shadowSelectors) {
     .filter((e) => e.getClientRects().length && !e.parentElement.closest('[role="listitem"]')).length;
   const out = {
     path: location.pathname,
-    attr: document.documentElement.getAttribute("data-peacebestill"),
+    // Null while the page is being replaced -- which happens here, because
+    // hiding a page sends you off it while we are looking at it.
+    attr: document.documentElement ? document.documentElement.getAttribute("data-peacebestill") : null,
     probes: {},
     feedItems: topLevelFeedItems(),
     marks: {},

@@ -153,6 +153,14 @@ async function store(values) {
     ${Object.keys(values).length ? `await browser.storage.sync.set(${JSON.stringify(values)});` : ""}
     return "ok";
   })()`);
+  // The page remembers what was applied last time so it can act before storage
+  // answers. Here that memory is always one setting behind, and acting on it
+  // sends the page elsewhere mid-audit. It is cleared each time, so what is
+  // measured is what storage says and nothing else.
+  await page.evaluate(`(() => { try {
+    localStorage.removeItem("peacebestill.tokens");
+    localStorage.removeItem("peacebestill.goes");
+  } catch { /* blocked */ } return "ok"; })()`).catch(() => {});
   // Long enough for the content script to hear the change and re-apply: it
   // runs at once, and its marking pass is debounced by 200ms.
   await settle(900);
@@ -179,7 +187,14 @@ async function look() {
   // is a known shape, so a wrong answer is obvious.
   for (let attempt = 0; attempt < 3; attempt++) {
     step("reading the page");
-    const raw = await page.evaluate(SNAPSHOT);
+    let raw;
+    try {
+      raw = await page.evaluate(SNAPSHOT);
+    } catch {
+      // The page went out from under the reading. Wait and ask again.
+      await settle(1500);
+      continue;
+    }
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.probes && typeof parsed.feedItems === "number") return parsed;
@@ -201,7 +216,7 @@ try {
     for (const key of KEYS) {
       if (key === "blackout" || key === "homeRedirect") continue;
       await store({ [key]: true });
-      const now = await look();
+      let now = await look();
       if (signedOut(now.path)) {
         console.log(`\n  Signed out at ${now.path} -- LinkedIn ended the session.`);
         console.log("  Sign in again in the dev browser, then re-run. Nothing below here was measured.");
@@ -211,17 +226,24 @@ try {
       // because the extension moved it. What the extension applied is worth
       // checking too: a switch that never arrived and a switch that does
       // nothing otherwise print the same thing, which is nothing.
-      const landed = now.path === base.path;
       const applied = now.attr === key;
       const suspected = present.filter((name) => now.probes[name] === 0);
       const feedTook = base.feedItems - now.feedItems;
       const marked = tally(now.marks, key);
 
       if (!applied) {
+        // A page that has just been sent somewhere else has not read storage
+        // yet. Ask once more before calling it a miss.
+        await settle(2500);
+        now = await look();
+      }
+      if (now.attr !== key) {
         console.log(`  ${key.padEnd(17)} SKIPPED: the setting never reached the page (attribute was ${JSON.stringify(now.attr)})`);
+        // And go back, or everything after this is measured on another page.
+        if (now.path !== base.path) { await store({}); await goToPage(path); }
         continue;
       }
-      if (!landed) {
+      if (now.path !== base.path) {
         // Taking a page away is supposed to take you off it, so being somewhere
         // else is the feature working, not the measurement failing. It is also
         // the one thing that costs a page load: we have to come back.
@@ -251,10 +273,15 @@ try {
       // can be taken before it has caught up.
       const ledger = tally(again.marks, key) || marked;
 
-      // Judged on the settled reading: the first one can be taken mid-render,
-      // when something marked has not been hidden yet and looks like a failure.
-      if (ledger && ledger.showing > 0) {
-        console.log(`  ${key.padEnd(17)} FAILED: ${ledger.showing} of ${ledger.found} marked still showing`);
+      // Judged on the settled reading, and on what this switch marks itself.
+      // The settled one because the first can be taken mid-render, with
+      // something marked that has not been hidden yet. Its own marks because a
+      // family is worth counting in the description but not in the verdict:
+      // hiding the profile takes its place in the top bar, and what its
+      // children mark on a profile page is theirs to hide, not its failure to.
+      const own = again.marks[key];
+      if (own && own.showing > 0) {
+        console.log(`  ${key.padEnd(17)} FAILED: ${own.showing} of ${own.found} marked still showing`);
         continue;
       }
       const what = [...took];
@@ -299,7 +326,10 @@ try {
         await store({ homeRedirect: value });
         await goToPage(path);
         const where = await look();
-        const ok = where.path === want || where.path.startsWith(want);
+        // "/in/me/" is a stand-in that lands on whoever is signed in, so the
+        // path arrived at is not the path asked for, and is right anyway.
+        const ok = where.path === want || where.path.startsWith(want)
+          || (want.startsWith("/in/") && where.path.startsWith("/in/"));
         console.log(`  ${`homeRedirect=${value}`.padEnd(17)} ${ok ? `sent us to ${where.path}` : `FAILED: wanted ${want}, got ${where.path}`}`);
       }
       await store({});
