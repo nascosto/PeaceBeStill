@@ -105,16 +105,32 @@ html[data-peacebestill~="ads"] section:has(> iframe[data-ad-banner]) { display: 
 
 /* ---- The top bar -------------------------------------------------------- */
 
-/* Each item in the primary navigation. They are the one part of the site whose
+/* Two top bars, not one. Messaging and other older corners of the site still
+   run the previous front end, whose nav has none of the testid the new one
+   carries -- so every rule here missed them entirely, and the whole bar stayed.
+   The old one names its items in a class instead, and reaches its pages by
+   link where the new one sometimes uses a button.
+
+   The button is no longer required to be the item's own child either: a badge
+   wraps it, and a rule that insists on a direct child stops matching the
+   moment there is something to be notified about.
+
+   Each item in the primary navigation. They are the one part of the site whose
    markup says what it is: an anchor to the page it opens, or -- for Home and
    the profile menu, which are buttons -- a label, or the only avatar in the
    bar. Nothing here needs a mark. */
-html[data-peacebestill~="home"] [data-testid="primary-nav"] li:has(> button[aria-label^="Home"]) { display: none !important; }
-html[data-peacebestill~="myNetwork"] [data-testid="primary-nav"] li:has(> a[href*="/mynetwork"]) { display: none !important; }
-html[data-peacebestill~="jobs"] [data-testid="primary-nav"] li:has(> a[href*="/jobs"]) { display: none !important; }
-html[data-peacebestill~="messaging"] [data-testid="primary-nav"] li:has(> a[href*="/messaging"]) { display: none !important; }
-html[data-peacebestill~="notifications"] [data-testid="primary-nav"] li:has(> a[href*="/notifications"]) { display: none !important; }
-html[data-peacebestill~="profile"] [data-testid="primary-nav"] li:has(> button img) { display: none !important; }
+html[data-peacebestill~="home"] [data-testid="primary-nav"] li:has(button[aria-label^="Home"]),
+html[data-peacebestill~="home"] li.global-nav__primary-item:has(a[href*="/feed"]) { display: none !important; }
+html[data-peacebestill~="myNetwork"] [data-testid="primary-nav"] li:has(a[href*="/mynetwork"]),
+html[data-peacebestill~="myNetwork"] li.global-nav__primary-item:has(a[href*="/mynetwork"]) { display: none !important; }
+html[data-peacebestill~="jobs"] [data-testid="primary-nav"] li:has(a[href*="/jobs"]),
+html[data-peacebestill~="jobs"] li.global-nav__primary-item:has(a[href*="/jobs"]) { display: none !important; }
+html[data-peacebestill~="messaging"] [data-testid="primary-nav"] li:has(a[href*="/messaging"]),
+html[data-peacebestill~="messaging"] li.global-nav__primary-item:has(a[href*="/messaging"]) { display: none !important; }
+html[data-peacebestill~="notifications"] [data-testid="primary-nav"] li:has(a[href*="/notifications"]),
+html[data-peacebestill~="notifications"] li.global-nav__primary-item:has(a[href*="/notifications"]) { display: none !important; }
+html[data-peacebestill~="profile"] [data-testid="primary-nav"] li:has(button img),
+html[data-peacebestill~="profile"] li.global-nav__primary-item:has(button img) { display: none !important; }
 /* The row of links at the foot of the page, and the copyright line under it.
    Named by the one link in it that does not move, since the class names are
    hashed and rotate. Whatever follows it inside the same parent goes with it:
@@ -128,7 +144,8 @@ html[data-peacebestill~="profile"] [data-testid="primary-nav"] li:has(> button i
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]),
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]) ~ * { display: none !important; }
 html[data-peacebestill~="forBusiness"] [data-pbs~="forBusiness"] { display: none !important; }
-html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(> button[aria-label="For Business"]) { display: none !important; }
+html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(button[aria-label="For Business"]),
+html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(button[aria-label="For Business"]) { display: none !important; }
 
 /* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's
    older screens, whose class names are not hashed and whose ids are stable. */
