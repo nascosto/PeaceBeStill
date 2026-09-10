@@ -115,6 +115,16 @@
       if (el.children.length > 3) continue;
       const text = (el.textContent || "").trim();
       if (text && text.length < 90) out.push(text);
+      // And what the element says on its own, without its children. "Promoted
+      // by" and "likes this" are bare text sitting beside a link holding a
+      // name, so reading only the pair together makes the label depend on how
+      // long that name happens to be.
+      const own = [...(el.childNodes || [])]
+        .filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent || "")
+        .join(" ")
+        .trim();
+      if (own && own !== text && own.length < 90) out.push(own);
     }
     return out;
   }

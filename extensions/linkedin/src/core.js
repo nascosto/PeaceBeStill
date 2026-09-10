@@ -50,7 +50,10 @@
   // and hide.css hides the mark. Exact matches only, against leaf elements, so
   // a post that merely mentions the word is not caught by it.
   const KINDS = [
-    ["sponsored", /^(Promoted|Sponsored)$/],
+    // An advert in the feed is labelled "Promoted", "Sponsored", or "Promoted
+    // by <company>" -- the last one under a real person's name, so the post
+    // reads as theirs until you notice who paid for it.
+    ["sponsored", /^(Promoted|Sponsored)$|^Promoted by\b/],
     ["suggested", /^Suggested(?: for you)?$/],
     ["recommended", /^Recommended(?: for you)?$/],
   ];

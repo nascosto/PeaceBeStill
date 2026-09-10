@@ -25,8 +25,12 @@ const { labelsIn } = new Function("PeaceBeStill", `
 function node(tag, ...kids) {
   const self = {
     tagName: tag.toUpperCase(),
+    nodeType: 1,
     kids,
     children: kids.filter((k) => typeof k !== "string"),
+    get childNodes() {
+      return kids.map((k) => (typeof k === "string" ? { nodeType: 3, textContent: k } : k));
+    },
     get textContent() {
       return kids.map((k) => (typeof k === "string" ? k : k.textContent)).join("");
     },
@@ -74,4 +78,32 @@ test("the reaction count at the foot of every post is not social proof", () => {
 test("the body of a post is too long to be mistaken for a label", () => {
   const body = node("p", node("span", "A".repeat(120) + " likes this"));
   assert.deepEqual([...kindsFor(labelsIn(body))], []);
+});
+
+// An advert in the feed can be labelled "Promoted by <company>", sitting under
+// a real person's name, so the post reads as theirs. The name of the company is
+// in a link beside the words, so reading only the two together made the label
+// depend on how long that company's name is.
+//
+// <span>Promoted by<span> </span><a><strong>Company</strong></a></span>
+const promoted = (company) =>
+  node("p", node("span", "Promoted by", node("span", " "), node("a", node("strong", company))));
+
+test("an advert labelled by its buyer is an advert", () => {
+  const kinds = kindsFor(labelsIn(promoted("Some Hospital")));
+  assert.ok(kinds.includes("sponsored"), "a promoted post was not recognised as an advert");
+});
+
+test("and stays one however long the buyer's name is", () => {
+  const long = "The Royal Institute for the Advancement of Very Long Organisational Names Indeed";
+  const labels = labelsIn(promoted(long));
+  assert.ok(labels.includes("Promoted by"),
+    `the words alone were never read; all that was found was ${JSON.stringify(labels)}`);
+  assert.ok(kindsFor(labels).includes("sponsored"));
+});
+
+test("a post that merely mentions promotion is left alone", () => {
+  for (const text of ["Promoted bystander", "Self-Promoted by me", "I was promoted by my boss"]) {
+    assert.deepEqual([...kindsFor([text])], [], `${JSON.stringify(text)} was taken for an advert`);
+  }
 });
