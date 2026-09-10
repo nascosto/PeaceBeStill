@@ -37,7 +37,8 @@ function fakeWorld({ stored = {}, failStorage = false, pathname = "/feed/", titl
     },
   };
   const replaced = [];
-  const location = { pathname, search: "", replace: (url) => replaced.push(url) };
+  const location = { pathname, search: "", replace: (url) => replaced.push(url),
+    assign: (url) => replaced.push(url) };
   class MutationObserver {
     constructor(fn) { this.fn = fn; }
     observe() { this.observing = true; }
@@ -199,4 +200,29 @@ test("a page that will not keep anything still works", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(world.root.dataset.peacebestill, "games");
+});
+
+// The logo goes home, and home may be a page you have asked never to see.
+test("the logo goes where the home page goes", async () => {
+  // Away from the home page, or the redirect happens before anything is clicked.
+  const world = await run({ stored: { home: true, homeRedirect: "profile" }, pathname: "/messaging/" });
+  const onClick = world.listeners.click;
+  assert.ok(onClick, "nothing is listening for a click on the logo");
+
+  const logo = { querySelector: (sel) => (/LinkedIn/.test(sel) ? {} : null) };
+  const event = { target: { closest: () => logo }, preventDefault() { this.prevented = true; },
+                  stopPropagation() { this.stopped = true; } };
+  onClick(event);
+  assert.equal(event.prevented, true, "the site's own handler still ran");
+  assert.deepEqual(world.replaced, ["/in/me/"], "the logo did not go to the chosen page");
+});
+
+test("a click that is not the logo is left alone", async () => {
+  const world = await run({ stored: { home: true, homeRedirect: "profile" }, pathname: "/messaging/" });
+  const notLogo = { querySelector: () => null };
+  const event = { target: { closest: () => notLogo }, preventDefault() { this.prevented = true; },
+                  stopPropagation() {} };
+  world.listeners.click(event);
+  assert.equal(event.prevented, undefined);
+  assert.deepEqual(world.replaced, []);
 });

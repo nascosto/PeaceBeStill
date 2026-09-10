@@ -611,6 +611,27 @@
     }, 300);
   }
 
+  // The logo goes home. When home is not where you want to be, it should go
+  // where the home page would have sent you -- rather than there and away
+  // again, which is a page you asked never to see, seen. It is a button rather
+  // than a link, so there is no address on it to change: the click is taken
+  // instead, and only when there is somewhere else to be.
+  let watchingLogo = false;
+
+  function watchLogo() {
+    if (watchingLogo || !document.addEventListener) return;
+    watchingLogo = true;
+    document.addEventListener("click", (event) => {
+      const goes = redirectFor("/feed/", settings);
+      if (!goes) return;
+      const el = event.target && event.target.closest && event.target.closest('[role="button"], a');
+      if (!el || !el.querySelector('svg[aria-label="LinkedIn"]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      location.assign(goes);
+    }, true);
+  }
+
   function refresh({ redirect = true } = {}) {
     if (redirect && redirectIfAsked()) return;
     apply();
@@ -618,6 +639,7 @@
     tidyRules();
     watchDom();
     watchPath();
+    watchLogo();
   }
 
   // Before anything else, and before the first paint: everything set last time.
