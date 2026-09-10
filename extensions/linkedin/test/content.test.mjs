@@ -52,8 +52,16 @@ function fakeWorld({ stored = {}, failStorage = false, pathname = "/feed/", titl
   return { root, document, api, location, MutationObserver, changed, replaced, listeners, setInterval, clearInterval, tick, ticks };
 }
 
+function fakeStore(map, blocked = false) {
+  return {
+    getItem: (key) => { if (blocked) throw new Error("blocked"); return map.has(key) ? map.get(key) : null; },
+    setItem: (key, value) => { if (blocked) throw new Error("blocked"); map.set(key, String(value)); },
+  };
+}
+
 async function run(options) {
   const world = fakeWorld(options);
+  world.remembered = new Map(Object.entries(options?.remembered ?? {}));
   const context = loadClassic(new URL("../src/core.js", import.meta.url));
   loadClassic(new URL("../src/content.js", import.meta.url), {
     PeaceBeStill: context.PeaceBeStill,
@@ -63,6 +71,7 @@ async function run(options) {
     MutationObserver: world.MutationObserver,
     setTimeout, clearTimeout,
     setInterval: world.setInterval, clearInterval: world.clearInterval,
+    localStorage: fakeStore(world.remembered),
   });
   // Let the storage promise settle.
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -144,4 +153,50 @@ test("the page a rule applies to follows the URL, rather than the page that load
 test("with everything off, nothing is left polling the URL", async () => {
   const world = await run();
   assert.deepEqual(world.ticks.filter(Boolean), [], "a poll was left running with no switch on");
+});
+
+// storage.sync answers a moment after the page starts drawing. Until it does,
+// nothing is hidden -- so on every load the things you asked to be rid of were
+// there to see first. What was applied last time is kept where it can be read
+// without waiting, and put on the page before it is first painted.
+test("the last tokens are on the page before storage has answered", async () => {
+  const world = fakeWorld({ stored: { games: true } });
+  const store = new Map([["peacebestill.tokens", "sponsored games"]]);
+  const context = loadClassic(new URL("../src/core.js", import.meta.url));
+  loadClassic(new URL("../src/content.js", import.meta.url), {
+    PeaceBeStill: context.PeaceBeStill,
+    browser: world.api,
+    document: world.document,
+    location: world.location,
+    MutationObserver: world.MutationObserver,
+    setTimeout, clearTimeout,
+    setInterval: world.setInterval, clearInterval: world.clearInterval,
+    localStorage: fakeStore(store),
+  });
+  // Synchronously, before the storage promise has had a turn.
+  assert.equal(world.root.dataset.peacebestill, "sponsored games",
+    "the page was left unhidden until storage answered");
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(world.root.dataset.peacebestill, "games", "what storage says has to win");
+  assert.equal(store.get("peacebestill.tokens"), "games", "and is remembered for next time");
+});
+
+test("a page that will not keep anything still works", async () => {
+  const world = fakeWorld({ stored: { games: true } });
+  const context = loadClassic(new URL("../src/core.js", import.meta.url));
+  loadClassic(new URL("../src/content.js", import.meta.url), {
+    PeaceBeStill: context.PeaceBeStill,
+    browser: world.api,
+    document: world.document,
+    location: world.location,
+    MutationObserver: world.MutationObserver,
+    setTimeout, clearTimeout,
+    setInterval: world.setInterval, clearInterval: world.clearInterval,
+    localStorage: fakeStore(new Map(), true),
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(world.root.dataset.peacebestill, "games");
 });

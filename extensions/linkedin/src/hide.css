@@ -117,6 +117,7 @@ html[data-peacebestill~="profile"] [data-testid="primary-nav"] li:has(> button i
    names the site's footer rather than every footer. */
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]),
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]) ~ * { display: none !important; }
+html[data-peacebestill~="forBusiness"] [data-pbs~="forBusiness"] { display: none !important; }
 html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(> button[aria-label="For Business"]) { display: none !important; }
 
 /* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's

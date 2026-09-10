@@ -72,8 +72,24 @@
     }
   }
 
+  // Where the last-applied tokens are kept. storage.sync answers a moment
+  // after the page starts drawing, so on the first paint nothing would be
+  // hidden yet. This is read at once instead, and whatever storage says a
+  // moment later replaces it.
+  const REMEMBERED = "peacebestill.tokens";
+
+  function remember(tokens) {
+    try {
+      globalThis.localStorage.setItem(REMEMBERED, tokens);
+    } catch {
+      // Site storage can be blocked. The page simply draws before we answer.
+    }
+  }
+
   function apply() {
-    document.documentElement.dataset.peacebestill = tokensFor(settings);
+    const tokens = tokensFor(settings);
+    remember(tokens);
+    document.documentElement.dataset.peacebestill = tokens;
     // Which destination this page belongs to, so the stylesheet can take the
     // page away as well as its place in the top bar.
     document.documentElement.dataset.pbsPage = pageFor(location.pathname);
@@ -281,6 +297,9 @@
         .concat(labelled(/^Who your viewers also viewed$/))],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
       ["composer", () => labelled(/^Start a post$/)],
+      // Putting work up is a thing businesses do, so it answers to the same
+      // switch as the rest of them rather than to the page it happens to be on.
+      ["forBusiness", () => labelled(/^Post a free job$/)],
       // "People you may know" is on profiles as well as on My Network, and each
       // belongs to its page. The heading names the place -- "People you may
       // know in Salt Lake City" -- so it matches the opening.
@@ -344,6 +363,18 @@
         // a box grown through anonymous divs: a real panel can be most of a
         // short column -- "Suggestions for you" is 1206px of a 1658px one --
         // and refusing it there left the heading hiding alone.
+        // What a box must not swallow, whichever rule picked it.
+        const holds = (candidate) => {
+          if (foreign.some((other) => candidate.contains(other))) return true;
+          if (neighbours.some((other) => candidate.contains(other))) return true;
+          return [...candidate.querySelectorAll(KEEP_OUT)].some((e) => !from.contains(e));
+        };
+        // A <section> carrying a label of its own is LinkedIn saying "this is
+        // a panel". It is also where growing has to stop, and being the
+        // boundary meant it could never be the box: "More jobs for you" hid
+        // its own heading and left every job under it, and so did the
+        // suggestions on My Network.
+        const panel = root.tagName === "SECTION" && !holds(root) ? root : null;
         const fits = (candidate) => {
           if (foreign.some((other) => candidate.contains(other))) return false;
           // Asked here rather than only of the winner, so that a section
@@ -370,7 +401,7 @@
         // and has to reach out to find the panel it names.
         const chosen = fromHeight >= PANEL_SIZE
           ? from
-          : (sections.find(fits) || growTo(from, root, foreign, kind));
+          : (panel || sections.find(fits) || growTo(from, root, foreign, kind));
         // Whichever rule picked it, a box holding a neighbouring panel is the
         // wrong box. Better to hide nothing than to hide someone else's card.
         const box = neighbours.some((other) => chosen.contains(other)) ? null : chosen;
@@ -428,7 +459,7 @@
   }
 
   const MARKED = ["sponsored", "suggested", "recommended", "socialProof", "games", "news",
-    "homeGames", "networkGames", "networkPremium",
+    "homeGames", "networkGames", "networkPremium", "forBusiness",
     "jobsPromoted", "networkPeople", "profilePeople", "profileSuggestions", "networkSuggestions",
     "jobsSuggestions", "composer", "premium", "otherAds", "ads"];
 
@@ -492,6 +523,13 @@
     }
     if (observer) return;
     observer = new MutationObserver(() => {
+      // Run in the observer's own turn. The browser has not painted yet when
+      // this happens, so what is hidden here is never seen at all. Waiting even
+      // a fifth of a second means the thing appears and then vanishes, which
+      // reads worse than leaving it alone would.
+      pass();
+      // And again once things have settled, for whatever arrives after the
+      // element that holds it -- a panel's height, a post's label.
       clearTimeout(observeTimer);
       observeTimer = setTimeout(pass, 200);
     });
@@ -525,14 +563,35 @@
     }, 300);
   }
 
-  function refresh() {
-    if (redirectIfAsked()) return;
+  function refresh({ redirect = true } = {}) {
+    if (redirect && redirectIfAsked()) return;
     apply();
     styleShadow();
     tidyRules();
     watchDom();
     watchPath();
   }
+
+  // Before anything else, and before the first paint: everything set last time.
+  // Not the tokens alone -- the whole pass, so that what the stylesheet cannot
+  // name is marked and hidden as it arrives rather than after. Until this, the
+  // watching did not begin until storage had answered, and whatever the page
+  // drew in the meantime was there to see.
+  //
+  // Being wrong here costs a moment of the page looking as it did when you
+  // left it. Being late costs seeing everything you asked to be rid of.
+  //
+  // The redirect is left out: it is not a switch, so it is not among the
+  // tokens, and acting on a guess about where you want to be sent is worse
+  // than waiting the moment it takes to know.
+  try {
+    const remembered = globalThis.localStorage.getItem(REMEMBERED);
+    if (remembered !== null) {
+      stored = Object.fromEntries(remembered.split(" ").filter(Boolean).map((key) => [key, true]));
+      settings = effective(stored);
+      refresh({ redirect: false });
+    }
+  } catch { /* nothing remembered, or site storage is blocked */ }
 
   api.storage.sync.get(KEYS).then((values) => {
     stored = values;
