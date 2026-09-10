@@ -374,7 +374,11 @@
         // boundary meant it could never be the box: "More jobs for you" hid
         // its own heading and left every job under it, and so did the
         // suggestions on My Network.
-        const panel = root.tagName === "SECTION" && !holds(root) ? root : null;
+        // But a page wraps everything in one of those too: the jobs feed sits
+        // inside <section aria-label="Primary content">, and taking that for a
+        // panel would hide the entire page to be rid of one heading. A panel
+        // has a single heading; a page has one per panel.
+        const panel = root.tagName === "SECTION" && headings(root) <= 1 && !holds(root) ? root : null;
         const fits = (candidate) => {
           if (foreign.some((other) => candidate.contains(other))) return false;
           // Asked here rather than only of the winner, so that a section
