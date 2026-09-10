@@ -17,6 +17,19 @@ test("options.html is a real document: language, a heading, and core.js before o
   }
 });
 
+// Firefox for Android opens this page as an ordinary tab. Without the viewport
+// line it is laid out at desktop width and shrunk to fit, so the page is
+// legible on a phone only by pinching -- and nothing about that fails loudly
+// enough to be noticed from a desktop.
+test("the options page is laid out for the screen it is on, not a desktop one", () => {
+  const html = readFileSync(new URL("../src/options.html", import.meta.url), "utf8");
+  assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1"/);
+  const css = readFileSync(new URL("../src/options.css", import.meta.url), "utf8");
+  assert.match(css, /@media \(max-width: \d+px\)/, "a narrow screen gets its own rules");
+  // Nothing may state a width the screen might not have.
+  assert.doesNotMatch(css, /min-width:\s*\d{3,}px/, "no floor wider than a phone");
+});
+
 // A fake DOM just big enough for options.js.
 function fakeDocument() {
   const element = (tag) => {

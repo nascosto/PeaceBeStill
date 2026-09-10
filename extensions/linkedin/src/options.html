@@ -2,6 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- Firefox for Android opens this page as an ordinary tab, and without
+         this it is laid out at desktop width and then shrunk to fit, which
+         leaves every label too small to read and every checkbox too small to
+         hit. On desktop the line does nothing. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PeaceBeStill for LinkedIn</title>
     <link rel="stylesheet" href="options.css" />
   </head>

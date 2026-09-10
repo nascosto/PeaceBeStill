@@ -38,11 +38,24 @@ legend { padding: 0 6px 0 0; font-size: 11px; text-transform: uppercase; letter-
    sits under the text rather than under the box. */
 label { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 7px; padding: 2px 0; }
 label[hidden] { display: none; }
-/* Nested under the switch it covers it, one step per level. */
-label[data-depth="1"] { margin-left: 22px; }
-label[data-depth="2"] { margin-left: 44px; }
-label[data-depth="3"] { margin-left: 66px; }
-label[data-depth="4"] { margin-left: 88px; }
+/* Nested under the switch it covers it, one step per level. The step is a
+   variable because four levels of 22px eat half of a phone screen, and the
+   labels are sentences: on a narrow one the nesting still has to read as
+   nesting, but not at the cost of the words. */
+:root { --step: 22px; }
+label[data-depth="1"] { margin-left: var(--step); }
+label[data-depth="2"] { margin-left: calc(var(--step) * 2); }
+label[data-depth="3"] { margin-left: calc(var(--step) * 3); }
+label[data-depth="4"] { margin-left: calc(var(--step) * 4); }
+
+@media (max-width: 480px) {
+  :root { --step: 13px; }
+  body { margin: 12px 10px; }
+  /* A checkbox at its default size is a small target on a touch screen. */
+  input[type="checkbox"] { width: 16px; height: 16px; }
+  #all-off { padding: 8px 12px; }
+  #filter { padding: 8px 9px; }
+}
 input[type="checkbox"] { margin: 0; }
 
 /* The one setting that is a choice rather than a tick: its words come first,
