@@ -94,14 +94,25 @@
   // hide.css hides the marks. Items are marked once and remembered, because a
   // feed grows by hundreds of nodes as it scrolls.
   const FEED_ITEMS = '[data-testid="mainFeed"] [role="listitem"]';
-  const seen = new WeakSet();
+  // How many times an item has been asked what it is. LinkedIn puts a list item
+  // on the page before it fills it in, so deciding once -- the first time it is
+  // seen, while it is still empty -- left it unmarked for good. Once it has an
+  // answer that answer is kept; until then it is asked again a few times, and
+  // then let be, so an ordinary post is not re-read on every mutation forever.
+  const seen = new WeakMap();
+  const TRIES = 5;
 
   // The short texts in an item's header, which is where the label lives. Bounded
   // so a long post with many spans cannot make this expensive.
   function labelsIn(item) {
     const out = [];
     for (const el of [...item.querySelectorAll("span,p")].slice(0, 80)) {
-      if (el.children.length) continue;
+      // A label is not always a leaf. "<name> likes this" is one span holding a
+      // link, a spacer and a bare piece of text, so reading only childless
+      // elements found the name and the space but never the sentence -- which
+      // is why this only ever matched posts written by hand for a test. A few
+      // children are read whole; more than that starts on the body of the post.
+      if (el.children.length > 3) continue;
       const text = (el.textContent || "").trim();
       if (text && text.length < 90) out.push(text);
     }
@@ -110,10 +121,15 @@
 
   function markFeedItems() {
     for (const item of document.querySelectorAll(FEED_ITEMS)) {
-      if (seen.has(item)) continue;
-      seen.add(item);
+      const asked = seen.get(item) || 0;
+      if (asked >= TRIES) continue;
       const kinds = kindsFor(labelsIn(item));
-      if (kinds.length) item.setAttribute("data-pbs", kinds.join(" "));
+      if (kinds.length) {
+        item.setAttribute("data-pbs", kinds.join(" "));
+        seen.set(item, TRIES);
+      } else {
+        seen.set(item, asked + 1);
+      }
     }
   }
 
@@ -147,12 +163,27 @@
 
   const headings = (el) => el.querySelectorAll("h1,h2,h3").length;
 
+  // An element with no box of its own. Hiding one hides nothing, because there
+  // was never anything of it to see.
+  function drawsNothing(el) {
+    try {
+      return getComputedStyle(el).display === "contents";
+    } catch {
+      return false;
+    }
+  }
+
   function growTo(el, root, foreign, kind) {
     let node = el;
     const limit = DEPTH[kind] ?? DEFAULT_DEPTH;
-    for (let level = 0; level < limit; level++) {
+    for (let level = 0; level < limit; ) {
       const parent = node.parentElement;
       if (!parent || parent === root) break;
+      // A wrapper set to display:contents draws nothing of its own: it is a
+      // join in the markup, not a level of the panel. Counting those spent the
+      // whole budget before the box reached the card it was inside, so the
+      // puzzles disappeared and the empty card they sat in did not.
+      if (!drawsNothing(parent)) level += 1;
       // Another kind of panel: the box would swallow something it should not.
       if (foreign.some((other) => parent.contains(other))) break;
       // Never absorb an item that belongs to something else. "Try Premium for
@@ -218,7 +249,8 @@
       // the typographic one, which is not the one on a keyboard.
       ["games", () => [...document.querySelectorAll('div[aria-label^="Play "]')]
         .filter((el) => el.getAttribute("aria-label") !== "Play video")
-        .concat(labelled(/^\W*You[’']ve been selected to join/))],
+        .concat(labelled(/^\W*You[’']ve been selected to join/))
+        .concat(labelled(/^Today[’']s puzzles$/))],
       ["news", () => labelled(/^(LinkedIn News|Top stories)$/)],
       ["otherAds", () => labelled(/^(Ad Options|Ad|Advertisement|Promoted by)$/)],
       // Upsells, told from the "Premium" badge a company or member carries by
