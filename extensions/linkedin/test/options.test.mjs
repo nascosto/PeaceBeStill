@@ -132,8 +132,10 @@ test("every switch is nested under the one that covers it, one indent per level"
     "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "networkPremium", "jobs", "jobsSuggestions",
     "messaging", "notifications", "profile", "profilePeople", "profileSuggestions", "homeRedirect",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
-    "games", "forBusiness", "siteFooter", "appNag", "aiAssistant",
+    "games", "forBusiness", "siteFooter", "aiAssistant",
     "messagingOverlay", "notificationCount",
+    // Its own section at the end: it names something only the mobile site has.
+    "appNag",
   ]);
   // "Hide everything" parents the whole page, so it alone sits flush and
   // everything else is indented -- the switches inside the feed and inside the

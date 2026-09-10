@@ -3,8 +3,8 @@
 (function (root) {
   // Options-page sections, in display order. Blackout has one to itself, and
   // it comes first, because it is the parent of everything below it.
-  const GROUPS = ["The whole site", "Pages", "Advertisements", "Elsewhere on LinkedIn"];
-  const [SITE, PAGES_GROUP, ADS, ELSEWHERE] = GROUPS;
+  const GROUPS = ["The whole site", "Pages", "Advertisements", "Elsewhere on LinkedIn", "Mobile"];
+  const [SITE, PAGES_GROUP, ADS, ELSEWHERE, MOBILE] = GROUPS;
 
   // What the page says, and what the tab says, once the site is blacked out.
   // hide.css draws this string; a test holds the two to the same sentence.
@@ -189,16 +189,16 @@
     ["games", "Hide puzzles and games", false, ELSEWHERE, "blackout"],
     ["forBusiness", "Hide business features", false, ELSEWHERE, "blackout"],
     ["siteFooter", "Hide the site footer", false, ELSEWHERE, "blackout"],
-    // Only the mobile site nags you to leave it for the app, so this does
-    // nothing on a desktop -- which is the same as every other switch that
-    // names something a given page does not have.
-    ["appNag", "Hide prompts to install the app", false, ELSEWHERE, "blackout"],
     ["aiAssistant", "Hide LinkedIn's AI assistant panel", false, ELSEWHERE, "blackout"],
     // Neither of these belongs to the page it is named after: the chat bubble
     // is pinned to every page, and LinkedIn puts the unread count in the tab
     // title whether or not you have hidden Notifications.
     ["messagingOverlay", "Hide messaging overlay", false, ELSEWHERE, "blackout"],
     ["notificationCount", "Hide unread count in tab title", false, ELSEWHERE, "blackout"],
+    // Last, and in a section of its own, because what LinkedIn serves a phone
+    // is a different site from the one it serves a desktop: these switches
+    // name things that are only ever there, and do nothing on a desktop.
+    ["appNag", "Hide prompts to install the app", false, MOBILE, "blackout"],
   ];
 
   const KEYS = FEATURES.map(([key]) => key);
