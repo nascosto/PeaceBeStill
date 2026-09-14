@@ -104,10 +104,12 @@ Thirty-four settings, and the first one is the blunt one.
   on, every other switch is greyed out and says so, because none of them can
   matter when there is no page left to act on.
 - **the pages**, one switch each: Home, My Network, Jobs, Messaging,
-  Notifications and Profile. A page switch takes the page itself as well as its
-  place in the top bar, which is why everything belonging to a page sits under
-  it — the feed and its posts under Home, the chat overlay under Messaging, the
-  unread tab count under Notifications
+  Notifications and Profile. A page switch takes its place in the top bar and
+  the page itself, and what is on that page sits under it — the feed and its
+  posts under Home. Two exceptions. Profile takes only your own menu, since
+  `/in/` is everyone's profile, so the profile panel switches stand on their
+  own. And Messaging still runs LinkedIn's older front end, where only its place
+  in the top bar goes for now
 - the feed: hide it entirely, or just the "Start a post" box, suggested posts,
   "Recommended for you", and posts someone in your network liked or commented on
 - **where the home page goes instead**, chosen from a list rather than ticked.

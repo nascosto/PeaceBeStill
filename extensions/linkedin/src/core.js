@@ -173,8 +173,12 @@
     ["messaging", "Hide Messaging", false, PAGES_GROUP, "blackout"],
     ["notifications", "Hide Notifications", false, PAGES_GROUP, "blackout"],
     ["profile", "Hide Profile", false, PAGES_GROUP, "blackout"],
-    ["profilePeople", "Hide “People you may know”", false, PAGES_GROUP, "profile"],
-    ["profileSuggestions", "Hide suggestion panels on profiles", false, PAGES_GROUP, "profile"],
+    // Not under Profile, though they sit beside it. Hiding Profile takes your
+    // own menu out of the top bar and nothing else -- see PAGES -- so a panel
+    // on a profile page is still there with it on. Nested, these were counted
+    // as covered and switched off, and the panels came back.
+    ["profilePeople", "Hide “People you may know” on profiles", false, PAGES_GROUP, "blackout"],
+    ["profileSuggestions", "Hide suggestion panels on profiles", false, PAGES_GROUP, "blackout"],
     // Not under Home: with Home gone, being sent somewhere else is more useful,
     // not less. The one setting that is not a switch.
     ["homeRedirect", "Default page", "", PAGES_GROUP, "blackout", REDIRECTS],
