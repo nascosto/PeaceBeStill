@@ -1,8 +1,8 @@
 // Runs at document_start on youtube.com. Keeps the root element's
 // data-peacebestill attribute equal to the enabled feature keys (hide.css does
-// the hiding), opens the video description, calms ALL-CAPS titles, prunes the
-// loading placeholders a feed leaves behind, and shows the dislike count when
-// asked.
+// the hiding), sends hidden pages and the logo elsewhere, opens the video
+// description, calms ALL-CAPS titles, prunes the loading placeholders a feed
+// leaves behind, and shows the dislike count when asked.
 (function () {
   // The manifest runs this in every youtube.com frame, for the sake of players
   // embedded on other sites. Any other YouTube frame -- live chat, for one --
@@ -12,14 +12,20 @@
 
   const api = globalThis.browser ?? globalThis.chrome;
   const { KEYS, tokensFor, effective, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled } = globalThis.PeaceBeStill;
+  const { recall, remember, listen, watchMutations, followLogo } = globalThis.PeaceBeStillPage;
 
-  // What storage holds, and what that means once defaults are filled in and
-  // anything a parent switch has made moot is forced off. Only `settings` is
-  // ever read, and every read tests for truth: storage keeps only values that
-  // differ from a default, so an absent key means off and must never be
-  // mistaken for on.
-  let stored = {};
-  let settings = effective(stored);
+  // What is in force: the defaults filled in, and anything a parent switch has
+  // made moot forced off. Only this is ever read, and every read tests for
+  // truth: storage keeps only values that differ from a default, so an absent
+  // key means off and must never be mistaken for on.
+  let settings = effective({});
+
+  // What was applied last time, for the next load to use before storage
+  // answers (shared/page.js explains why, and removes the key once nothing is
+  // on). Every YouTube setting is a switch, so the tokens are the whole of it.
+  // Not kept from an embedded player: that frame's storage belongs to the site
+  // it is embedded in.
+  const REMEMBERED = "peacebestill.tokens";
 
   // YouTube is a single-page app: the watch page appears after its own
   // navigation event, not a page load, and its parts arrive a little after
@@ -43,7 +49,9 @@
   }
 
   function apply() {
-    document.documentElement.dataset.peacebestill = tokensFor(settings);
+    const tokens = tokensFor(settings);
+    document.documentElement.dataset.peacebestill = tokens;
+    if (!inFrame) remember(REMEMBERED, tokens);
   }
 
   function onWatchPage() {
@@ -203,90 +211,71 @@
   }
 
   // --- The logo --------------------------------------------------------------
-  // While home is sent to Subscriptions the logo goes straight there, rather
-  // than to a home page that would only redirect. YouTube's own click handler
-  // would still route to Home, so the click stops at the link and the browser
-  // follows the href. Put back as it was the moment the redirect is off.
-  const SUBSCRIPTIONS = "/feed/subscriptions";
-  const keepToHref = (event) => event.stopPropagation();
-
-  function pointLogo() {
-    for (const logo of document.querySelectorAll("a#logo")) {
-      const pointed = logo.hasAttribute("data-peacebestill-logo");
-      if (settings.homeToSubscriptions && logo.getAttribute("href") !== SUBSCRIPTIONS) {
-        logo.setAttribute("href", SUBSCRIPTIONS);
-        if (!pointed) {
-          logo.setAttribute("data-peacebestill-logo", "");
-          logo.addEventListener("click", keepToHref, true);
-        }
-      } else if (!settings.homeToSubscriptions && pointed) {
-        logo.setAttribute("href", "/");
-        logo.removeAttribute("data-peacebestill-logo");
-        logo.removeEventListener("click", keepToHref, true);
-      }
-    }
-  }
+  // The desktop logo is a link, the phone's a button in ytm-home-logo. While
+  // home is sent elsewhere, a click on either goes straight there (see
+  // followLogo in shared/page.js).
+  const isLogo = (target) => Boolean(target.closest("a#logo, ytm-home-logo"));
 
   // --- The observer ----------------------------------------------------------
   // One observer serves every job that has to be redone as YouTube renders.
-  // Its own debounce is separate from the scroll one below, so a long scroll
-  // cannot keep starving the title pass.
-  let observer = null;
-  let observeTimer = null;
+  // What the eye would catch -- a shouting title, the tab's unread count -- is
+  // put right in the observer's own turn, before the page paints. What has to
+  // measure the page waits until it has gone quiet: measuring forces a layout,
+  // and YouTube mutates the document several times a second while a video
+  // plays. The scroll listener below has its own debounce, so a long scroll
+  // cannot starve either.
   let scrollTimer = null;
 
-  function observe() {
-    pointLogo();
-    if (settings.titleCase) calmTitles();
-    tightenDescription();
-    pruneStalePlaceholders();
-    calmTabTitle();
-  }
+  const watcher = watchMutations({
+    immediate() {
+      if (settings.titleCase) calmTitles();
+      calmTabTitle();
+    },
+    settled() {
+      tightenDescription();
+      pruneStalePlaceholders();
+    },
+  });
 
   function watchDom() {
-    const wanted = settings.titleCase || settings.expandDescription || settings.stalePlaceholders || settings.notifications || settings.homeToSubscriptions;
-    if (!wanted) {
-      pointLogo(); // one last pass puts the logo back
-      observer?.disconnect();
-      observer = null;
+    if (!(settings.titleCase || settings.expandDescription || settings.stalePlaceholders || settings.notifications)) {
+      watcher.stop();
       return;
     }
-    observe();
-    if (observer) return;
-    observer = new MutationObserver(() => {
-      clearTimeout(observeTimer);
-      observeTimer = setTimeout(observe, 200);
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    if (settings.titleCase) calmTitles();
+    calmTabTitle();
+    tightenDescription();
+    pruneStalePlaceholders();
+    watcher.start();
   }
 
   // --- Wiring ----------------------------------------------------------------
-  function refresh() {
+  // `early` is a pass on what was remembered, before storage has answered: it
+  // redirects and hides, and does nothing that acts on a switch you may since
+  // have turned off -- above all it never asks the dislike service about a
+  // video. That waits for storage.
+  function refresh({ early = false } = {}) {
     if (redirectIfAsked()) return;
     apply();
+    watchDom();
+    if (!inFrame) followLogo(isLogo, () => redirectFor("/", settings));
+    if (early) return;
     switchAutoplayOff();
     expandDescription();
     removeDislikes();
     showDislikes();
-    watchDom();
   }
 
-  api.storage.sync.get(KEYS).then((values) => {
-    stored = values;
-    settings = effective(stored);
-    refresh();
-  }).catch(() => {
-    // Storage unavailable: the defaults are off, so do nothing at all.
-  });
+  // Before the first paint: whatever was set last time -- redirect included,
+  // since every redirect here follows from a switch -- and then what storage
+  // says, which always wins.
+  const remembered = inFrame ? null : recall(REMEMBERED);
+  if (remembered !== null) {
+    settings = effective(Object.fromEntries(remembered.split(" ").filter(Boolean).map((key) => [key, true])));
+    refresh({ early: true });
+  }
 
-  api.storage.onChanged.addListener((changes, area) => {
-    if (area !== "sync") return;
-    // A removal arrives as a change with no newValue: drop the key so it falls
-    // back to its default rather than reading as "off".
-    for (const [key, change] of Object.entries(changes)) {
-      if ("newValue" in change) stored[key] = change.newValue;
-      else delete stored[key];
-    }
+  listen(api, KEYS, (stored) => {
     settings = effective(stored);
     refresh();
   });
