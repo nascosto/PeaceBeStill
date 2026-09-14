@@ -1,16 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
 // options.js runs in another vm realm, so objects it creates have foreign
 // prototypes; compare plain copies.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test("options.html is a real document: language, a heading, and core.js before options.js", () => {
+test("options.html is a real document: language, a heading, and settings.js, core.js, options.js in that order", () => {
   const html = readFileSync(new URL("../src/options.html", import.meta.url), "utf8");
   assert.match(html, /<html lang="en">/);
   assert.match(html, /<h1[^>]*>/);
+  assert.ok(html.indexOf('src="settings.js"') < html.indexOf('src="core.js"'));
   assert.ok(html.indexOf('src="core.js"') < html.indexOf('src="options.js"'));
   for (const id of ["features", "filter", "summary", "all-off", "status"]) {
     assert.match(html, new RegExp(`id="${id}"`), id);
@@ -89,7 +90,7 @@ function rowsOf(root) {
 }
 
 async function render(stored = {}, { failWrites = false } = {}) {
-  const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+  const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
   const { document, byId } = fakeDocument();
   const writes = [];
   const removes = [];

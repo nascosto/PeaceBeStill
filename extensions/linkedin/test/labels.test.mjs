@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
 // The label pass reads the short texts in a feed item's header and decides what
 // kind of post it is. It had no test against real markup, and "someone in your
@@ -14,13 +14,38 @@ import { loadClassic } from "../../../test/helpers/load-classic.mjs";
 const SRC = new URL("../src/", import.meta.url);
 const content = readFileSync(new URL("content.js", SRC), "utf8");
 const helpers = content.slice(content.indexOf("  const FEED_ITEMS ="), content.indexOf("  const MARKED = ["));
-const { kindsFor } = loadClassic(new URL("core.js", SRC)).PeaceBeStill;
+const { kindsFor } = loadCore(SRC).PeaceBeStill;
 
 const { labelsIn } = new Function("PeaceBeStill", `
   const { kindsFor } = PeaceBeStill;
   ${helpers}
   return { labelsIn };
-`)(loadClassic(new URL("core.js", SRC)).PeaceBeStill);
+`)(loadCore(SRC).PeaceBeStill);
+
+// The label scan read the whole page's text once for every kind of panel --
+// fifteen times over, on every mutation -- and a long feed took a frame's
+// budget several times over. Text is read once per pass now; this counts reads.
+test("finding panels reads each element's text once, however many kinds of panel it asks about", () => {
+  const reads = new Map();
+  const element = (tag, text) => {
+    const el = { tagName: tag, parentElement: null, children: [], getAttribute: () => null, setAttribute() {},
+      closest: () => null, contains: (other) => other === el, querySelectorAll: () => [], getBoundingClientRect: () => ({ height: 10 }) };
+    Object.defineProperty(el, "textContent", { get() { reads.set(el, (reads.get(el) || 0) + 1); return text; } });
+    return el;
+  };
+  const elements = ["Promoted", "Today’s puzzles", "LinkedIn News", "Start a post", "Some ordinary text", "More jobs for you"]
+    .map((text) => element("SPAN", text));
+  const body = { tagName: "BODY", getBoundingClientRect: () => ({ height: 1000 }), querySelectorAll: () => [], contains: () => true };
+  const document = { body, querySelectorAll: (sel) => (sel === "span,p,h1,h2,h3,div,button" ? elements : []) };
+  const { markModules } = new Function("PeaceBeStill", "document", "location", "getComputedStyle", `
+    const { kindsFor } = PeaceBeStill;
+    ${helpers}
+    return { markModules };
+  `)(loadCore(SRC).PeaceBeStill, document, { pathname: "/jobs/" }, () => ({ display: "block" }));
+  markModules();
+  const most = Math.max(...reads.values());
+  assert.equal(most, 1, `an element's text was read ${most} times in one pass`);
+});
 
 function node(tag, ...kids) {
   const self = {
@@ -139,7 +164,7 @@ test("a post that merely ends in the word is left where it is", () => {
 // stops thinking you are at the bottom: it fetches, we hide it, it fetches
 // again, for as long as the tab is open and without anyone scrolling. A long
 // run of hidden items with nothing kept after them is that loop.
-const { cutoffAt } = loadClassic(new URL("core.js", SRC)).PeaceBeStill;
+const { cutoffAt } = loadCore(SRC).PeaceBeStill;
 const feed = (pattern) => [...pattern].map((c) => c === "h");
 
 test("a feed that keeps bringing nothing worth keeping is cut off", () => {

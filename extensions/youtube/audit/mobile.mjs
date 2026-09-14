@@ -11,7 +11,9 @@
 // mobile DOM, which both browsers render the same way. Signed out means the
 // Create button, the notifications bell and the Subscriptions pivot item do
 // not exist, so those three are checked by hand.
+import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import puppeteer from "puppeteer-core";
+import { whyNotYouTube } from "./served.mjs";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -24,6 +26,8 @@ const UA = "Mozilla/5.0 (Android 14; Mobile; rv:142.0) Gecko/142.0 Firefox/142.0
 const PHONE = { width: 412, height: 915, isMobile: true, hasTouch: true, deviceScaleFactor: 2.6 };
 const VIDEO = process.argv[2] ?? "https://m.youtube.com/watch?v=dQw4w9WgXcQ";
 const HOME = "https://m.youtube.com/";
+// A Mix: the one kind of page with the playlist panel under the player.
+const PLAYLIST = "https://m.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(OUT, { recursive: true });
 
@@ -34,23 +38,37 @@ const { KEYS, FEATURES } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
-  vm.runInNewContext(readFileSync(new URL("../src/core.js", import.meta.url), "utf8"), context);
+  vm.createContext(context);
+  for (const file of ["settings.js", "core.js"]) vm.runInContext(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8"), context);
   return context.PeaceBeStill;
 })();
 
 // Split hide.css into the mobile rules (what this audit is for) and the
-// desktop ones, which must match nothing on a mobile page.
+// desktop ones, which must match nothing on a mobile page. The split is the
+// stylesheet's own section heading, not a guess from the selector: guessing
+// from "ytm-" filed a phone rule with no ytm- element in it as a desktop one,
+// and it silently dropped out of this audit. hide-css.test.mjs keeps the
+// heading there.
+const MOBILE_SECTION = "/* ---- Firefox for Android (m.youtube.com)";
 const MOBILE = {};
 const DESKTOP = {};
-for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8")
-  .matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
-  const into = m[2].includes("ytm-") ? MOBILE : DESKTOP;
+const stylesheet = readFileSync(new URL("../src/hide.css", import.meta.url), "utf8");
+const phoneFrom = stylesheet.indexOf(MOBILE_SECTION);
+if (phoneFrom === -1) throw new Error("hide.css has lost its Firefox for Android section heading");
+for (const m of stylesheet.matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
+  const into = m.index > phoneFrom ? MOBILE : DESKTOP;
   into[m[1]] = into[m[1]] ? `${into[m[1]]}, ${m[2]}` : m[2];
 }
 
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((k) => [k, !PARENTS.includes(k)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((k) => [k, true]));
+// A switch holding a switch that holds switches (videoDetails holds buttonsBar
+// and description). With it on, the middle layer is hidden along with it, so
+// that layer's own rules could never be seen working. One pass has every
+// switch on except these.
+const GRANDPARENTS = PARENTS.filter((p) => FEATURES.some(([key, , , , parent]) => parent === p && PARENTS.includes(key)));
+const MIDDLE_PASS = Object.fromEntries(KEYS.map((k) => [k, !GRANDPARENTS.includes(k)]));
 
 function survey(selectors) {
   const out = {};
@@ -65,14 +83,21 @@ async function phone(browser, url) {
   const page = await browser.newPage();
   await page.setUserAgent(UA);
   await page.setViewport(PHONE);
+  await beforeLoad("youtube");
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const notYouTube = whyNotYouTube(page.url(), "m.youtube.com");
+  if (notYouTube) throw new Error(notYouTube);
   await sleep(7000);
   return page;
 }
 
+// Every real page load counts against a budget shared by all audit runs on this
+// machine (scripts/audit-budget.mjs), so claim this run's before starting.
+claimRunOrExit("youtube", 3);
+
 const browser = await puppeteer.launch({
   executablePath: CHROMIUM, headless: true,
-  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--no-first-run", "--lang=en-US",
+  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--no-first-run", "--mute-audio", "--lang=en-US",
     "--no-sandbox", "--disable-dev-shm-usage"],
 });
 const report = { video: VIDEO, extId: EXT_ID, mobileRules: Object.keys(MOBILE) };
@@ -88,6 +113,11 @@ try {
   report.served = await watch.evaluate(() => location.host);
   report.watchChildren = await watch.evaluate(survey, MOBILE);
   await watch.screenshot({ path: OUT + "youtube-mobile-children.png" });
+
+  await write(MIDDLE_PASS);
+  await watch.bringToFront();
+  await sleep(1500);
+  report.watchMiddle = await watch.evaluate(survey, MOBILE);
 
   await write(EVERYTHING);
   await watch.bringToFront();
@@ -110,6 +140,10 @@ try {
   report.home = await home.evaluate(survey, MOBILE);
   await home.screenshot({ path: OUT + "youtube-mobile-home.png" });
   await home.close();
+
+  const playlist = await phone(browser, PLAYLIST);
+  report.playlist = await playlist.evaluate(survey, MOBILE);
+  await playlist.close();
 } catch (e) {
   report.error = String(e.stack || e);
 } finally {
@@ -123,8 +157,10 @@ writeFileSync(OUT + "mobile-report.json", JSON.stringify(report, null, 2));
 const failures = [];
 for (const [pass, data, judge] of [
   ["watch/children", report.watchChildren, (k) => !PARENTS.includes(k)],
+  ["watch/middle", report.watchMiddle, (k) => !GRANDPARENTS.includes(k)],
   ["watch/parents", report.watchParents, () => true],
   ["home", report.home, () => true],
+  ["playlist", report.playlist, () => true],
 ]) {
   for (const [key, r] of Object.entries(data ?? {})) {
     if (judge(key) && r.present > 0 && r.visible > 0) failures.push(`${pass}: ${key} (${r.visible}/${r.present} still rendered)`);
@@ -136,10 +172,10 @@ if (report.afterToggle?.relatedVideos?.present > 0 && report.afterToggle.related
 }
 const leaked = Object.entries(report.desktopRulesOnMobile ?? {}).filter(([, r]) => r.present > 0).map(([k]) => k);
 
-const rows = [["switch", "watch/children", "watch/parents", "home"]];
+const rows = [["switch", "watch/children", "watch/middle", "watch/parents", "home", "playlist"]];
 for (const key of Object.keys(MOBILE)) {
   const cell = (d) => (d?.[key] ? `${d[key].visible}/${d[key].present}` : "-");
-  rows.push([key, cell(report.watchChildren), cell(report.watchParents), cell(report.home)]);
+  rows.push([key, cell(report.watchChildren), cell(report.watchMiddle), cell(report.watchParents), cell(report.home), cell(report.playlist)]);
 }
 const w = rows[0].map((_, i) => Math.max(...rows.map((r) => r[i].length)));
 console.log("visible/present, so 0/n means the rule worked and 0/0 means nothing to hide here\n");

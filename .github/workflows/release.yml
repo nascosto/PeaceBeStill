@@ -1,36 +1,68 @@
 name: release
 
-# A v* tag publishes every extension in the repo down four channels: the two
-# stores, and the two self-hosted ones that system-setups installs from.
+# A v* tag on main publishes every extension as a new version of its
+# addons.mozilla.org listing, through Mozilla's API. Nothing is signed or hosted
+# here: Mozilla signs each version and ships it to everyone who installed from
+# AMO once review passes. The Chrome Web Store is published to as well once
+# that store's credentials and listings exist.
 #
-# The GitHub release is created before either store submission, so a rejected
-# or queued review never costs us the self-hosted channel -- those assets are
-# what the browser policies fetch, and they must land on the tag regardless.
+# Releases are cut from main and nowhere else, so a tag on any other commit
+# fails before anything is built. AMO is what a release is for, so a tag with
+# its credentials or either listing missing fails there too, rather than
+# quietly skipping an extension.
 #
-# Store steps are skipped, not failed, when their credentials are absent, so
-# the pipeline works from the first tag and starts publishing to each store as
-# soon as that store's listing exists.
+# Each extension is submitted by a job of its own (submit.yml), and one failing
+# does not stop the other. The release page is only created once every
+# submission has gone through, so it never claims a version went out that did
+# not.
 on:
   push:
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  check:
     runs-on: ubuntu-latest
     env:
       AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
       YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
-      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-      YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
       LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
-      LINKEDIN_CWS_ITEM_ID: ${{ vars.LINKEDIN_CWS_ITEM_ID }}
     steps:
+      - name: addons.mozilla.org must be set up for both extensions
+        env:
+          HAS_AMO_SECRET: ${{ secrets.AMO_JWT_SECRET != '' }}
+          YOUTUBE_SLUG_AS_SECRET: ${{ secrets.YOUTUBE_AMO_SLUG != '' }}
+          LINKEDIN_SLUG_AS_SECRET: ${{ secrets.LINKEDIN_AMO_SLUG != '' }}
+        run: |
+          missing=0
+          miss() { echo "::error::$1"; missing=1; }
+          [ -n "$AMO_JWT_ISSUER" ] || miss "The AMO_JWT_ISSUER secret is not set (https://addons.mozilla.org/developers/addon/api/key/)."
+          [ "$HAS_AMO_SECRET" = "true" ] || miss "The AMO_JWT_SECRET secret is not set (https://addons.mozilla.org/developers/addon/api/key/)."
+          for ext in YOUTUBE LINKEDIN; do
+            var="${ext}_AMO_SLUG"; as_secret="${ext}_SLUG_AS_SECRET"
+            if [ -z "${!var}" ]; then
+              if [ "${!as_secret}" = "true" ]; then
+                miss "$var is saved as a Secret. The workflow reads it as a Variable: add it under Settings > Secrets and variables > Actions > Variables."
+              else
+                miss "The $var variable is not set: add it under Settings > Secrets and variables > Actions > Variables."
+              fi
+            fi
+          done
+          exit $missing
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: The tag must be on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main. Releases are cut from main: merge the work into main, then tag main."
+            exit 1
+          fi
 
       - run: npm ci --ignore-scripts
       - run: npm test
@@ -39,104 +71,33 @@ jobs:
       - name: The tag must match every extension's manifest version
         run: node scripts/check-version.mjs "$GITHUB_REF_NAME" extensions/youtube/src extensions/linkedin/src
 
-      # The store package is the source tree; the self-hosted one is that tree
-      # with the update_url keys and its own Firefox ID (scripts/variant.mjs).
-      - name: Build both packages
-        run: npm run build
+  submit:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: [youtube, linkedin]
+    uses: ./.github/workflows/submit.yml
+    with:
+      extension: ${{ matrix.extension }}
+      ref: ${{ github.sha }}
+      require_amo: true
+    secrets: inherit
 
-      - name: Sign the self-hosted build (Mozilla's unlisted channel)
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir dist/self-hosted/youtube \
-            --artifacts-dir dist --channel unlisted
-          mv dist/*.xpi dist/peacebestill-youtube.xpi
-
-      - name: Sign the self-hosted LinkedIn build (Mozilla's unlisted channel)
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir dist/self-hosted/linkedin \
-            --artifacts-dir dist --channel unlisted
-          mv dist/*.xpi dist/peacebestill-linkedin.xpi
-
-      - name: Pack the CRX and write the update manifests
-        env:
-          YOUTUBE_CRX_PRIVATE_KEY: ${{ secrets.YOUTUBE_CRX_PRIVATE_KEY }}
-        run: |
-          printf '%s\n' "$YOUTUBE_CRX_PRIVATE_KEY" > "$RUNNER_TEMP/youtube.pem"
-          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/youtube.pem" \
-            --zip dist/peacebestill-youtube.zip --out dist/peacebestill-youtube.crx
-          node scripts/update-manifests.mjs --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" \
-            --key "$RUNNER_TEMP/youtube.pem" --src dist/self-hosted/youtube \
-            --assets peacebestill-youtube --out dist
-          rm -f "$RUNNER_TEMP/youtube.pem"
-
-      - name: Pack the LinkedIn CRX and write its update manifests
-        env:
-          LINKEDIN_CRX_PRIVATE_KEY: ${{ secrets.LINKEDIN_CRX_PRIVATE_KEY }}
-        run: |
-          printf '%s\n' "$LINKEDIN_CRX_PRIVATE_KEY" > "$RUNNER_TEMP/linkedin.pem"
-          node scripts/pack-crx.mjs --key "$RUNNER_TEMP/linkedin.pem" \
-            --zip dist/peacebestill-linkedin.zip --out dist/peacebestill-linkedin.crx
-          node scripts/update-manifests.mjs --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" \
-            --key "$RUNNER_TEMP/linkedin.pem" --src dist/self-hosted/linkedin \
-            --assets peacebestill-linkedin --out dist
-          rm -f "$RUNNER_TEMP/linkedin.pem"
-
+  release:
+    needs: submit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
+      LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
+    steps:
+      # No assets: the zips are unsigned, and a browser installs these from the
+      # stores.
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            dist/peacebestill-youtube.xpi dist/peacebestill-youtube.crx \
-            dist/peacebestill-youtube-updates.json dist/peacebestill-youtube-updates.xml \
-            dist/peacebestill-linkedin.xpi dist/peacebestill-linkedin.crx \
-            dist/peacebestill-linkedin-updates.json dist/peacebestill-linkedin-updates.xml \
-            --title "$GITHUB_REF_NAME" \
-            --notes "PeaceBeStill $GITHUB_REF_NAME. Also on addons.mozilla.org and the Chrome Web Store; the assets below are the self-hosted copies, which system-setups' browser policies fetch."
-
-      # Listed on AMO, so the package must be the source tree: a listed add-on
-      # may not carry an update_url, and Mozilla distributes and updates it.
-      # Gated on the slug, not the credentials: those also sign the self-hosted
-      # build, so their presence says nothing about whether a listing exists to
-      # receive a version. Set the variable once the listing has been created.
-      - name: Submit to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != '' && env.YOUTUBE_AMO_SLUG != ''
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir extensions/youtube/src \
-            --artifacts-dir dist/amo --channel listed
-
-      - name: Publish to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != ''
-        env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-        run: |
-          node scripts/publish-cws.mjs --item "$YOUTUBE_CWS_ITEM_ID" \
-            --zip dist/peacebestill-youtube-store.zip
-
-      - name: Submit LinkedIn to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != '' && env.LINKEDIN_AMO_SLUG != ''
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir extensions/linkedin/src \
-            --artifacts-dir dist/amo --channel listed
-
-      - name: Publish LinkedIn to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''
-        env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-        run: |
-          node scripts/publish-cws.mjs --item "$LINKEDIN_CWS_ITEM_ID" \
-            --zip dist/peacebestill-linkedin-store.zip
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
+            --notes "PeaceBeStill $GITHUB_REF_NAME, submitted to addons.mozilla.org: https://addons.mozilla.org/firefox/addon/$YOUTUBE_AMO_SLUG/ and https://addons.mozilla.org/firefox/addon/$LINKEDIN_AMO_SLUG/ -- each version appears there once Mozilla's review passes."

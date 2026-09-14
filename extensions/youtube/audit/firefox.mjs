@@ -9,7 +9,9 @@
 //
 // Signed out means the Create button and the subscription dots do not exist,
 // and the sidebar may not render at all; check those by hand.
+import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import net from "node:net";
+import { whyNotYouTube } from "./served.mjs";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -75,19 +77,27 @@ writeFileSync(join(profile, "user.js"), [
   'user_pref("browser.startup.homepage", "about:blank");',
   'user_pref("browser.aboutwelcome.enabled", false);',
   'user_pref("app.update.enabled", false);',
+  // Headless Firefox still plays the video's sound out loud.
+  'user_pref("media.volume_scale", "0.0");',
   `user_pref("marionette.port", ${PORT});`,
   "",
 ].join("\n"));
 // --remote-allow-system-access lets the audit read the add-on's internal UUID.
+// Every real page load counts against a budget shared by all audit runs on this
+// machine (scripts/audit-budget.mjs), so claim this run's before starting.
+// One load: the watch page, then every pass applied to it live.
+claimRunOrExit("youtube", 1);
+
 const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", "--headless", "--no-remote", "--new-instance", "--profile", profile, "about:blank"], { stdio: "ignore" });
 
 // Keep in step with src/hide.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
-const { KEYS, FEATURES } = await (async () => {
+const { KEYS, FEATURES, calmTitle } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
-  vm.runInNewContext(readFileSync(new URL("../src/core.js", import.meta.url), "utf8"), context);
+  vm.createContext(context);
+  for (const file of ["settings.js", "core.js"]) vm.runInContext(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8"), context);
   return context.PeaceBeStill;
 })();
 
@@ -96,9 +106,21 @@ const { KEYS, FEATURES } = await (async () => {
 // takes the sidebar button with it). So: one pass with the parents off, which
 // exercises every child, then a second with them on, which exercises the
 // parents themselves.
+// A shouting title written into the page, which the observer must calm. The
+// recommendations are tried first and the video's own title after, because a
+// signed-out headless browser does not always get the recommendations.
+const SHOUTING = "THIS IS A SHOUTING TEST TITLE FOR THE AUDIT";
+const TITLE_PROBES = ["yt-lockup-metadata-view-model h3 a", "#video-title", "ytd-watch-metadata h1 yt-formatted-string"];
+
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
+// A switch holding a switch that holds switches (videoDetails holds buttonsBar
+// and description). With it on, the middle layer is hidden along with it, so
+// that layer's own rules could never be seen working. One pass has every
+// switch on except these.
+const GRANDPARENTS = PARENTS.filter((p) => FEATURES.some(([key, , , , parent]) => parent === p && PARENTS.includes(key)));
+const MIDDLE_PASS = Object.fromEntries(KEYS.map((key) => [key, !GRANDPARENTS.includes(key)]));
 
 const SELECTORS = {};
 for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8").matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
@@ -138,6 +160,23 @@ try {
   await client.send("WebDriver:NewSession", { capabilities: { alwaysMatch: {} } });
   await client.send("WebDriver:SetWindowRect", { width: 1400, height: 1000 });
   report.addon = (await client.send("Addon:Install", { path: SRC, temporary: true })).value;
+  // An enterprise policy installs its extensions into every profile, this
+  // throwaway one included, and a content blocker hiding an ad would pass for
+  // one of our switches working. Switch every other extension off first.
+  await client.send("Marionette:SetContext", { value: "chrome" });
+  report.otherExtensionsDisabled = await client.send("WebDriver:ExecuteAsyncScript", { script: `const done = arguments[arguments.length - 1];
+    const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+    (async () => {
+      const others = (await AddonManager.getAddonsByTypes(["extension"])).filter((a) => a.id !== arguments[0] && !a.isSystem && !a.isBuiltin && a.isActive);
+      for (const a of others) await a.disable();
+      done(others.map((a) => a.id));
+    })().catch((e) => done("ERROR " + e));`, args: ["youtube@peacebestill.fyi"] }).then((r) => r.value);
+  await client.send("Marionette:SetContext", { value: "content" });
+  // Switching an extension off can take the tab it had open with it -- the
+  // containers extension does -- and every command after that fails with
+  // "Browsing context has been discarded". So carry on in a tab of our own.
+  const fresh = (await client.send("WebDriver:NewWindow", { type: "tab" })).handle;
+  await client.send("WebDriver:SwitchToWindow", { handle: fresh });
 
   await client.send("Marionette:SetContext", { value: "chrome" });
   const uuids = JSON.parse(await client.script('return Services.prefs.getStringPref("extensions.webextensions.uuids");'));
@@ -146,11 +185,20 @@ try {
   report.optionsUuid = uuid ?? null;
   if (!uuid) throw new Error("the add-on has no internal UUID yet");
 
-  // Writing settings means being on the extension's own origin.
+  // Two tabs, as the Chromium audit has: the options page in one, since writing
+  // settings means being on the extension's own origin, and YouTube in the
+  // other. With one tab those alternated, and every pass reloaded the watch
+  // page -- four loads of YouTube for what one does, since a setting reaches an
+  // open tab over storage.onChanged exactly as it does for a real user.
+  const watchTab = (await client.send("WebDriver:GetWindowHandle")).value;
+  const optionsTab = (await client.send("WebDriver:NewWindow", { type: "tab" })).handle;
+  await client.send("WebDriver:SwitchToWindow", { handle: optionsTab });
+  await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
+  await sleep(600);
+
   async function write(settings) {
-    await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
-    await sleep(600);
-    return client.asyncScript(`
+    await client.send("WebDriver:SwitchToWindow", { handle: optionsTab });
+    const result = await client.asyncScript(`
       const done = arguments[arguments.length - 1];
       const w = window.wrappedJSObject ?? window;
       const api = w.browser ?? (typeof browser !== "undefined" ? browser : null);
@@ -158,9 +206,15 @@ try {
       const value = JSON.parse(arguments[0]);
       api.storage.sync.set(typeof cloneInto === "function" ? cloneInto(value, w) : value).then(() => done("ok"), (e) => done(String(e)));`,
       [JSON.stringify(settings)]);
+    await client.send("WebDriver:SwitchToWindow", { handle: watchTab });
+    await sleep(1500); // long enough for the open page to hear the change and re-apply
+    return result;
   }
 
-  async function onWatchPage() {
+  // The one load of YouTube in this audit.
+  async function openWatchPage() {
+    await client.send("WebDriver:SwitchToWindow", { handle: watchTab });
+    await beforeLoad("youtube");
     await client.send("WebDriver:Navigate", { url: VIDEO });
     const rendered = await waitForWatch(client);
     await sleep(3000);
@@ -168,15 +222,24 @@ try {
     return rendered;
   }
 
-  await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
-  await sleep(600);
   report.optionsBoxes = await client.script('return [...document.querySelectorAll("input[type=checkbox]")].map((b) => `${b.name}=${b.checked}`);');
 
   // Pass one: every child switch on, parents off, so each child has a visible
   // container to act inside.
   report.storageWrite = await write(CHILDREN_PASS);
-  report.watchRendered = await onWatchPage();
+  report.watchRendered = await openWatchPage();
+  const notYouTube = whyNotYouTube((await client.send("WebDriver:GetCurrentURL")).value, "www.youtube.com");
+  if (notYouTube) throw new Error(notYouTube);
+  if (!report.watchRendered) throw new Error("the watch page never rendered, so nothing could be measured");
   report.children = await client.script(SURVEY, [SELECTORS]);
+  report.titleCalm = await client.asyncScript(`
+    const done = arguments[arguments.length - 1];
+    const el = arguments[0].map((sel) => document.querySelector(sel)).find(Boolean);
+    if (!el) return done("no title element found");
+    const node = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode();
+    if (!node) return done("no text node");
+    node.nodeValue = arguments[1];
+    setTimeout(() => done(node.nodeValue), 700);`, [TITLE_PROBES, SHOUTING]);
   writeFileSync(OUT + "youtube-firefox-children.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
 
   // The dislike count needs the buttons row it attaches to, so it belongs here.
@@ -185,14 +248,19 @@ try {
     report.dislikes = await client.script('return document.querySelector(".peacebestill-dislikes")?.textContent || null;');
   }
 
+  // The middle layer, its grandparents still off.
+  await write(MIDDLE_PASS);
+  report.middle = await client.script(SURVEY, [SELECTORS]);
+
   // Pass two: the parents as well.
   await write(EVERYTHING);
-  report.watchRenderedAgain = await onWatchPage();
+  // Still the watch page: nothing navigates it now, and hiding what is on it
+  // must not have taken the page itself away.
+  report.watchRenderedAgain = await client.script('return !!document.querySelector("ytd-watch-flexy");');
   report.parents = await client.script(SURVEY, [SELECTORS]);
 
   // And switching one back off must bring its target back.
   await write({ relatedVideos: false });
-  await onWatchPage();
   report.afterToggle = await client.script(SURVEY, [SELECTORS]);
   writeFileSync(OUT + "youtube-firefox-after-toggle.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
   await client.send("Marionette:Quit", {}).catch(() => {});
@@ -203,6 +271,9 @@ try {
   await sleep(1500);
   rmSync(profile, { recursive: true, force: true });
 }
+// Title calming is script, not stylesheet, so no survey sees it: judged here.
+report.titleCalmed = report.titleCalm === calmTitle(SHOUTING);
+if (!report.titleCalmed) console.error(`title not calmed: got ${JSON.stringify(report.titleCalm)}`);
 writeFileSync(OUT + "firefox-report.json", JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
-process.exitCode = report.error ? 1 : 0;
+process.exitCode = report.error || !report.titleCalmed ? 1 : 0;

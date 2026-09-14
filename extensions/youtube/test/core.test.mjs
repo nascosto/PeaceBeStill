@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
-const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
 
 // Every key, in order, with its default. This is the contract the options
 // page, the stylesheet gates and the stored settings all share.
@@ -16,7 +16,7 @@ const DEFAULTS = [
   "header", "notifications", "exploreTrending", "subscriptions", "home",
   "homeFeed", "homeToSubscriptions", "shorts", "mixes", "promos",
   "relatedVideos", "recommended", "liveChat", "playlistPanel",
-  "fundraiser", "merch", "comments", "profilePhotos", "videoInfo",
+  "fundraiser", "merch", "comments", "profilePhotos", "videoDetails", "videoInfo",
   "buttonsBar", "channelRow", "description",
   "autoplay", "endScreenFeed", "endScreenCards", "annotations",
   "searchShelves", "ads",
@@ -28,7 +28,7 @@ const GROUPS = ["Ads", "Header and sidebar", "Home and feeds", "Watch page", "Pl
 
 // PeaceBeStill comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
-test("the feature keys are the agreed forty-four, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed forty-five, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key));
@@ -54,10 +54,13 @@ test("every parent named is a real key, and no feature is its own ancestor", () 
 
 test("a feature is moot while any ancestor of it is switched on", () => {
   const moot = PeaceBeStill.isMoot;
-  // Hiding the whole top bar makes its parts moot.
-  assert.equal(moot("create", { header: true }), true);
-  assert.equal(moot("notifications", { header: true }), true);
-  assert.equal(moot("create", { header: false }), false);
+  // Hiding the whole top bar does not make Create or the notifications switch
+  // moot: Create is in the bottom bar on mobile, and the unread count is in the
+  // tab title, and neither goes with the top bar.
+  assert.equal(moot("create", { header: true }), false);
+  assert.equal(moot("notifications", { header: true }), false);
+  assert.equal(PeaceBeStill.effective({ header: true, notifications: true }).notifications, true);
+  assert.equal(PeaceBeStill.effective({ header: true, create: true }).create, true);
   // Hiding the description makes everything inside it moot.
   for (const child of ["expandDescription", "descriptionCards", "summary"]) {
     assert.equal(moot(child, { description: true }), true, child);
@@ -73,6 +76,17 @@ test("a feature is moot while any ancestor of it is switched on", () => {
   // A parent, and an unknown key, are never moot.
   assert.equal(moot("header", { header: true }), false);
   assert.equal(moot("bogus", { header: true }), false);
+});
+
+// A covered switch is dropped, so a switch may only sit under one that hides
+// everything it acts on, on every surface it works on -- desktop, mobile, and
+// the tab title. Each parent here was checked on both sites; anything new has
+// to be checked the same way before it joins the list.
+test("nothing is nested under a switch that leaves the child's target showing", () => {
+  const HIDES_ITS_CHILDREN = new Set(["subscriptions", "description", "buttonsBar", "relatedVideos", "comments", "videoDetails"]);
+  for (const [key, , , , parent] of PeaceBeStill.FEATURES) {
+    if (parent) assert.ok(HIDES_ITS_CHILDREN.has(parent), `${key} is nested under ${parent}`);
+  }
 });
 
 test("nothing is on by default: the extension does nothing until asked", () => {
@@ -149,6 +163,33 @@ test("redirectFor sends home to the subscriptions feed and a Short to its watch 
   assert.equal(PeaceBeStill.redirectFor("/", { homeToSubscriptions: true, subscriptions: true }), null);
   // Missing keys take their defaults, and every default is now off.
   assert.equal(PeaceBeStill.redirectFor("/", {}), null);
+});
+
+// Unhook's behaviour: a page whose switch hides it is not left on screen as a
+// blank, it goes home instead.
+test("redirectFor sends a hidden Subscriptions or Explore / Trending page home", () => {
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions", { subscriptions: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions/shorts", { subscriptions: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/trending", { exploreTrending: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/explore", { exploreTrending: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions", {}), null, "not while Subscriptions is shown");
+  assert.equal(PeaceBeStill.redirectFor("/feed/trending", {}), null);
+  assert.equal(PeaceBeStill.redirectFor("/feed/history", { subscriptions: true, exploreTrending: true }), null);
+  // The two home redirects can never chase each other: sending home to
+  // Subscriptions already refuses while Subscriptions is hidden.
+  const both = { subscriptions: true, homeToSubscriptions: true };
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions", both), "/");
+  assert.equal(PeaceBeStill.redirectFor("/", both), null);
+});
+
+// Unhook's "Hide Video Info" takes the whole block under the video, title
+// included; the four finer switches live inside it.
+test("one switch hides everything under the video, and the finer switches nest in it", () => {
+  const { parentOf, isMoot } = PeaceBeStill;
+  for (const key of ["videoInfo", "buttonsBar", "channelRow", "description"]) assert.equal(parentOf(key), "videoDetails", key);
+  assert.equal(isMoot("dislikeCount", { videoDetails: true }), true, "moot two levels down");
+  assert.equal(isMoot("descriptionChips", { videoDetails: true }), true);
+  assert.equal(isMoot("comments", { videoDetails: true }), false, "comments are not under the video info");
 });
 
 test("effective settings: a missing key is off, and a switch its parent made moot is off too", () => {

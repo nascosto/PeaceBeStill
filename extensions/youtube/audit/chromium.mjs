@@ -9,7 +9,9 @@
 //
 // Signed out means the Create button, the subscription dots and (in some
 // layouts) the More from YouTube section do not exist; check those by hand.
+import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import puppeteer from "puppeteer-core";
+import { whyNotYouTube } from "./served.mjs";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -27,11 +29,12 @@ const EXT_ID = [...createHash("sha256").update(SRC).digest("hex").slice(0, 32)]
 
 // Keep in step with src/hide.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
-const { KEYS, FEATURES } = await (async () => {
+const { KEYS, FEATURES, calmTitle } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
-  vm.runInNewContext(readFileSync(new URL("../src/core.js", import.meta.url), "utf8"), context);
+  vm.createContext(context);
+  for (const file of ["settings.js", "core.js"]) vm.runInContext(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8"), context);
   return context.PeaceBeStill;
 })();
 
@@ -45,9 +48,21 @@ for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8"
 // takes the sidebar button with it). So: one pass with the parents off, which
 // exercises every child, then a second with them on, which exercises the
 // parents themselves.
+// A shouting title written into the page, which the observer must calm. The
+// recommendations are tried first and the video's own title after, because a
+// signed-out headless browser does not always get the recommendations.
+const SHOUTING = "THIS IS A SHOUTING TEST TITLE FOR THE AUDIT";
+const TITLE_PROBES = ["yt-lockup-metadata-view-model h3 a", "#video-title", "ytd-watch-metadata h1 yt-formatted-string"];
+
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
+// A switch holding a switch that holds switches (videoDetails holds buttonsBar
+// and description). With it on, the middle layer is hidden along with it, so
+// that layer's own rules could never be seen working. One pass has every
+// switch on except these.
+const GRANDPARENTS = PARENTS.filter((p) => FEATURES.some(([key, , , , parent]) => parent === p && PARENTS.includes(key)));
+const MIDDLE_PASS = Object.fromEntries(KEYS.map((key) => [key, !GRANDPARENTS.includes(key)]));
 
 function survey(selectors) {
   const out = {};
@@ -61,10 +76,16 @@ function survey(selectors) {
   return out;
 }
 
+// Every real page load counts against a budget shared by all audit runs on this
+// machine (scripts/audit-budget.mjs), so claim this run's before starting.
+// Two loads: the watch page, with every pass applied to it live, and one reload
+// for the one thing a reload is the only way to see -- early apply.
+claimRunOrExit("youtube", 2);
+
 const browser = await puppeteer.launch({
   executablePath: CHROMIUM,
   headless: true,
-  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--window-size=1400,1000", "--no-first-run", "--lang=en-US"],
+  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--window-size=1400,1000", "--no-first-run", "--mute-audio", "--lang=en-US"],
   defaultViewport: { width: 1400, height: 1000 },
 });
 const report = { video: VIDEO, extId: EXT_ID };
@@ -80,7 +101,10 @@ try {
   // container to act inside.
   await write(CHILDREN_PASS);
   const page = await browser.newPage();
+  await beforeLoad("youtube");
   await page.goto(VIDEO, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const notYouTube = whyNotYouTube(page.url(), "www.youtube.com");
+  if (notYouTube) throw new Error(notYouTube);
   await page.waitForSelector("ytd-watch-metadata", { timeout: 60000 });
   await sleep(4000);
   await page.click("#guide-button").catch(() => {});
@@ -88,15 +112,15 @@ try {
   report.children = await page.evaluate(survey, SELECTORS);
   await page.screenshot({ path: OUT + "youtube-chromium-children.png" });
 
-  report.titleCalm = await page.evaluate(async () => {
-    const el = document.querySelector("yt-lockup-metadata-view-model h3 a, #video-title");
+  report.titleCalm = await page.evaluate(async (probes, shouting) => {
+    const el = probes.map((sel) => document.querySelector(sel)).find(Boolean);
     if (!el) return "no title element found";
     const node = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode();
     if (!node) return "no text node";
-    node.nodeValue = "THIS IS A SHOUTING TEST TITLE FOR THE AUDIT";
+    node.nodeValue = shouting;
     await new Promise((r) => setTimeout(r, 700));
     return node.nodeValue;
-  });
+  }, TITLE_PROBES, SHOUTING);
 
   // The dislike count needs the buttons row it attaches to, so it belongs here.
   for (let i = 0; i < 40 && !report.dislikes; i++) {
@@ -107,6 +131,12 @@ try {
     const b = [...document.querySelectorAll("dislike-button-view-model button")].find((e) => e.getClientRects().length > 0);
     return b ? { width: Math.round(b.getBoundingClientRect().width), text: b.textContent.trim() } : null;
   });
+
+  // The middle layer, its grandparents still off.
+  await write(MIDDLE_PASS);
+  await page.bringToFront();
+  await sleep(1200);
+  report.middle = await page.evaluate(survey, SELECTORS);
 
   // Pass two: the parents as well, applied live to the open tab.
   await write(EVERYTHING);
@@ -120,11 +150,46 @@ try {
   await page.bringToFront();
   await sleep(1200);
   report.afterToggle = await page.evaluate(survey, SELECTORS);
+
+  // Early apply, the one thing only a fresh load can show: what was applied
+  // last time is on the page before storage answers, and then what storage says
+  // wins. To tell the two apart, the memory is set to something storage does not
+  // say, and every value the attribute takes during the load is recorded in
+  // order -- so the answer does not depend on how fast storage happens to be.
+  const fromStorage = await page.evaluate(() => document.documentElement.dataset.peacebestill);
+  await page.evaluate(() => localStorage.setItem("peacebestill.tokens", "shorts"));
+  await page.evaluateOnNewDocument(() => {
+    const seen = (window.__pbsValues = []);
+    const note = () => {
+      const value = document.documentElement && document.documentElement.getAttribute("data-peacebestill");
+      if (value !== null && value !== seen[seen.length - 1]) seen.push(value);
+    };
+    note();
+    new MutationObserver(note).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-peacebestill"] });
+  });
+  await beforeLoad("youtube");
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
+  const reloadedAt = whyNotYouTube(page.url(), "www.youtube.com");
+  if (reloadedAt) throw new Error(reloadedAt);
+  await sleep(4000);
+  report.earlyApply = await page.evaluate(() => ({
+    values: window.__pbsValues,
+    settled: document.documentElement.dataset.peacebestill,
+    remembered: localStorage.getItem("peacebestill.tokens"),
+  }));
+  report.earlyApply.fromStorage = fromStorage;
+  report.earlyApply.ok = report.earlyApply.values[0] === "shorts"
+    && report.earlyApply.settled === fromStorage
+    && report.earlyApply.remembered === fromStorage;
 } catch (e) {
   report.error = String(e.stack || e);
 } finally {
   await browser.close();
 }
+// Title calming is script, not stylesheet, so no survey sees it: judged here.
+report.titleCalmed = report.titleCalm === calmTitle(SHOUTING);
+if (!report.titleCalmed) console.error(`title not calmed: got ${JSON.stringify(report.titleCalm)}`);
 writeFileSync(OUT + "chromium-report.json", JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
-process.exitCode = report.error ? 1 : 0;
+if (report.earlyApply && !report.earlyApply.ok) console.error(`early apply did not behave: ${JSON.stringify(report.earlyApply.values)} then ${JSON.stringify(report.earlyApply.settled)}`);
+process.exitCode = report.error || !report.titleCalmed || !report.earlyApply?.ok ? 1 : 0;

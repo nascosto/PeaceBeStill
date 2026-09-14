@@ -1,8 +1,8 @@
 /* Each rule is gated on a token in the root element's data-peacebestill attribute,
    which content.js keeps equal to the set of enabled feature keys. So the
    stylesheet is fully static and a toggle takes effect without a reload.
-   Rules only ever hide (display: none); the one exception is the layout fix
-   that hiding the header needs. */
+   Rules only ever hide (display: none); the exceptions are the layout resets
+   that hiding the header needs, since the page keeps the bar's height clear. */
 
 /* ---- Header and sidebar ------------------------------------------------- */
 
@@ -10,8 +10,11 @@
 html[data-peacebestill~="create"] ytd-masthead #buttons :is(ytd-button-renderer, ytd-topbar-menu-button-renderer):has(button[aria-label="Create"]) { display: none !important; }
 
 /* Header: the whole top bar, and the space the page keeps for it */
-html[data-peacebestill~="header"] #masthead-container { display: none !important; }
+html[data-peacebestill~="header"] :is(#masthead-container, #guide-spacer) { display: none !important; }
 html[data-peacebestill~="header"] ytd-app #page-manager { margin-top: 0 !important; }
+/* The narrow sidebar is positioned under the bar; without it, it would hang
+   a bar's height below the top of the window. */
+html[data-peacebestill~="header"] ytd-app ytd-mini-guide-renderer { top: 0 !important; }
 
 /* Header: the notifications bell (content.js strips the count from the tab title) */
 html[data-peacebestill~="notifications"] ytd-masthead ytd-notification-topbar-button-renderer { display: none !important; }
@@ -32,6 +35,12 @@ html[data-peacebestill~="subscriptions"] :is(ytd-guide-entry-renderer:has(a[href
    the top bar's, and `header` is the switch for that. */
 html[data-peacebestill~="home"] :is(ytd-guide-entry-renderer:has(a[href="/"]), ytd-mini-guide-entry-renderer:has(a[href="/"]), ytd-browse[page-subtype="home"]) { display: none !important; }
 
+/* While home is sent to Subscriptions, a way to Home is a way to nowhere, so
+   its sidebar entries go too (content.js points the logo at Subscriptions).
+   The token is only set while the redirect is in effect, which it is not
+   while Subscriptions itself is hidden. */
+html[data-peacebestill~="homeToSubscriptions"] :is(ytd-guide-entry-renderer:has(a[href="/"]), ytd-mini-guide-entry-renderer:has(a[href="/"])) { display: none !important; }
+
 /* Sidebar: the new-video dot beside a subscribed channel, in the expanded
    sidebar (#newness-dot) and in the flyout the mini sidebar shows when
    "Subscriptions" is hovered (a list-item "new content indicator") */
@@ -43,15 +52,19 @@ html[data-peacebestill~="footer"] ytd-guide-renderer #footer { display: none !im
 /* ---- Home and feeds ----------------------------------------------------- */
 
 /* Home: the whole feed (content.js can send the page to Subscriptions instead) */
-html[data-peacebestill~="homeFeed"] ytd-browse[page-subtype="home"] ytd-rich-grid-renderer { display: none !important; }
+html[data-peacebestill~="homeFeed"] :is(ytd-browse[page-subtype="home"] ytd-rich-grid-renderer, #home-page-skeleton) { display: none !important; }
 
 /* Shorts: shelves, grids, single items in feeds / results / the watch sidebar,
    the sidebar entries, the channel tab, the results chip, notifications, and
    the Shorts player page itself (content.js opens a Short as a normal video) */
 html[data-peacebestill~="shorts"] :is(ytd-rich-shelf-renderer[is-shorts], ytd-reel-shelf-renderer, ytd-rich-grid-renderer[is-shorts-grid], ytd-rich-item-renderer:has(a[href*="/shorts/"]), ytd-video-renderer:has(a[href*="/shorts/"]), ytd-compact-video-renderer:has(a[href*="/shorts/"]), ytd-guide-entry-renderer:has(a[title="Shorts"]), ytd-mini-guide-entry-renderer:has(a[title="Shorts"]), yt-tab-shape[tab-title="Shorts"], yt-chip-cloud-chip-renderer:has([title="Shorts"]), ytd-notification-renderer:has(a[href^="/shorts/"]), ytd-shorts) { display: none !important; }
 
-/* Mixes: auto-generated playlists, wherever they are offered */
-html[data-peacebestill~="mixes"] :is(ytd-rich-item-renderer:has(a[href*="start_radio=1"], a[href*="list=RD"]), ytd-compact-radio-renderer, ytd-radio-renderer, yt-lockup-view-model:has(a[href*="list=RD"]), .ytp-videowall-still[data-is-mix="true"]) { display: none !important; }
+/* Mixes: auto-generated playlists, wherever they are offered. A link is no
+   guide: YouTube gives ordinary music videos list=RD...&start_radio=1 links
+   too, so that playing one rolls on into a mix, and keying on the link hides
+   plain recommendations. A Mix is drawn as a stacked collection, as a playlist
+   is, but its list is an RD one where a playlist's is not. */
+html[data-peacebestill~="mixes"] :is(ytd-rich-item-renderer:has(yt-collection-thumbnail-view-model):has(a[href*="list=RD"]), yt-lockup-view-model:has(yt-collection-thumbnail-view-model):has(a[href*="list=RD"]), ytd-compact-radio-renderer, ytd-radio-renderer, .ytp-videowall-still[data-is-mix="true"]) { display: none !important; }
 
 /* Promos: YouTube selling you YouTube, and its surveys. Third-party ads are
    the separate "ads" switch below. */
@@ -83,10 +96,12 @@ html[data-peacebestill~="recommended"] :is(ytd-watch-next-secondary-results-rend
 
 html[data-peacebestill~="liveChat"] ytd-live-chat-frame { display: none !important; }
 html[data-peacebestill~="playlistPanel"] ytd-watch-flexy ytd-playlist-panel-renderer#playlist { display: none !important; }
-html[data-peacebestill~="fundraiser"] ytd-donation-shelf-renderer { display: none !important; }
-html[data-peacebestill~="merch"] :is(ytd-merch-shelf-renderer, #ticket-shelf, #offer-module, #clarify-box) { display: none !important; }
+html[data-peacebestill~="fundraiser"] :is(ytd-donation-shelf-renderer, #donation-shelf) { display: none !important; }
+html[data-peacebestill~="merch"] :is(ytd-merch-shelf-renderer, #ticket-shelf, #offer-module, #clarify-box, ytd-metadata-row-container-renderer > #always-shown, .ytp-drawer) { display: none !important; }
 html[data-peacebestill~="comments"] :is(ytd-comments#comments, #comment-teaser) { display: none !important; }
 html[data-peacebestill~="profilePhotos"] ytd-comments #author-thumbnail { display: none !important; }
+/* Everything under the video: title, channel, buttons, views and description */
+html[data-peacebestill~="videoDetails"] ytd-watch-metadata { display: none !important; }
 html[data-peacebestill~="videoInfo"] ytd-watch-metadata #info-container { display: none !important; }
 html[data-peacebestill~="buttonsBar"] ytd-watch-metadata #actions { display: none !important; }
 html[data-peacebestill~="channelRow"] ytd-watch-metadata #owner { display: none !important; }
@@ -117,10 +132,14 @@ html[data-peacebestill~="summary"] ytd-structured-description-content-renderer #
 /* ---- Player ------------------------------------------------------------- */
 
 /* Autoplay: its toggle and the "up next" countdown (content.js switches it off) */
-html[data-peacebestill~="autoplay"] :is(.ytp-autonav-toggle-button-container, button[data-tooltip-target-id="ytp-autonav-toggle-button"], .ytp-autonav-endscreen-countdown-overlay) { display: none !important; }
+/* Outside a playlist the player's Next button plays autoplay's pick, so it
+   goes too. In a playlist, Next and Previous move through the list and stay. */
+html[data-peacebestill~="autoplay"] :is(.ytp-autonav-toggle-button-container, button[data-tooltip-target-id="ytp-autonav-toggle-button"], .ytp-autonav-endscreen-countdown-overlay, .autonav-endscreen, ytd-watch-flexy:not([playlist]) .ytp-chrome-controls .ytp-next-button) { display: none !important; }
 
-/* The video wall when a video ends */
-html[data-peacebestill~="endScreenFeed"] .html5-endscreen { display: none !important; }
+/* The video wall when a video ends, and the grid of more videos the newer
+   player offers in its place. Not the phone player's end screen, which holds
+   the replay button -- only its next and previous suggestions go. */
+html[data-peacebestill~="endScreenFeed"] :is(.html5-endscreen:not(.mweb-endscreen), .ytp-fullscreen-grid, .ytp-mweb-endscreen-play-next, .ytp-mweb-endscreen-play-previous) { display: none !important; }
 
 /* End-screen cards (and their hide button) */
 html[data-peacebestill~="endScreenCards"] :is(.ytp-ce-element, .ytp-ce-hide-button-container) { display: none !important; }
@@ -149,8 +168,11 @@ html[data-peacebestill~="channelTabs"] yt-tab-shape:is([tab-title="Posts"], [tab
    its About/Press/Copyright block, both of which need a sidebar -- simply do
    nothing, which is what an unmatched selector already does. */
 
-/* Header: the whole top bar */
+/* Header: the whole top bar, and the bar's height the page and the sticky
+   player keep clear for it */
 html[data-peacebestill~="header"] ytm-mobile-topbar-renderer { display: none !important; }
+html[data-peacebestill~="header"] ytm-app { padding-top: 0 !important; }
+html[data-peacebestill~="header"] ytm-app #player-container-id { top: 0 !important; }
 
 /* Header: the Create button, which lives in the bottom pivot bar on mobile.
    Signed in only, like its desktop counterpart. */
@@ -159,20 +181,32 @@ html[data-peacebestill~="create"] ytm-pivot-bar-item-renderer:has(.pivot-create)
 /* Header: the notifications bell. Signed in only. */
 html[data-peacebestill~="notifications"] ytm-mobile-topbar-renderer button[aria-label*="Notification" i] { display: none !important; }
 
-/* Sidebar: Subscriptions is a pivot-bar item on mobile. Signed in only. */
-html[data-peacebestill~="subscriptions"] ytm-pivot-bar-item-renderer:has(.pivot-subscriptions) { display: none !important; }
+/* Sidebar: Subscriptions is a pivot-bar item on mobile, classed "subs".
+   Signed in only. */
+html[data-peacebestill~="subscriptions"] :is(ytm-pivot-bar-item-renderer:has(.pivot-subs), div[tab-identifier="FEsubscriptions"]) { display: none !important; }
 
-/* Sidebar: Home is a pivot-bar item on mobile too. */
-html[data-peacebestill~="home"] ytm-pivot-bar-item-renderer:has(.pivot-home) { display: none !important; }
+/* Sidebar: Explore and Trending, as pivot-bar items and as pages */
+html[data-peacebestill~="exploreTrending"] :is(ytm-pivot-bar-item-renderer:has(.pivot-trending), div[tab-identifier="FEexplore"], div[tab-identifier="FEtrending"]) { display: none !important; }
+
+/* Sidebar: Home is a pivot-bar item on mobile too, classed "w2w" -- what to
+   watch -- rather than anything with "home" in it. */
+html[data-peacebestill~="home"] ytm-pivot-bar-item-renderer:has(.pivot-w2w) { display: none !important; }
+html[data-peacebestill~="homeToSubscriptions"] ytm-pivot-bar-item-renderer:has(.pivot-w2w) { display: none !important; }
 
 /* Feeds: Shorts, including the pivot-bar entry that has no desktop equivalent */
 html[data-peacebestill~="shorts"] :is(ytm-pivot-bar-item-renderer:has(.pivot-shorts), ytm-shorts-lockup-view-model, ytm-reel-shelf-renderer, ytm-video-with-context-renderer:has(a[href*="/shorts/"]), ytm-compact-video-renderer:has(a[href*="/shorts/"])) { display: none !important; }
 
-/* Feeds: the home feed itself */
-html[data-peacebestill~="homeFeed"] ytm-browse ytm-rich-grid-renderer { display: none !important; }
+/* Feeds: the home feed itself -- the Home tab's whole body, feed and the
+   prompts that stand in for one when there is none. Keyed on the tab, since a
+   channel's Videos tab is a ytm-rich-grid-renderer in a ytm-browse as well. */
+html[data-peacebestill~="homeFeed"] div[tab-identifier="FEwhat_to_watch"] { display: none !important; }
+
+/* Feeds: Mixes. The same rule as on the desktop: a stacked collection with an
+   RD list, never a link, since ordinary videos carry RD links too. */
+html[data-peacebestill~="mixes"] :is(ytm-compact-radio-renderer, ytm-radio-renderer, ytm-rich-item-renderer:has(yt-collections-stack):has(a[href*="list=RD"])) { display: none !important; }
 
 /* Feeds: promo banners and the survey/search nudges YouTube seeds a feed with */
-html[data-peacebestill~="promos"] :is(ytm-feed-nudge-renderer, ytm-rich-section-renderer:has(ytm-search-bar-entry-point-view-model)) { display: none !important; }
+html[data-peacebestill~="promos"] :is(ytm-feed-nudge-renderer, ytm-rich-section-renderer:has(ytm-search-bar-entry-point-view-model), .mealbar-promo-renderer) { display: none !important; }
 
 /* Watch: the recommendations under the player, mobile having no column beside
    the video. Scoped to section-identifier="related-items" because the comments
@@ -181,14 +215,37 @@ html[data-peacebestill~="promos"] :is(ytm-feed-nudge-renderer, ytm-rich-section-
 html[data-peacebestill~="relatedVideos"] ytm-item-section-renderer.scwnr-content[section-identifier="related-items"] { display: none !important; }
 html[data-peacebestill~="recommended"] ytm-item-section-renderer.scwnr-content[section-identifier="related-items"] ytm-video-with-context-renderer { display: none !important; }
 
-/* Watch: the title and views line */
-html[data-peacebestill~="videoInfo"] ytm-slim-video-information-renderer { display: none !important; }
+/* Watch: everything under the player that describes the video */
+html[data-peacebestill~="videoDetails"] ytm-slim-video-metadata-section-renderer { display: none !important; }
 
-/* Watch: the like / dislike / share row */
-html[data-peacebestill~="buttonsBar"] ytm-slim-video-action-bar-renderer { display: none !important; }
+/* Watch: the channel, likes, views and date line under the title. Its sibling,
+   the "...more" button, belongs to the description. */
+html[data-peacebestill~="videoInfo"] ytm-slim-video-information-renderer .slim-video-information-subtitle { display: none !important; }
+
+/* Watch: the like / dislike / share buttons. The channel avatar and Subscribe
+   share that row on a phone, and are channelRow's to hide. */
+html[data-peacebestill~="buttonsBar"] ytm-slim-video-action-bar-renderer .slim-video-action-bar-actions > :not(.slim-video-owner-icon, .slim-subscribe-button) { display: none !important; }
 
 /* Watch: the channel avatar and subscribe button in that row */
-html[data-peacebestill~="channelRow"] ytm-slim-video-action-bar-renderer :is(.slim-video-owner-icon, .slim-subscribe-button) { display: none !important; }
+html[data-peacebestill~="channelRow"] :is(ytm-slim-video-action-bar-renderer :is(.slim-video-owner-icon, .slim-subscribe-button), ytm-slim-owner-renderer) { display: none !important; }
+
+/* Watch: the description, which on a phone opens from the "...more" button */
+html[data-peacebestill~="description"] ytm-slim-video-information-renderer button.slim-video-information-show-more { display: none !important; }
+
+/* Watch: comments, a carousel in the watch-next section with no identifier of
+   its own (the recommendations' section is the one marked related-items) */
+html[data-peacebestill~="comments"] :is(ytm-item-section-renderer.scwnr-content:not([section-identifier]):has(yt-video-metadata-carousel-view-model), ytm-comment-section-renderer, ytm-comments-entry-point-header-renderer) { display: none !important; }
+
+/* Watch: fundraisers, offers and the playlist, where a phone has them */
+html[data-peacebestill~="fundraiser"] ytm-donation-shelf-renderer-outer { display: none !important; }
+html[data-peacebestill~="merch"] ytm-compact-offer-module-renderer { display: none !important; }
+/* The playlist on a phone: the panel under the player and the collapsed bar
+   that opens it. Both only exist on a playlist or Mix page. */
+html[data-peacebestill~="playlistPanel"] :is(ytm-playlist-engagement-panel, ytm-playlist-panel-entry-point) { display: none !important; }
+
+/* Player: autoplay's toggle and its up-next bar on a phone (content.js
+   switches it off) */
+html[data-peacebestill~="autoplay"] :is(.ytm-autonav-toggle-button-container, .ytm-autonav-bar) { display: none !important; }
 
 /* Ads: the companion slot under the mobile player */
 html[data-peacebestill~="ads"] ytm-companion-slot { display: none !important; }

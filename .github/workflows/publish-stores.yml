@@ -1,46 +1,60 @@
 name: publish-stores
 
-# Publishes an existing tag to the two stores, by hand, from the Actions tab.
+# Publishes an existing release tag to the stores, by hand, from the Actions
+# tab: the way back from a failed or rejected submission (fix the cause,
+# dispatch the same tag), and the way a version reaches a store whose listing
+# was created after it was tagged, without inventing a version nobody needed.
 #
-# The release workflow already does this on the tag itself, but it skips a
-# store whose credentials are not set yet -- which is the normal state before
-# each listing has been created, since neither store's API can create one. This
-# is how a version that shipped self-hosted catches up with a store afterwards,
-# without inventing a version number nobody needed.
+# AMO holds each version number once per add-on, so resubmitting a version that
+# already went up fails. When only one extension needs to go out again, choose
+# it, and the other is left alone. Either way each extension is its own job
+# (submit.yml), so one failing does not stop the other.
 #
-# It is also the way back from a store rejection: fix the listing, dispatch the
-# same tag again.
+# Like a release, only a tag on main can be published.
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: The version tag to publish, e.g. v1.0.0
         required: true
+      extension:
+        description: Which extension to publish
+        type: choice
+        options: [both, youtube, linkedin]
+        default: both
 
 permissions:
   contents: read
 
 jobs:
-  publish:
+  check:
     runs-on: ubuntu-latest
-    env:
-      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
-      YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
-      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-      YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
-      LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
-      LINKEDIN_CWS_ITEM_ID: ${{ vars.LINKEDIN_CWS_ITEM_ID }}
     steps:
-      - name: At least one store has to be configured
-        if: (env.AMO_JWT_ISSUER == '' || (env.YOUTUBE_AMO_SLUG == '' && env.LINKEDIN_AMO_SLUG == '')) && (env.CWS_CLIENT_ID == '' || (env.YOUTUBE_CWS_ITEM_ID == '' && env.LINKEDIN_CWS_ITEM_ID == ''))
+      # Typed by hand, so it reaches a shell only as a variable, and only once
+      # it is known to be a version tag.
+      - name: The tag must be a version tag
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
-          echo "::error::No store credentials are set, so this run would publish nothing."
-          exit 1
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::$TAG is not a version tag of the form vX.Y.Z."
+            exit 1
+          fi
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: The tag must be on main
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$TAG is not on main. Only a release cut from main can be published."
+            exit 1
+          fi
 
       - run: npm ci --ignore-scripts
       - run: npm test
@@ -49,45 +63,19 @@ jobs:
       # Guards against dispatching a tag whose manifests say something else,
       # which would put the wrong version number on a store listing.
       - name: The tag must match every extension's manifest version
-        run: node scripts/check-version.mjs "${{ inputs.tag }}" extensions/youtube/src extensions/linkedin/src
-
-      - name: Build the store package
-        run: npm run build
-
-      - name: Submit to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != '' && env.YOUTUBE_AMO_SLUG != ''
         env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir extensions/youtube/src \
-            --artifacts-dir dist/amo --channel listed
+          TAG: ${{ inputs.tag }}
+        run: node scripts/check-version.mjs "$TAG" extensions/youtube/src extensions/linkedin/src
 
-      - name: Publish to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != ''
-        env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-        run: |
-          node scripts/publish-cws.mjs --item "$YOUTUBE_CWS_ITEM_ID" \
-            --zip dist/peacebestill-youtube-store.zip
-
-      - name: Submit LinkedIn to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != '' && env.LINKEDIN_AMO_SLUG != ''
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir extensions/linkedin/src \
-            --artifacts-dir dist/amo --channel listed
-
-      - name: Publish LinkedIn to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''
-        env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-        run: |
-          node scripts/publish-cws.mjs --item "$LINKEDIN_CWS_ITEM_ID" \
-            --zip dist/peacebestill-linkedin-store.zip
+  submit:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: ${{ fromJSON(inputs.extension == 'both' && '["youtube", "linkedin"]' || format('["{0}"]', inputs.extension)) }}
+    uses: ./.github/workflows/submit.yml
+    with:
+      extension: ${{ matrix.extension }}
+      ref: ${{ inputs.tag }}
+      require_amo: false
+    secrets: inherit

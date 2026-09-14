@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "PeaceBeStill - YouTube",
-  "version": "1.0.0",
-  "description": "Make YouTube \"Be Still\". Fully configurable with 44 switches.",
+  "version": "1.1.0",
+  "description": "Make YouTube \"Be Still\". Fully configurable with 45 options.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -23,10 +23,13 @@
         "hide.css"
       ],
       "js": [
+        "settings.js",
+        "page.js",
         "core.js",
         "content.js"
       ],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "options_ui": {

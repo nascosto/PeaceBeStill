@@ -14,7 +14,14 @@
   // until you switch something on. That also means storage holds exactly the
   // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
-    ["create", "Hide Create button in header", false, HEADER, "header"],
+    // Neither Create nor the notifications switch sits under the top bar,
+    // though both live in it on a desktop. A covered switch is dropped, and
+    // the top bar does not cover either everywhere: on the mobile site Create
+    // is in the bottom bar, which hiding the top bar leaves alone, and the
+    // unread count is in the tab title, which is no part of any bar. Nested,
+    // turning the top bar off brought both back, and took their switches off
+    // the options page so they could not be turned back on.
+    ["create", "Hide Create button in header", false, HEADER],
     ["moreFromYoutube", "Hide “More from YouTube” sidebar section", false, HEADER],
     ["subscriptionDots", "Hide new-video dot beside channels in Subscriptions", false, HEADER, "subscriptions"],
     ["expandDescription", "Always show full description", false, WATCH, "description"],
@@ -35,7 +42,7 @@
     ["dislikeCount", "Show dislike count (asks Return YouTube Dislike service about each video)", false, WATCH, "buttonsBar"],
     // Ported from Unhook.
     ["header", "Hide whole top bar (logo, search, account)", false, HEADER],
-    ["notifications", "Hide notifications bell and unread count in tab title", false, HEADER, "header"],
+    ["notifications", "Hide notifications bell and unread count in tab title", false, HEADER],
     ["exploreTrending", "Hide Explore section, Trending, and their pages", false, HEADER],
     ["subscriptions", "Hide Subscriptions (sidebar entry, channel list and feed page)", false, HEADER],
     // Home had no switch of its own: hiding its feed left the entry in the
@@ -43,7 +50,12 @@
     // away. This is the same shape as Subscriptions above -- the entry, and
     // the page behind it.
     ["home", "Hide Home (sidebar entry and the page)", false, HEADER],
-    ["homeFeed", "Hide home page feed", false, HOME, "home"],
+    // Deliberately not nested under Home. Nesting would drop this switch
+    // whenever Home is on, and on the mobile site Home can only take the tab
+    // in the bottom bar -- the feed there is not tied to the home page in any
+    // way a rule can see -- so the feed would come back for anyone who had
+    // both on.
+    ["homeFeed", "Hide home page feed", false, HOME],
     ["homeToSubscriptions", "Send home page to Subscriptions feed", false, HOME, "subscriptions"],
     ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", false, HOME],
     ["mixes", "Hide Mixes (auto-generated playlists)", false, HOME],
@@ -51,15 +63,21 @@
     ["relatedVideos", "Hide whole column beside video (related videos, chat, playlist)", false, WATCH],
     ["recommended", "Hide recommended-videos list beside video and “More videos” overlay on pause", false, WATCH, "relatedVideos"],
     ["liveChat", "Hide live chat", false, WATCH, "relatedVideos"],
-    ["playlistPanel", "Hide playlist panel beside video", false, WATCH, "relatedVideos"],
+    // Not under relatedVideos: on a phone the playlist is a panel of its own
+    // under the player, outside the recommendations that switch hides there,
+    // and nesting it would switch it off whenever relatedVideos is on.
+    ["playlistPanel", "Hide playlist panel", false, WATCH],
     ["fundraiser", "Hide fundraiser banner", false, WATCH],
     ["merch", "Hide merch, tickets, offers and context boxes under video", false, WATCH],
     ["comments", "Hide comments", false, WATCH],
     ["profilePhotos", "Hide profile photos in comments", false, WATCH, "comments"],
-    ["videoInfo", "Hide views and date line under video", false, WATCH],
-    ["buttonsBar", "Hide like / share / save row under video", false, WATCH],
-    ["channelRow", "Hide channel row under video", false, WATCH],
-    ["description", "Hide description", false, WATCH],
+    // Unhook's "Hide Video Info": the whole block under the video, title
+    // included. The four finer switches below act inside it.
+    ["videoDetails", "Hide everything under video (title, channel, buttons, description)", false, WATCH],
+    ["videoInfo", "Hide views and date line under video", false, WATCH, "videoDetails"],
+    ["buttonsBar", "Hide like / share / save row under video", false, WATCH, "videoDetails"],
+    ["channelRow", "Hide channel row under video", false, WATCH, "videoDetails"],
+    ["description", "Hide description", false, WATCH, "videoDetails"],
     ["autoplay", "Switch autoplay off and hide its toggle and countdown", false, PLAYER],
     ["endScreenFeed", "Hide video wall when a video ends", false, PLAYER],
     ["endScreenCards", "Hide end-screen cards", false, PLAYER],
@@ -69,64 +87,9 @@
     // a filter list maintained daily beats anything hand-written here.
     ["ads", "Hide ads around video (does not skip ads inside the video)", false, ADS],
   ];
-  const KEYS = FEATURES.map(([key]) => key);
-
   // Settings that also appear in a second place. None here yet; the options
   // page asks so that both extensions can share one page.
   const MIRRORS = [];
-
-  // The choices a setting offers, or null when it is an ordinary switch.
-  // Nothing here offers any yet; the options page asks so that both extensions
-  // can share one page.
-  function choicesFor(key) {
-    const feature = FEATURES.find(([featureKey]) => featureKey === key);
-    return (feature && feature[5]) || null;
-  }
-
-  // What choicesFor offers once the current settings are taken into account.
-  // Nothing here is a chooser, so this is the empty case.
-  function choicesOffered(key) {
-    return choicesFor(key);
-  }
-
-  function defaults() {
-    return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
-  }
-
-  // Stored settings over the defaults. Only booleans count, so a key that is
-  // absent, removed (storage.onChanged reports a removal as undefined) or
-  // junk falls back to its default. That is what lets us store only the
-  // switches you have actually changed, and lets a later version's new
-  // default reach everyone who never touched that switch.
-  function withDefaults(settings) {
-    const merged = defaults();
-    for (const [key, value] of Object.entries(settings || {})) {
-      if (typeof value === "boolean") merged[key] = value;
-    }
-    return merged;
-  }
-
-  // Settings -> the value of the root element's data-peacebestill attribute: the
-  // enabled keys, space separated, so hide.css can gate on ~="key".
-  function tokensFor(settings) {
-    const merged = withDefaults(settings);
-    return KEYS.filter((key) => merged[key] === true).join(" ");
-  }
-
-  // True when this value is what the feature would do anyway, so storing it
-  // would be storing nothing. Unknown keys are never redundant: we do not
-  // own them and must not delete them.
-  function isDefaultValue(key, value) {
-    const all = defaults();
-    return Object.prototype.hasOwnProperty.call(all, key) && all[key] === value;
-  }
-
-  // The stored keys worth deleting: everything already equal to its default.
-  function redundantKeys(stored) {
-    return Object.entries(stored || {})
-      .filter(([key, value]) => isDefaultValue(key, value))
-      .map(([key]) => key);
-  }
 
   // 1234 -> "1.2K", the way YouTube shows its own counts. Anything that is not
   // a non-negative finite number becomes "", so a bad API answer shows nothing.
@@ -171,11 +134,15 @@
   }
 
   // Where a page should go instead, given the settings, or null: the home
-  // page to the Subscriptions feed (never when that feed is itself hidden),
-  // a Short to its ordinary watch page.
+  // page to the Subscriptions feed (never when that feed is itself hidden), a
+  // hidden Subscriptions or Explore / Trending page home, a Short to its
+  // ordinary watch page.
   function redirectFor(pathname, settings) {
     const merged = withDefaults(settings);
     if (merged.homeToSubscriptions && !merged.subscriptions && pathname === "/") return "/feed/subscriptions";
+    // A page its switch hides goes home rather than sitting there blank.
+    if (merged.subscriptions && /^\/feed\/subscriptions(\/|$)/.test(pathname || "")) return "/";
+    if (merged.exploreTrending && /^\/feed\/(trending|explore)(\/|$)/.test(pathname || "")) return "/";
     const short = /^\/shorts\/([A-Za-z0-9_-]{6,})/.exec(pathname || "");
     if (merged.shorts && short) return "/watch?v=" + short[1];
     return null;
@@ -194,19 +161,6 @@
     return { record: prev, hide: now - prev.since >= staleMs };
   }
 
-  // "(3) Some video - YouTube" -> "Some video - YouTube": the unread count
-  // YouTube prepends to the tab title.
-  function untitled(title) {
-    return String(title).replace(/^\(\d+\)\s+/, "");
-  }
-
-  // The switch a feature lives inside, or null. Only one level deep today,
-  // but isMoot walks the whole chain so deeper nesting would just work.
-  function parentOf(key) {
-    const feature = FEATURES.find(([featureKey]) => featureKey === key);
-    return (feature && feature[4]) || null;
-  }
-
   // True when some ancestor of this feature is switched on, i.e. the thing it
   // acts on is already hidden, so the feature cannot have any effect. The
   // options page greys such a switch out; its stored value is left alone, so
@@ -216,41 +170,17 @@
   // that both extensions' options pages stay the one piece of code.
   const COVERS = [];
 
-  function coverOf(key) {
-    for (const [global, covered] of COVERS) if (covered.includes(key)) return global;
-    return null;
-  }
+  // Everything about settings that is not YouTube's own -- defaults, what is
+  // stored, what is in force, nesting and covering -- is shared/settings.js.
+  const shared = root.PeaceBeStillSettings({ FEATURES, COVERS, MIRRORS });
+  const { withDefaults } = shared;
 
-  // The global doing this switch's job for it, or null. Kept apart from isMoot:
-  // a switch whose parent has gone is not worth showing at all, while one
-  // covered by a global is worth showing as the settled fact it is.
-  function coveredBy(key, settings) {
-    const global = coverOf(key);
-    return global && withDefaults(settings)[global] === true ? global : null;
-  }
+  // What the options page calls this site, and what it must ask before a
+  // switch that sends data elsewhere goes on: the dislike count tells a third
+  // party which video you are watching, which Firefox tracks as an optional
+  // data-collection permission.
+  const SITE_NAME = "YouTube";
+  const CONSENT = { dislikeCount: { data_collection: ["browsingActivity"] } };
 
-  function isMoot(key, settings) {
-    const merged = withDefaults(settings);
-    const seen = new Set();
-    for (let parent = parentOf(key); parent && !seen.has(parent); parent = parentOf(parent)) {
-      if (merged[parent] === true) return true;
-      seen.add(parent);
-    }
-    return false;
-  }
-
-  // What the content script should actually do, given what is stored: the
-  // defaults filled in, and any switch its parent has made moot forced off.
-  // Everything downstream reads this and tests each key for truth, so a key
-  // that is absent -- which is every key on a fresh install, since only
-  // non-default values are stored -- can never be mistaken for "on".
-  function effective(stored) {
-    const merged = withDefaults(stored);
-    for (const key of KEYS) {
-      if (merged[key] && isMoot(key, merged)) merged[key] = false;
-    }
-    return merged;
-  }
-
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, COVERS, coverOf, coveredBy, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.PeaceBeStill = { SITE_NAME, CONSENT, GROUPS, FEATURES, ...shared, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict };
 })(globalThis);

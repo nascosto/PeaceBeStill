@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
 const css = readFileSync(new URL("../src/hide.css", import.meta.url), "utf8");
-const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
 
 // Features with no stylesheet rule at all: pure script.
 const SCRIPT_ONLY = ["homeRedirect", "notificationCount"];

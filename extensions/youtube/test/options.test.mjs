@@ -1,16 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
 // options.js runs in another vm realm, so objects it creates have foreign
 // prototypes; compare plain copies.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test("options.html is a real document: language, a heading, and core.js before options.js", () => {
+test("options.html is a real document: language, a heading, and settings.js, core.js, options.js in that order", () => {
   const html = readFileSync(new URL("../src/options.html", import.meta.url), "utf8");
   assert.match(html, /<html lang="en">/);
   assert.match(html, /<h1[^>]*>/);
+  assert.ok(html.indexOf('src="settings.js"') < html.indexOf('src="core.js"'));
   assert.ok(html.indexOf('src="core.js"') < html.indexOf('src="options.js"'));
   for (const id of ["features", "filter", "summary", "all-off", "status"]) {
     assert.match(html, new RegExp(`id="${id}"`), id);
@@ -67,6 +68,7 @@ function rowsOf(root) {
     isSelect: box.tag === "select",
     depth: Number(row?.getAttribute("data-depth") ?? 0),
     indented: Number(row?.getAttribute("data-depth") ?? 0) > 0,
+    depth: Number(row?.getAttribute("data-depth") ?? 0),
     ariaDisabled: box.getAttribute("aria-disabled"),
     reallyDisabled: box.disabled === true,
     hidden: row?.hidden === true,
@@ -74,7 +76,7 @@ function rowsOf(root) {
 }
 
 async function render(stored = {}, { failWrites = false } = {}) {
-  const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+  const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
   const { document, byId } = fakeDocument();
   const writes = [];
   const removes = [];
@@ -109,26 +111,39 @@ test("a child is indented directly under its parent when they share a section", 
   const order = rows().map((r) => r.name);
   const at = (name) => order.indexOf(name);
   for (const [parent, children] of [
-    ["header", ["create", "notifications"]],
     ["description", ["expandDescription", "descriptionChannelLinks", "descriptionCards", "descriptionChips", "summary"]],
-    ["relatedVideos", ["recommended", "liveChat", "playlistPanel"]],
+    ["relatedVideos", ["recommended", "liveChat"]],
     ["comments", ["profilePhotos"]],
     ["buttonsBar", ["dislikeCount"]],
     ["subscriptions", ["subscriptionDots"]],
   ]) {
     assert.deepEqual(order.slice(at(parent) + 1, at(parent) + 1 + children.length), children, parent);
-    for (const child of children) assert.equal(rows()[at(child)].indented, true, child);
-    assert.equal(rows()[at(parent)].indented, false, parent);
+    for (const child of children) {
+      assert.equal(rows()[at(child)].indented, true, child);
+      assert.equal(rows()[at(child)].depth, rows()[at(parent)].depth + 1, `${child} sits one level under ${parent}`);
+    }
   }
+  // Two levels: the block under the video holds four switches, two of which
+  // hold switches of their own. Each direct child comes after the parent and
+  // before the next row back out at the parent's own depth.
+  const top = at("videoDetails");
+  const end = order.findIndex((_, i) => i > top && rows()[i].depth <= rows()[top].depth);
+  for (const child of ["videoInfo", "buttonsBar", "channelRow", "description"]) {
+    assert.ok(at(child) > top && (end === -1 || at(child) < end), `${child} is inside videoDetails`);
+    assert.equal(rows()[at(child)].depth, rows()[top].depth + 1, child);
+  }
+  assert.equal(rows()[at("dislikeCount")].depth, rows()[top].depth + 2, "a grandchild is two levels in");
 });
 
 test("a switch its parent covers is taken off the list, not explained away", async () => {
   const { rows, change, writes, removes } = await render({ header: true, comments: true, relatedVideos: true });
-  for (const key of ["create", "notifications", "profilePhotos", "liveChat", "recommended", "playlistPanel"]) {
+  for (const key of ["profilePhotos", "liveChat", "recommended"]) {
     assert.equal(rows().find((r) => r.name === key).hidden, true, key);
   }
-  // The switches that did the covering are still there to turn back off.
-  for (const key of ["header", "comments", "relatedVideos"]) {
+  // The switches that did the covering are still there to turn back off. So
+  // are Create and the notifications switch with the top bar hidden: it does
+  // not cover them.
+  for (const key of ["header", "comments", "relatedVideos", "create", "notifications"]) {
     assert.equal(rows().find((r) => r.name === key).hidden, false, key);
   }
   // Cross-section: hiding Subscriptions strands the home redirect.
@@ -158,12 +173,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ footer: true, create: true });
-  assert.match(byId.summary.textContent, /2 of 44/);
+  assert.match(byId.summary.textContent, /2 of 45/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["footer", "create"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 44/);
+  assert.match(byId.summary.textContent, /0 of 45/);
 });
 
 test("the filter narrows the list to matching switches", async () => {
@@ -185,7 +200,7 @@ test("a storage failure is reported rather than silently pretended", async () =>
 });
 
 test("ticking the dislike count asks Firefox for the optional data-collection permission first", async () => {
-  const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+  const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
   const { document, byId } = fakeDocument();
   const writes = [];
   const removes = [];
@@ -218,7 +233,7 @@ test("ticking the dislike count asks Firefox for the optional data-collection pe
 });
 
 test("a browser without the data-collection permission API still stores the choice", async () => {
-  const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+  const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
   const { document, byId } = fakeDocument();
   const writes = [];
   // Chromium: permissions.request exists but rejects an unknown key.

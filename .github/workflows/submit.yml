@@ -1,0 +1,93 @@
+name: submit
+
+# One extension to the stores. release.yml and publish-stores.yml call this
+# once per extension, so the steps exist in one place and each extension gets
+# a job of its own: a failed submission for one cannot skip the other's, which
+# it did while both were steps in a single job.
+on:
+  workflow_call:
+    inputs:
+      extension:
+        description: youtube or linkedin
+        type: string
+        required: true
+      ref:
+        description: The commit to build. The caller has already checked it is on main.
+        type: string
+        required: true
+      require_amo:
+        description: Fail, rather than skip addons.mozilla.org, when this extension's listing is not set up
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    env:
+      EXTENSION: ${{ inputs.extension }}
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
+      LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
+      YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
+      LINKEDIN_CWS_ITEM_ID: ${{ vars.LINKEDIN_CWS_ITEM_ID }}
+    steps:
+      - name: Find this extension's listings
+        env:
+          REQUIRE_AMO: ${{ inputs.require_amo }}
+        run: |
+          case "$EXTENSION" in
+            youtube)  slug="$YOUTUBE_AMO_SLUG";  item="$YOUTUBE_CWS_ITEM_ID" ;;
+            linkedin) slug="$LINKEDIN_AMO_SLUG"; item="$LINKEDIN_CWS_ITEM_ID" ;;
+            *) echo "::error::No such extension: $EXTENSION"; exit 1 ;;
+          esac
+          if [ -z "$AMO_JWT_ISSUER" ] || [ -z "$slug" ]; then
+            if [ "$REQUIRE_AMO" = "true" ]; then
+              echo "::error::$EXTENSION has no addons.mozilla.org listing or credentials set up."
+              exit 1
+            fi
+            slug=""
+          fi
+          if [ -z "$CWS_CLIENT_ID" ]; then item=""; fi
+          if [ -z "$slug" ] && [ -z "$item" ]; then
+            echo "::error::$EXTENSION has no store set up, so this would publish nothing."
+            exit 1
+          fi
+          { echo "AMO_SLUG=$slug"; echo "CWS_ITEM_ID=$item"; } >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - run: npm ci --ignore-scripts
+
+      # The package each store receives is the source tree as it is: a listed
+      # add-on may not name its own update service, and needs no other build.
+      - name: Build the store package
+        run: npm run "build:$EXTENSION:store"
+
+      # Not waited on: a listed version can sit in review for days, and web-ext
+      # otherwise gives up after fifteen minutes with an error that fails the
+      # step even though the version was submitted. --approval-timeout 0
+      # submits and exits.
+      - name: Submit to addons.mozilla.org
+        if: env.AMO_SLUG != ''
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx web-ext sign --source-dir "extensions/$EXTENSION/src" \
+            --artifacts-dir dist/amo --channel listed --approval-timeout 0
+
+      - name: Publish to the Chrome Web Store
+        if: env.CWS_ITEM_ID != ''
+        env:
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          node scripts/publish-cws.mjs --item "$CWS_ITEM_ID" \
+            --zip "dist/peacebestill-$EXTENSION-store.zip"

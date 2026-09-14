@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
-const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
 
 // Every key, in order, with its default. This is the contract the options
 // page, the stylesheet gates and the stored settings all share.
@@ -90,11 +90,31 @@ test("pageFor names the destination a path belongs to, and nothing else", () => 
 
 // Each page's suggestion panel is its own feature, and answers to its page.
 test("the suggestion panels belong to the pages they appear on", () => {
-  for (const [key, page] of [["profileSuggestions", "profile"], ["networkSuggestions", "myNetwork"],
-    ["jobsSuggestions", "jobs"], ["networkPeople", "myNetwork"], ["profilePeople", "profile"],
+  for (const [key, page] of [["networkSuggestions", "myNetwork"],
+    ["jobsSuggestions", "jobs"], ["networkPeople", "myNetwork"],
     ["homeGames", "home"], ["networkGames", "myNetwork"], ["networkPremium", "myNetwork"]]) {
     assert.equal(PeaceBeStill.parentOf(key), page, key);
     assert.equal(PeaceBeStill.isMoot(key, { [page]: true }), true, key);
+  }
+});
+
+// Hiding Profile takes your own menu out of the top bar, and nothing else:
+// /in/ is everyone's profile, so the page cannot go. The panels on a profile
+// page are therefore still there with it on, and must still be hidden. They
+// were nested under it once, which switched them off whenever it was on.
+test("hiding Profile leaves the profile panel switches working", () => {
+  const both = { profile: true, profilePeople: true, profileSuggestions: true };
+  assert.equal(PeaceBeStill.tokensFor(PeaceBeStill.effective(both)), "profile profilePeople profileSuggestions");
+  assert.equal(PeaceBeStill.pageFor("/in/someone/"), "", "a profile is not a page Profile hides");
+});
+
+// A switch only counts as covered when its parent hides the place it lives:
+// a whole page, the feed around a post, or every advert at once. Nesting under
+// anything else switches the child off while leaving its target on screen.
+test("nothing is nested under a switch that leaves the child's target showing", () => {
+  const HIDES_ITS_CHILDREN = new Set(["blackout", "home", "myNetwork", "jobs", "feed", "ads"]);
+  for (const [key, , , , parent] of PeaceBeStill.FEATURES) {
+    if (parent) assert.ok(HIDES_ITS_CHILDREN.has(parent), `${key} is nested under ${parent}`);
   }
 });
 
