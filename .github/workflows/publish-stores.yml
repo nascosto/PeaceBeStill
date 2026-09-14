@@ -61,7 +61,7 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign --source-dir extensions/youtube/src \
-            --artifacts-dir dist/amo --channel listed
+            --artifacts-dir dist/amo --channel listed --approval-timeout 0
 
       - name: Publish to the Chrome Web Store
         if: env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != ''
@@ -80,7 +80,7 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign --source-dir extensions/linkedin/src \
-            --artifacts-dir dist/amo --channel listed
+            --artifacts-dir dist/amo --channel listed --approval-timeout 0
 
       - name: Publish LinkedIn to the Chrome Web Store
         if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''

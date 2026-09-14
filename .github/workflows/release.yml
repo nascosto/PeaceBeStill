@@ -44,14 +44,18 @@ jobs:
       - name: Build both packages
         run: npm run build
 
+      # Each signing step writes into a directory of its own. They used to share
+      # dist/, and the LinkedIn rename then matched the YouTube .xpi as well as
+      # its own: mv with two sources and a file as the target fails, and the
+      # job stopped before the release was created.
       - name: Sign the self-hosted build (Mozilla's unlisted channel)
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign --source-dir dist/self-hosted/youtube \
-            --artifacts-dir dist --channel unlisted
-          mv dist/*.xpi dist/peacebestill-youtube.xpi
+            --artifacts-dir dist/signed-youtube --channel unlisted
+          mv dist/signed-youtube/*.xpi dist/peacebestill-youtube.xpi
 
       - name: Sign the self-hosted LinkedIn build (Mozilla's unlisted channel)
         env:
@@ -59,8 +63,8 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign --source-dir dist/self-hosted/linkedin \
-            --artifacts-dir dist --channel unlisted
-          mv dist/*.xpi dist/peacebestill-linkedin.xpi
+            --artifacts-dir dist/signed-linkedin --channel unlisted
+          mv dist/signed-linkedin/*.xpi dist/peacebestill-linkedin.xpi
 
       - name: Pack the CRX and write the update manifests
         env:
@@ -98,6 +102,12 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             --notes "PeaceBeStill $GITHUB_REF_NAME. Also on addons.mozilla.org and the Chrome Web Store; the assets below are the self-hosted copies, which system-setups' browser policies fetch."
 
+      # Not waited on: a listed version can sit in review for days, and web-ext
+      # otherwise gives up after fifteen minutes with an error -- which fails
+      # the step even though the version was submitted, and skips every step
+      # after it, LinkedIn's submission included. --approval-timeout 0 submits
+      # and exits; AMO publishes the version when review passes.
+      #
       # Listed on AMO, so the package must be the source tree: a listed add-on
       # may not carry an update_url, and Mozilla distributes and updates it.
       # Gated on the slug, not the credentials: those also sign the self-hosted
@@ -110,7 +120,7 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign --source-dir extensions/youtube/src \
-            --artifacts-dir dist/amo --channel listed
+            --artifacts-dir dist/amo --channel listed --approval-timeout 0
 
       - name: Publish to the Chrome Web Store
         if: env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != ''
@@ -129,7 +139,7 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign --source-dir extensions/linkedin/src \
-            --artifacts-dir dist/amo --channel listed
+            --artifacts-dir dist/amo --channel listed --approval-timeout 0
 
       - name: Publish LinkedIn to the Chrome Web Store
         if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''
