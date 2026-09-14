@@ -220,6 +220,13 @@ has come back without the setting and gone again with it -- one round of that
 is a coin toss, which had three unrelated settings appearing to hide the same
 panel.
 
+`live:linkedin` writes every setting through the extension's own storage, so it
+keeps yours first -- in memory and in `~/.cache/peacebestill/` -- and puts them
+back when it ends, whether it finished, was stopped at a sign-in wall, ran out
+of page-load budget or gave up on a stall. A full run of five pages is about
+nineteen loads, counting the one that opens the tab, which is as much as one
+hour's LinkedIn budget allows.
+
 All three drive the browser over Firefox's remote debugging protocol, the
 channel devtools uses, so they set no automation flag on your session. They
 read the extension's own `settings.js` and `core.js`, and `check:linkedin`

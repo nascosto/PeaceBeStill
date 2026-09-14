@@ -11,6 +11,9 @@
 // content script do its work, and compares the page against a baseline taken
 // with everything off. What it prints is what a person would see go.
 import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
+import { plannedLoads, checksRedirects } from "./plan.mjs";
+import { mkdirSync as makeDir, writeFileSync as writeFile } from "node:fs";
+import { homedir } from "node:os";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { RDP, devPort, session } from "./rdp.mjs";
@@ -111,9 +114,15 @@ let doing = "starting up";
 let ticked = Date.now();
 const step = (what) => { doing = what; ticked = Date.now(); process.stderr.write(`    .. ${what}\n`); };
 const STALL_MS = 90000;
-const watchdog = setInterval(() => {
+// Set once your settings have been kept, so that giving up still puts them back.
+let putBack = null;
+const watchdog = setInterval(async () => {
   if (Date.now() - ticked < STALL_MS) return;
+  clearInterval(watchdog);
   process.stderr.write(`\nGave up: stuck on "${doing}" for ${Math.round((Date.now() - ticked) / 1000)}s.\n`);
+  // The connection that stalled may not answer this either, so it gets ten
+  // seconds; the file written at the start is there whatever happens.
+  if (putBack) await Promise.race([putBack(), new Promise((r) => setTimeout(r, 10000))]);
   process.exit(1);
 }, 5000);
 watchdog.unref();
@@ -147,8 +156,8 @@ const OPTIONS = (mine.manifestURL || "").replace(/manifest\.json$/, "") + "optio
 // for a real user anyway.
 // Every real page load counts against a budget shared by all audit runs on this
 // machine (scripts/audit-budget.mjs), so claim this run's before starting.
-// About two loads a page, with the gap between loads set in the budget.
-claimRunOrExit("linkedin", paths.length * 2);
+// The loads this run will make, worked out from the plan below (plan.mjs).
+claimRunOrExit("linkedin", plannedLoads(paths, context.PeaceBeStill));
 step("attaching to the browser");
 const live = await session(port);
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -158,7 +167,35 @@ const existing = await live.listTabs();
 const settings = await live.attach(existing[0]);
 await settings.goTo(OPTIONS);
 
+// Every setting is written through the extension's own storage, so the run
+// starts by keeping yours: in memory, to put back when it ends however it ends,
+// and in a file, in case the process itself is killed before it can.
+const saved = JSON.parse(await settings.evaluate("browser.storage.sync.get(null).then((v) => JSON.stringify(v))"));
+const backupDir = `${homedir()}/.cache/peacebestill`;
+makeDir(backupDir, { recursive: true });
+const backup = `${backupDir}/linkedin-settings-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+writeFile(backup, JSON.stringify(saved, null, 2));
+step(`kept your ${Object.keys(saved).length} stored settings (also in ${backup})`);
+putBack = async () => {
+  try {
+    await settings.evaluate(`browser.storage.sync.clear().then(() => browser.storage.sync.set(${JSON.stringify(saved)})).then(() => "ok")`);
+    step(`put back your ${Object.keys(saved).length} stored settings`);
+    return true;
+  } catch (error) {
+    console.log(`\nCould not put your settings back (${error.message}). They are saved in ${backup}.`);
+    return false;
+  }
+};
+
+// Every full load of a real LinkedIn page is a cost to the account, so they are
+// counted, against the budget and in the total printed at the end. A run that
+// starts making hundreds of these again should be obvious from its own output.
+let loads = 0;
+
 step("opening a tab for LinkedIn");
+// Opening the tab loads LinkedIn too, so it counts like any other load.
+await beforeLoad("linkedin");
+loads += 1;
 await settings.evaluate(`browser.tabs.create({ url: ${JSON.stringify("https://www.linkedin.com" + paths[0])} }).then((t) => t.id)`);
 await settle(4000);
 const page = await live.attachMatching(/linkedin\.com/);
@@ -183,11 +220,6 @@ async function store(values) {
   // runs at once, and its marking pass is debounced by 200ms.
   await settle(900);
 }
-
-// Every full load of a real LinkedIn page is a cost to the account, so they are
-// counted and the total is printed. A run that starts making hundreds of these
-// again should be obvious from its own output.
-let loads = 0;
 
 async function goToPage(path) {
   await beforeLoad("linkedin");
@@ -223,6 +255,10 @@ async function look() {
   throw new Error("could not read the page after three attempts");
 }
 
+// Thrown to end the run early on purpose, having said why; anything else is a
+// real error and still reported as one.
+class Stopped extends Error {}
+
 try {
   for (const path of paths) {
     await store({});
@@ -239,7 +275,8 @@ try {
       if (signedOut(now.path)) {
         console.log(`\n  Signed out at ${now.path} -- LinkedIn ended the session.`);
         console.log("  Sign in again in the dev browser, then re-run. Nothing below here was measured.");
-        process.exit(1);
+        // Not process.exit: that would skip putting your settings back.
+        throw new Stopped();
       }
       // The page is not reloaded between settings, so it can only have moved
       // because the extension moved it. What the extension applied is worth
@@ -338,7 +375,7 @@ try {
 
     // The redirect only applies to the home page, so it is only worth asking
     // there. Each destination is set in turn and the tab has to arrive at it.
-    if (redirectFor(path, {}) !== null || path === "/feed/" || path === "/") {
+    if (checksRedirects(path, context.PeaceBeStill)) {
       for (const [value] of choicesFor("homeRedirect") || []) {
         const want = redirectFor(path, { homeRedirect: value });
         if (!want) continue;
@@ -355,10 +392,17 @@ try {
       await goToPage(path);
     }
   }
+} catch (error) {
+  if (!(error instanceof Stopped)) {
+    // The budget running out mid-run lands here too: say so plainly.
+    console.log(`\nStopped: ${error.message}`);
+  }
+  process.exitCode = 1;
 } finally {
-  // Leave every switch off, and leave the LinkedIn tab open: closing it would
-  // only mean loading it again next time.
-  await store({});
+  // Put your settings back exactly as they were -- not all off, which is what a
+  // run used to leave behind, taking them with it. The LinkedIn tab stays open:
+  // closing it would only mean loading it again next time.
+  if (!(await putBack())) process.exitCode = 1;
   console.log(`\n${loads} LinkedIn page load${loads === 1 ? "" : "s"} for ${paths.length} page${paths.length === 1 ? "" : "s"}.`);
   live.close();
 }
