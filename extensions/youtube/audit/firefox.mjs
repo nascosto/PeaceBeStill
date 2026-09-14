@@ -75,6 +75,8 @@ writeFileSync(join(profile, "user.js"), [
   'user_pref("browser.startup.homepage", "about:blank");',
   'user_pref("browser.aboutwelcome.enabled", false);',
   'user_pref("app.update.enabled", false);',
+  // Headless Firefox still plays the video's sound out loud.
+  'user_pref("media.volume_scale", "0.0");',
   `user_pref("marionette.port", ${PORT});`,
   "",
 ].join("\n"));
@@ -99,6 +101,12 @@ const { KEYS, FEATURES } = await (async () => {
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
+// A switch holding a switch that holds switches (videoDetails holds buttonsBar
+// and description). With it on, the middle layer is hidden along with it, so
+// that layer's own rules could never be seen working. One pass has every
+// switch on except these.
+const GRANDPARENTS = PARENTS.filter((p) => FEATURES.some(([key, , , , parent]) => parent === p && PARENTS.includes(key)));
+const MIDDLE_PASS = Object.fromEntries(KEYS.map((key) => [key, !GRANDPARENTS.includes(key)]));
 
 const SELECTORS = {};
 for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8").matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
@@ -138,6 +146,18 @@ try {
   await client.send("WebDriver:NewSession", { capabilities: { alwaysMatch: {} } });
   await client.send("WebDriver:SetWindowRect", { width: 1400, height: 1000 });
   report.addon = (await client.send("Addon:Install", { path: SRC, temporary: true })).value;
+  // An enterprise policy installs its extensions into every profile, this
+  // throwaway one included, and a content blocker hiding an ad would pass for
+  // one of our switches working. Switch every other extension off first.
+  await client.send("Marionette:SetContext", { value: "chrome" });
+  report.otherExtensionsDisabled = await client.send("WebDriver:ExecuteAsyncScript", { script: `const done = arguments[arguments.length - 1];
+    const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+    (async () => {
+      const others = (await AddonManager.getAddonsByTypes(["extension"])).filter((a) => a.id !== arguments[0] && !a.isSystem && !a.isBuiltin && a.isActive);
+      for (const a of others) await a.disable();
+      done(others.map((a) => a.id));
+    })().catch((e) => done("ERROR " + e));`, args: ["youtube@peacebestill.fyi"] }).then((r) => r.value);
+  await client.send("Marionette:SetContext", { value: "content" });
 
   await client.send("Marionette:SetContext", { value: "chrome" });
   const uuids = JSON.parse(await client.script('return Services.prefs.getStringPref("extensions.webextensions.uuids");'));
@@ -184,6 +204,11 @@ try {
     await sleep(500);
     report.dislikes = await client.script('return document.querySelector(".peacebestill-dislikes")?.textContent || null;');
   }
+
+  // The middle layer, its grandparents still off.
+  await write(MIDDLE_PASS);
+  await onWatchPage();
+  report.middle = await client.script(SURVEY, [SELECTORS]);
 
   // Pass two: the parents as well.
   await write(EVERYTHING);

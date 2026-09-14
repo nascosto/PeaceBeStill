@@ -51,6 +51,12 @@ for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8"
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((k) => [k, !PARENTS.includes(k)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((k) => [k, true]));
+// A switch holding a switch that holds switches (videoDetails holds buttonsBar
+// and description). With it on, the middle layer is hidden along with it, so
+// that layer's own rules could never be seen working. One pass has every
+// switch on except these.
+const GRANDPARENTS = PARENTS.filter((p) => FEATURES.some(([key, , , , parent]) => parent === p && PARENTS.includes(key)));
+const MIDDLE_PASS = Object.fromEntries(KEYS.map((k) => [k, !GRANDPARENTS.includes(k)]));
 
 function survey(selectors) {
   const out = {};
@@ -72,7 +78,7 @@ async function phone(browser, url) {
 
 const browser = await puppeteer.launch({
   executablePath: CHROMIUM, headless: true,
-  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--no-first-run", "--lang=en-US",
+  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--no-first-run", "--mute-audio", "--lang=en-US",
     "--no-sandbox", "--disable-dev-shm-usage"],
 });
 const report = { video: VIDEO, extId: EXT_ID, mobileRules: Object.keys(MOBILE) };
@@ -88,6 +94,11 @@ try {
   report.served = await watch.evaluate(() => location.host);
   report.watchChildren = await watch.evaluate(survey, MOBILE);
   await watch.screenshot({ path: OUT + "youtube-mobile-children.png" });
+
+  await write(MIDDLE_PASS);
+  await watch.bringToFront();
+  await sleep(1500);
+  report.watchMiddle = await watch.evaluate(survey, MOBILE);
 
   await write(EVERYTHING);
   await watch.bringToFront();
@@ -123,6 +134,7 @@ writeFileSync(OUT + "mobile-report.json", JSON.stringify(report, null, 2));
 const failures = [];
 for (const [pass, data, judge] of [
   ["watch/children", report.watchChildren, (k) => !PARENTS.includes(k)],
+  ["watch/middle", report.watchMiddle, (k) => !GRANDPARENTS.includes(k)],
   ["watch/parents", report.watchParents, () => true],
   ["home", report.home, () => true],
 ]) {
@@ -136,10 +148,10 @@ if (report.afterToggle?.relatedVideos?.present > 0 && report.afterToggle.related
 }
 const leaked = Object.entries(report.desktopRulesOnMobile ?? {}).filter(([, r]) => r.present > 0).map(([k]) => k);
 
-const rows = [["switch", "watch/children", "watch/parents", "home"]];
+const rows = [["switch", "watch/children", "watch/middle", "watch/parents", "home"]];
 for (const key of Object.keys(MOBILE)) {
   const cell = (d) => (d?.[key] ? `${d[key].visible}/${d[key].present}` : "-");
-  rows.push([key, cell(report.watchChildren), cell(report.watchParents), cell(report.home)]);
+  rows.push([key, cell(report.watchChildren), cell(report.watchMiddle), cell(report.watchParents), cell(report.home)]);
 }
 const w = rows[0].map((_, i) => Math.max(...rows.map((r) => r[i].length)));
 console.log("visible/present, so 0/n means the rule worked and 0/0 means nothing to hide here\n");

@@ -48,6 +48,12 @@ for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8"
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
+// A switch holding a switch that holds switches (videoDetails holds buttonsBar
+// and description). With it on, the middle layer is hidden along with it, so
+// that layer's own rules could never be seen working. One pass has every
+// switch on except these.
+const GRANDPARENTS = PARENTS.filter((p) => FEATURES.some(([key, , , , parent]) => parent === p && PARENTS.includes(key)));
+const MIDDLE_PASS = Object.fromEntries(KEYS.map((key) => [key, !GRANDPARENTS.includes(key)]));
 
 function survey(selectors) {
   const out = {};
@@ -64,7 +70,7 @@ function survey(selectors) {
 const browser = await puppeteer.launch({
   executablePath: CHROMIUM,
   headless: true,
-  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--window-size=1400,1000", "--no-first-run", "--lang=en-US"],
+  args: [`--disable-extensions-except=${SRC}`, `--load-extension=${SRC}`, "--window-size=1400,1000", "--no-first-run", "--mute-audio", "--lang=en-US"],
   defaultViewport: { width: 1400, height: 1000 },
 });
 const report = { video: VIDEO, extId: EXT_ID };
@@ -107,6 +113,12 @@ try {
     const b = [...document.querySelectorAll("dislike-button-view-model button")].find((e) => e.getClientRects().length > 0);
     return b ? { width: Math.round(b.getBoundingClientRect().width), text: b.textContent.trim() } : null;
   });
+
+  // The middle layer, its grandparents still off.
+  await write(MIDDLE_PASS);
+  await page.bringToFront();
+  await sleep(1200);
+  report.middle = await page.evaluate(survey, SELECTORS);
 
   // Pass two: the parents as well, applied live to the open tab.
   await write(EVERYTHING);
