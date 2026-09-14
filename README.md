@@ -271,38 +271,30 @@ extension's manifest at once, which is the one part of a release that reliably
 goes wrong by hand; `scripts/check-version.mjs` then refuses any tag that
 disagrees with them.
 
-Each extension goes out down four channels, built from two packages:
+A tag publishes each extension as a new version of its listing on
+addons.mozilla.org, through Mozilla's API (`web-ext sign --channel listed`).
+Mozilla reviews and signs it, and Firefox updates everyone who installed from
+AMO. Nothing is signed or hosted by this project, so a release needs no private
+keys. The Chrome Web Store gets the same package once that store's listings
+exist.
 
-| Channel | Package | Add-on ID | Updates come from |
+| Store | Package | Add-on ID | Updates come from |
 | --- | --- | --- | --- |
 | addons.mozilla.org | the source tree | `<site>@peacebestill.fyi` | Mozilla |
 | Chrome Web Store | the source tree | assigned by Google | Google |
-| Self-hosted Firefox | + `update_url`s, own ID | `<site>-selfhosted@peacebestill.fyi` | the `.json` below |
-| Self-hosted Chromium | + `update_url`s | derived from the CRX key | the `.xml` below |
 
-`<site>` is `youtube` or `linkedin`; the self-hosted Firefox ID is derived from
-the store one by `scripts/variant.mjs`, so it is never chosen by hand.
+`<site>` is `youtube` or `linkedin`. Both stores reject a package that names its
+own update service, so the source tree carries no `update_url`.
 
-Both stores reject a package that names its own update service, so the source
-tree carries no `update_url` at all and `scripts/variant.mjs` adds the two keys
-back for the self-hosted build. That build also takes its own Firefox ID,
-because AMO holds a version number once per add-on across its listed and
-unlisted channels and a release publishes the same version to both. Chromium
-needs no such split: the store assigns its own ID there, and the self-hosted
-one comes from the signing key rather than the manifest.
+The submission does not wait for review, which can take days: the job submits
+and finishes, and the version appears on the listing once it passes. A tag
+whose AMO credentials or listing slugs are missing fails before anything is
+submitted, rather than quietly skipping an extension. The GitHub release is
+created last, once the submissions have gone.
 
-The GitHub release is created before either store submission, so a queued or
-rejected review never costs the self-hosted channel. Its four assets keep
-constant names, so these URLs are always the newest version:
-
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.xpi
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube.crx
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.json
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-youtube-updates.xml
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin.xpi
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin.crx
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin-updates.json
-    https://github.com/nascosto/PeaceBeStill/releases/latest/download/peacebestill-linkedin-updates.xml
+`scripts/variant.mjs`, `pack-crx.mjs` and `update-manifests.mjs` build a
+self-hosted channel (an unlisted add-on ID, a signed `.crx`, update manifests).
+Nothing uses them at present.
 
 ### First listing on each store, by hand
 
@@ -310,29 +302,25 @@ Neither store's API can create a listing: the first submission carries the
 description, screenshots, category and data-use answers, and only the web UI
 asks for those. Do each one once, then CI handles every version after it. Both
 listings take <contact@peacebestill.fyi> as the contact address and
-[PRIVACY.md](PRIVACY.md) as the privacy policy. A
-store step whose credentials are missing is skipped rather than failed, so
-tagging works before either listing exists. To publish a version that shipped
-before its listing did, run the **publish-stores** workflow from the Actions
-tab with that tag: it submits an existing tag to whichever stores are
-configured, without inventing a version number nobody needed. It is also the
-way back from a rejection — fix the listing, dispatch the same tag again.
+[PRIVACY.md](PRIVACY.md) as the privacy policy. To publish an existing tag again
+-- after a failed or rejected submission, or to a listing created after the tag
+-- run the **publish-stores** workflow from the Actions tab with that tag, and
+choose the one extension that needs it if the other already went up: AMO takes
+each version number once.
 
 - **addons.mozilla.org** — submit `dist/peacebestill-youtube-store.zip` as a
   *listed* add-on, with <https://github.com/nascosto/PeaceBeStill/blob/main/PRIVACY.md>
   as the privacy policy. Then put its slug in the repository variable
-  `YOUTUBE_AMO_SLUG`. The AMO credentials alone cannot gate that step, since
-  they are also what signs the self-hosted build; the slug is what says a
-  listing exists to receive a version.
+  `YOUTUBE_AMO_SLUG` (and LinkedIn's in `LINKEDIN_AMO_SLUG`). A release will
+  not run without both.
 - **Chrome Web Store** — a one-off $5 developer registration, then create the
   item, and put the ID it assigns in the repository variable
   `YOUTUBE_CWS_ITEM_ID`. The listing must answer the data-use questions: the
   dislike count is the only outbound request, it is off by default, and
   `PRIVACY.md` is the policy to link.
 
-Each extension has its own pair of variables, so each store's step is gated per
-extension: `YOUTUBE_AMO_SLUG` / `YOUTUBE_CWS_ITEM_ID`, and `LINKEDIN_AMO_SLUG` /
-`LINKEDIN_CWS_ITEM_ID`. The LinkedIn listings are the simpler pair to fill in:
+Each extension has its own pair of variables: `YOUTUBE_AMO_SLUG` /
+`YOUTUBE_CWS_ITEM_ID`, and `LINKEDIN_AMO_SLUG` / `LINKEDIN_CWS_ITEM_ID`. The LinkedIn listings are the simpler pair to fill in:
 that extension makes no network request at all, in any configuration, so every
 data-use question is answered "nothing collected".
 
@@ -340,24 +328,14 @@ data-use question is answered "nothing collected".
 
 | Secret | Where it comes from |
 | --- | --- |
-| `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account, and one pair signs every extension on both channels) |
+| `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account; one pair publishes every extension) |
 | `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` | a Google Cloud OAuth client with the Chrome Web Store API enabled, authorised once against the developer account |
-| `YOUTUBE_CRX_PRIVATE_KEY` | the PEM generated below; the self-hosted Chromium ID is derived from it, so it must never change |
-| `LINKEDIN_CRX_PRIVATE_KEY` | the same, for the LinkedIn extension |
 
-And four variables, not secrets: `YOUTUBE_AMO_SLUG`, `YOUTUBE_CWS_ITEM_ID`,
-`LINKEDIN_AMO_SLUG` and `LINKEDIN_CWS_ITEM_ID`. Each names a listing that
-exists, and each gates one store's step for one extension, so a release before
-a listing simply skips it.
-
-    mkdir -p ~/.config/peacebestill
-    openssl genrsa -out ~/.config/peacebestill/youtube-crx-key.pem 2048
-    openssl genrsa -out ~/.config/peacebestill/linkedin-crx-key.pem 2048
-    node scripts/pack-crx.mjs --key ~/.config/peacebestill/linkedin-crx-key.pem --id   # the Chromium ID
-
-Each extension needs its own key, since the Chromium ID is derived from it and
-two extensions cannot share an ID. Keep the PEMs out of the repo (`.gitignore`
-already excludes `*.pem`).
+And four variables, not secrets: `YOUTUBE_AMO_SLUG` and `LINKEDIN_AMO_SLUG`,
+which a release requires, and `YOUTUBE_CWS_ITEM_ID` and `LINKEDIN_CWS_ITEM_ID`,
+which switch on the Chrome Web Store steps once those listings exist. Put them
+under **Variables**: the workflow reads `vars.*`, and a value saved as a secret
+is not seen at all.
 
 ## Licence and privacy
 
@@ -367,15 +345,13 @@ privately rather than in an issue.
 
 ## Installing
 
-From the stores, once the listings are up, or straight from a release. A
-store copy and a self-hosted copy are different add-ons to the browser and can
-be installed at the same time, so pick one: everything being off by default,
-two copies do nothing visible but waste effort.
+From the stores: addons.mozilla.org for Firefox, and the Chrome Web Store for
+Chromium once those listings are up.
 
-Firefox will install the self-hosted `.xpi` from its URL above. Chrome and
-Edge will not — off-store installs are blocked outside a managed machine — so
-on Chromium the self-hosted `.crx` is really for machines you administer.
+A machine you administer can install them without asking every profile, by
+enterprise policy. Firefox's `ExtensionSettings` takes the AMO listing's own
+download URL, which always serves the newest reviewed version:
 
-[system-setups](https://github.com/nascosto/system-setups) does that
-administering: it installs these through Firefox's and Chromium's enterprise
-policies, so every profile on the machine gets them without being asked.
+    https://addons.mozilla.org/firefox/downloads/latest/<slug>/latest.xpi
+
+Chromium's `ExtensionInstallForcelist` takes the Chrome Web Store item ID.

@@ -1,21 +1,28 @@
 name: publish-stores
 
-# Publishes an existing tag to the two stores, by hand, from the Actions tab.
+# Publishes an existing tag to the stores, by hand, from the Actions tab.
 #
-# The release workflow already does this on the tag itself, but it skips a
-# store whose credentials are not set yet -- which is the normal state before
-# each listing has been created, since neither store's API can create one. This
-# is how a version that shipped self-hosted catches up with a store afterwards,
-# without inventing a version number nobody needed.
+# The release workflow does this on the tag itself. This is for a tag that has
+# to go out again or somewhere new: the way back from a failed or rejected
+# submission (fix the cause, dispatch the same tag), and the way a version
+# reaches a store whose listing was created after it was tagged -- without
+# inventing a version number nobody needed.
 #
-# It is also the way back from a store rejection: fix the listing, dispatch the
-# same tag again.
+# AMO holds each version number once per add-on, so resubmitting a version
+# that already went up fails -- and a failed step skips the ones after it. When
+# only one extension needs to go out again, choose it, and the other is left
+# alone.
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: The version tag to publish, e.g. v1.0.0
         required: true
+      extension:
+        description: Which extension to publish
+        type: choice
+        options: [both, youtube, linkedin]
+        default: both
 
 permissions:
   contents: read
@@ -51,11 +58,11 @@ jobs:
       - name: The tag must match every extension's manifest version
         run: node scripts/check-version.mjs "${{ inputs.tag }}" extensions/youtube/src extensions/linkedin/src
 
-      - name: Build the store package
-        run: npm run build
+      - name: Build the store packages
+        run: npm run build:youtube:store && npm run build:linkedin:store
 
       - name: Submit to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != '' && env.YOUTUBE_AMO_SLUG != ''
+        if: (env.AMO_JWT_ISSUER != '' && env.YOUTUBE_AMO_SLUG != '') && (inputs.extension == 'both' || inputs.extension == 'youtube')
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
@@ -64,7 +71,7 @@ jobs:
             --artifacts-dir dist/amo --channel listed --approval-timeout 0
 
       - name: Publish to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != ''
+        if: (env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != '') && (inputs.extension == 'both' || inputs.extension == 'youtube')
         env:
           CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
@@ -74,7 +81,7 @@ jobs:
             --zip dist/peacebestill-youtube-store.zip
 
       - name: Submit LinkedIn to addons.mozilla.org (listed)
-        if: env.AMO_JWT_ISSUER != '' && env.LINKEDIN_AMO_SLUG != ''
+        if: (env.AMO_JWT_ISSUER != '' && env.LINKEDIN_AMO_SLUG != '') && (inputs.extension == 'both' || inputs.extension == 'linkedin')
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
@@ -83,7 +90,7 @@ jobs:
             --artifacts-dir dist/amo --channel listed --approval-timeout 0
 
       - name: Publish LinkedIn to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''
+        if: (env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != '') && (inputs.extension == 'both' || inputs.extension == 'linkedin')
         env:
           CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
