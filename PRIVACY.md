@@ -10,9 +10,27 @@ lose or hand over.
 Your switch settings, and only the ones you changed from their default, in the
 browser's own `storage.sync`. That means they live in your Firefox or Chrome
 profile and follow your browser account if you have sync turned on, exactly as
-your bookmarks do. A profile still on the defaults stores nothing at all.
+your bookmarks do.
 
-Nothing else is written anywhere, and the settings never leave your browser.
+**PeaceBeStill - LinkedIn** also writes two short entries to
+`www.linkedin.com`'s own site storage (`localStorage`), so that what you have
+hidden is hidden before the page is drawn rather than flashing on screen first:
+
+- `peacebestill.tokens` — the names of the switches you have turned on, such as
+  `home ads`
+- `peacebestill.goes` — the page you chose to be sent to instead of the home
+  page, if any
+
+They are written on every LinkedIn page you load, and are empty when nothing is
+switched on. They say nothing about you or your account. But they are in
+LinkedIn's own site storage, and LinkedIn's pages can read that, so LinkedIn
+could see which of these switches you use. Clearing LinkedIn's site data
+removes them, until the next visit writes them again.
+
+**PeaceBeStill - YouTube** writes nothing outside its own settings.
+
+Nothing else is written anywhere, and none of it is sent anywhere by this
+project.
 
 ## Network requests
 
