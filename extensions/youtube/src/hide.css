@@ -162,8 +162,9 @@ html[data-peacebestill~="notifications"] ytm-mobile-topbar-renderer button[aria-
 /* Sidebar: Subscriptions is a pivot-bar item on mobile. Signed in only. */
 html[data-peacebestill~="subscriptions"] ytm-pivot-bar-item-renderer:has(.pivot-subscriptions) { display: none !important; }
 
-/* Sidebar: Home is a pivot-bar item on mobile too. */
-html[data-peacebestill~="home"] ytm-pivot-bar-item-renderer:has(.pivot-home) { display: none !important; }
+/* Sidebar: Home is a pivot-bar item on mobile too, classed "w2w" -- what to
+   watch -- rather than anything with "home" in it. */
+html[data-peacebestill~="home"] ytm-pivot-bar-item-renderer:has(.pivot-w2w) { display: none !important; }
 
 /* Feeds: Shorts, including the pivot-bar entry that has no desktop equivalent */
 html[data-peacebestill~="shorts"] :is(ytm-pivot-bar-item-renderer:has(.pivot-shorts), ytm-shorts-lockup-view-model, ytm-reel-shelf-renderer, ytm-video-with-context-renderer:has(a[href*="/shorts/"]), ytm-compact-video-renderer:has(a[href*="/shorts/"])) { display: none !important; }

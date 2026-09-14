@@ -15,7 +15,7 @@ and runs only on its own site.
 
 ## PeaceBeStill - YouTube
 
-> Make YouTube "Be Still". Fully configurable with 43 switches.
+> Make YouTube "Be Still". Fully configurable with 44 switches.
 
 Every feature is a switch on the options page, grouped by where it acts and
 nested under the switch it depends on, so hiding the description greys out the
@@ -23,8 +23,9 @@ five switches for things inside it.
 
 - the Create button, the whole top bar, the notifications bell and the unread
   count in the tab title
-- sidebar clutter: "More from YouTube", Explore and Trending, Subscriptions,
-  the new-video dots beside channels, the About / Press / Copyright block
+- sidebar clutter: Home, "More from YouTube", Explore and Trending,
+  Subscriptions, the new-video dots beside channels, the About / Press /
+  Copyright block
 - feeds: the home feed (or send home straight to Subscriptions), Shorts
   everywhere (a Short opens as a normal video), Mixes, promo banners and
   surveys, upcoming videos and their Notify me button, and the loading
@@ -65,10 +66,10 @@ Android supports no extensions at all, so Android means Firefox.
 Mobile YouTube is a separate application, not a narrow desktop one: `ytm-*`
 components, a bottom pivot bar in place of the sidebar, and the video's
 metadata inline under the player rather than in a column beside it. So the
-desktop rules match nothing there and `hide.css` carries a second set. Thirteen
-switches work on mobile: the top bar, Create, notifications, Subscriptions,
-Shorts, the home feed, promos, the recommendations and the videos in them, the
-views line, the buttons row, the channel row, and in-page ads.
+desktop rules match nothing there and `hide.css` carries a second set. Fourteen
+switches work on mobile: the top bar, Create, notifications, Home,
+Subscriptions, Shorts, the home feed, promos, the recommendations and the videos
+in them, the views line, the buttons row, the channel row, and in-page ads.
 
 The rest do nothing on a phone, which costs nothing, since an unmatched
 selector hides nothing and every switch is off until you turn it on. They fall

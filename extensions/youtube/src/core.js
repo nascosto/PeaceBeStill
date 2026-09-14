@@ -43,7 +43,12 @@
     // away. This is the same shape as Subscriptions above -- the entry, and
     // the page behind it.
     ["home", "Hide Home (sidebar entry and the page)", false, HEADER],
-    ["homeFeed", "Hide home page feed", false, HOME, "home"],
+    // Deliberately not nested under Home. Nesting would drop this switch
+    // whenever Home is on, and on the mobile site Home can only take the tab
+    // in the bottom bar -- the feed there is not tied to the home page in any
+    // way a rule can see -- so the feed would come back for anyone who had
+    // both on.
+    ["homeFeed", "Hide home page feed", false, HOME],
     ["homeToSubscriptions", "Send home page to Subscriptions feed", false, HOME, "subscriptions"],
     ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", false, HOME],
     ["mixes", "Hide Mixes (auto-generated playlists)", false, HOME],
