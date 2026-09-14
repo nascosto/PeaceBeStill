@@ -10,6 +10,7 @@
 // Signed out means the Create button, the subscription dots and (in some
 // layouts) the More from YouTube section do not exist; check those by hand.
 import puppeteer from "puppeteer-core";
+import { whyNotYouTube } from "./served.mjs";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -88,6 +89,8 @@ try {
   await write(CHILDREN_PASS);
   const page = await browser.newPage();
   await page.goto(VIDEO, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const notYouTube = whyNotYouTube(page.url(), "www.youtube.com");
+  if (notYouTube) throw new Error(notYouTube);
   await page.waitForSelector("ytd-watch-metadata", { timeout: 60000 });
   await sleep(4000);
   await page.click("#guide-button").catch(() => {});

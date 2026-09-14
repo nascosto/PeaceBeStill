@@ -10,6 +10,7 @@
 // Signed out means the Create button and the subscription dots do not exist,
 // and the sidebar may not render at all; check those by hand.
 import net from "node:net";
+import { whyNotYouTube } from "./served.mjs";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -197,6 +198,9 @@ try {
   // container to act inside.
   report.storageWrite = await write(CHILDREN_PASS);
   report.watchRendered = await onWatchPage();
+  const notYouTube = whyNotYouTube((await client.send("WebDriver:GetCurrentURL")).value, "www.youtube.com");
+  if (notYouTube) throw new Error(notYouTube);
+  if (!report.watchRendered) throw new Error("the watch page never rendered, so nothing could be measured");
   report.children = await client.script(SURVEY, [SELECTORS]);
   writeFileSync(OUT + "youtube-firefox-children.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
 

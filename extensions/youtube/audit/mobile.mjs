@@ -12,6 +12,7 @@
 // Create button, the notifications bell and the Subscriptions pivot item do
 // not exist, so those three are checked by hand.
 import puppeteer from "puppeteer-core";
+import { whyNotYouTube } from "./served.mjs";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -82,6 +83,8 @@ async function phone(browser, url) {
   await page.setUserAgent(UA);
   await page.setViewport(PHONE);
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const notYouTube = whyNotYouTube(page.url(), "m.youtube.com");
+  if (notYouTube) throw new Error(notYouTube);
   await sleep(7000);
   return page;
 }
