@@ -89,7 +89,8 @@ const { KEYS, FEATURES } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
-  vm.runInNewContext(readFileSync(new URL("../src/core.js", import.meta.url), "utf8"), context);
+  vm.createContext(context);
+  for (const file of ["settings.js", "core.js"]) vm.runInContext(readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8"), context);
   return context.PeaceBeStill;
 })();
 

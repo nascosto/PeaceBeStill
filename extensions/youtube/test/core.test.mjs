@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
-const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
+const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
 
 // Every key, in order, with its default. This is the contract the options
 // page, the stylesheet gates and the stored settings all share.

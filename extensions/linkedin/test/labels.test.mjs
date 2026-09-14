@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
 // The label pass reads the short texts in a feed item's header and decides what
 // kind of post it is. It had no test against real markup, and "someone in your
@@ -14,13 +14,13 @@ import { loadClassic } from "../../../test/helpers/load-classic.mjs";
 const SRC = new URL("../src/", import.meta.url);
 const content = readFileSync(new URL("content.js", SRC), "utf8");
 const helpers = content.slice(content.indexOf("  const FEED_ITEMS ="), content.indexOf("  const MARKED = ["));
-const { kindsFor } = loadClassic(new URL("core.js", SRC)).PeaceBeStill;
+const { kindsFor } = loadCore(SRC).PeaceBeStill;
 
 const { labelsIn } = new Function("PeaceBeStill", `
   const { kindsFor } = PeaceBeStill;
   ${helpers}
   return { labelsIn };
-`)(loadClassic(new URL("core.js", SRC)).PeaceBeStill);
+`)(loadCore(SRC).PeaceBeStill);
 
 function node(tag, ...kids) {
   const self = {
@@ -139,7 +139,7 @@ test("a post that merely ends in the word is left where it is", () => {
 // stops thinking you are at the bottom: it fetches, we hide it, it fetches
 // again, for as long as the tab is open and without anyone scrolling. A long
 // run of hidden items with nothing kept after them is that loop.
-const { cutoffAt } = loadClassic(new URL("core.js", SRC)).PeaceBeStill;
+const { cutoffAt } = loadCore(SRC).PeaceBeStill;
 const feed = (pattern) => [...pattern].map((c) => c === "h");
 
 test("a feed that keeps bringing nothing worth keeping is cut off", () => {

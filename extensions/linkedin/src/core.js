@@ -74,21 +74,6 @@
   // into your feed. One line, a name and a verb, so it is matched loosely.
   const SOCIAL = /\b(?:likes|loves|celebrates|supports|finds|commented on|reposted)\b.*\bthis\b/;
 
-  // The choices a setting offers, or null when it is an ordinary switch.
-  function choicesFor(key) {
-    const feature = FEATURES.find(([featureKey]) => featureKey === key);
-    return (feature && feature[5]) || null;
-  }
-
-  // The choices still worth offering, given what is switched on. A page you
-  // have hidden drops out of the list, and out of what the setting will do.
-  function choicesOffered(key, settings) {
-    const choices = choicesFor(key);
-    if (!choices) return null;
-    const merged = withDefaults(settings);
-    return choices.filter(([, , needs]) => !needs || merged[needs] !== true);
-  }
-
   // The choice actually in force: what you picked, unless you have since hidden
   // that page, in which case the first one still on offer. Hiding Home takes
   // "stay on Home" off the list too, so this can move you somewhere real.
@@ -205,8 +190,6 @@
     ["appNag", "Hide prompts to install the app", false, MOBILE, "blackout"],
   ];
 
-  const KEYS = FEATURES.map(([key]) => key);
-
   // Settings that also appear in a second place, because they belong to two
   // things at once: an advert in the feed is both an advert and part of the
   // feed. [key, the group it also appears in, the switch it sits under there].
@@ -223,118 +206,9 @@
     ["premium", ["networkPremium"]],
   ];
 
-  function coverOf(key) {
-    for (const [global, covered] of COVERS) if (covered.includes(key)) return global;
-    return null;
-  }
-
-  // The global doing this switch's job for it, or null. Kept apart from
-  // isMoot: a switch whose page has gone is not worth showing at all, while one
-  // covered by a global is worth showing as the settled fact it is.
-  function coveredBy(key, settings) {
-    const global = coverOf(key);
-    if (!global) return null;
-    const merged = withDefaults(settings);
-    // On itself, or with something above it already doing its job: hiding every
-    // advert covers the Premium ones, and so covers the per-page switch too.
-    return merged[global] === true || isMoot(global, merged) ? global : null;
-  }
-
   const MIRRORS = [
     ["sponsored", PAGES_GROUP, "feed"],
   ];
-
-  // The home page, by every path LinkedIn serves it at, and where each switch
-  // sends it. A destination is never itself a home path, so a redirect cannot
-  // loop.
-  function defaults() {
-    return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
-  }
-
-  // Stored settings over the defaults. Only booleans count, so a key that is
-  // absent, removed (storage.onChanged reports a removal as undefined) or
-  // junk falls back to its default. That is what lets us store only the
-  // switches you have actually changed, and lets a later version's new
-  // default reach everyone who never touched that switch.
-  function withDefaults(settings) {
-    const merged = defaults();
-    for (const [key, value] of Object.entries(settings || {})) {
-      const choices = choicesFor(key);
-      // A chooser takes one of its own values and nothing else; a switch takes
-      // a boolean and nothing else. Anything else falls back to the default.
-      if (choices) { if (choices.some(([choice]) => choice === value)) merged[key] = value; }
-      else if (typeof value === "boolean") merged[key] = value;
-    }
-    return merged;
-  }
-
-  // Settings -> the value of the root element's data-peacebestill attribute: the
-  // enabled keys, space separated, so hide.css can gate on ~="key".
-  function tokensFor(settings) {
-    const merged = withDefaults(settings);
-    return KEYS.filter((key) => merged[key] === true).join(" ");
-  }
-
-  // True when this value is what the feature would do anyway, so storing it
-  // would be storing nothing. Unknown keys are never redundant: we do not
-  // own them and must not delete them.
-  function isDefaultValue(key, value) {
-    const all = defaults();
-    return Object.prototype.hasOwnProperty.call(all, key) && all[key] === value;
-  }
-
-  // The stored keys worth deleting: everything already equal to its default.
-  function redundantKeys(stored) {
-    return Object.entries(stored || {})
-      .filter(([key, value]) => isDefaultValue(key, value))
-      .map(([key]) => key);
-  }
-
-  // The switch a feature lives inside, or null. Only one level deep today,
-  // but isMoot walks the whole chain so deeper nesting would just work.
-  function parentOf(key) {
-    const feature = FEATURES.find(([featureKey]) => featureKey === key);
-    return (feature && feature[4]) || null;
-  }
-
-  // True when some ancestor of this feature is switched on, i.e. the thing it
-  // acts on is already hidden, so the feature cannot have any effect. The
-  // options page greys such a switch out; its stored value is left alone, so
-  // turning the parent off brings it back exactly as it was.
-  function isMoot(key, settings) {
-    return blockerOf(key, settings) !== null;
-  }
-
-  // The nearest ancestor of this feature that is switched on: the switch that
-  // actually made it moot, which the options page names. With more than one
-  // level of nesting the direct parent may itself be off -- hiding the feed
-  // makes the post kinds moot, but so does blacking out the whole site -- and
-  // naming a switch that is off would be a lie.
-  function blockerOf(key, settings) {
-    const merged = withDefaults(settings);
-    const seen = new Set();
-    for (let parent = parentOf(key); parent && !seen.has(parent); parent = parentOf(parent)) {
-      if (merged[parent] === true) return parent;
-      seen.add(parent);
-    }
-    return null;
-  }
-
-  // What the content script should actually do, given what is stored: the
-  // defaults filled in, and any switch its parent has made moot forced off.
-  // Everything downstream reads this and tests each key for truth, so a key
-  // that is absent -- which is every key on a fresh install, since only
-  // non-default values are stored -- can never be mistaken for "on".
-  function effective(stored) {
-    const merged = withDefaults(stored);
-    const all = defaults();
-    for (const key of KEYS) {
-      // Back to its own default, which is false for a switch and "" for the
-      // chooser -- not false for both, which would be a value it cannot hold.
-      if (merged[key] && isMoot(key, merged)) merged[key] = all[key];
-    }
-    return merged;
-  }
 
   // Where the home page should go instead, or null. Only the home page is ever
   // redirected. If more than one destination is switched on the first in
@@ -348,12 +222,6 @@
     return REDIRECT_PATHS[redirectChoice(merged)] || null;
   }
 
-  // "(3) Feed | LinkedIn" -> "Feed | LinkedIn": the unread count LinkedIn
-  // prepends to the tab title.
-  function untitled(title) {
-    return String(title).replace(/^\(\d+\)\s+/, "");
-  }
-
   // What the tab should say, given what it says now, or null to leave it
   // alone. Blackout replaces the page, so the tab says the same sentence
   // rather than still advertising a feed and an unread count.
@@ -365,5 +233,15 @@
     return calm === title ? null : calm;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, BLACKOUT_TITLE, KINDS, SOCIAL, CUTOFF_RUN, cutoffAt, COVERS, coverOf, coveredBy, kindsFor, pageFor, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, blockerOf, choicesFor, choicesOffered, redirectChoice, tokensFor, redirectFor, untitled, titleFor };
+  // Everything about settings that is not LinkedIn's own -- defaults, what is
+  // stored, what is in force, nesting and covering -- is shared/settings.js.
+  const shared = root.PeaceBeStillSettings({ FEATURES, COVERS, MIRRORS });
+  const { withDefaults, choicesOffered, untitled } = shared;
+
+  // What the options page calls this site. Nothing here sends data anywhere,
+  // so there is no switch to ask permission for.
+  const SITE_NAME = "LinkedIn";
+  const CONSENT = {};
+
+  root.PeaceBeStill = { SITE_NAME, CONSENT, GROUPS, FEATURES, ...shared, BLACKOUT_TITLE, KINDS, SOCIAL, CUTOFF_RUN, cutoffAt, kindsFor, pageFor, redirectChoice, redirectFor, titleFor };
 })(globalThis);

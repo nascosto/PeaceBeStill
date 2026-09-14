@@ -16,7 +16,8 @@ import { RDP, devPort, session } from "./rdp.mjs";
 import { snapshot } from "./snapshot.mjs";
 
 const SRC = fileURLToPath(new URL("../src/", import.meta.url));
-const core = readFileSync(SRC + "core.js", "utf8");
+// settings.js first: core.js hands its features to the shared settings machinery.
+const core = readFileSync(SRC + "settings.js", "utf8") + "\n" + readFileSync(SRC + "core.js", "utf8");
 const context = { URLSearchParams, globalThis: null };
 context.globalThis = context;
 (await import("node:vm")).runInNewContext(core, context);

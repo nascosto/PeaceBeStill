@@ -17,6 +17,7 @@
     "build:linkedin:store": "web-ext build --source-dir extensions/linkedin/src --artifacts-dir dist --overwrite-dest --filename peacebestill-linkedin-store.zip",
     "build:linkedin:selfhosted": "node scripts/variant.mjs --src extensions/linkedin/src --out dist/self-hosted/linkedin --assets peacebestill-linkedin && web-ext build --source-dir dist/self-hosted/linkedin --artifacts-dir dist --overwrite-dest --filename peacebestill-linkedin.zip",
     "bump": "node scripts/bump.mjs",
+    "sync": "node scripts/sync-shared.mjs",
     "start:firefox:youtube": "web-ext run --source-dir extensions/youtube/src --start-url https://www.youtube.com",
     "start:chromium:youtube": "web-ext run --source-dir extensions/youtube/src --target chromium --start-url https://www.youtube.com",
     "start:firefox:linkedin": "web-ext run --source-dir extensions/linkedin/src --start-url https://www.linkedin.com",

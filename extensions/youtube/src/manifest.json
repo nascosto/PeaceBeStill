@@ -23,6 +23,7 @@
         "hide.css"
       ],
       "js": [
+        "settings.js",
         "core.js",
         "content.js"
       ],

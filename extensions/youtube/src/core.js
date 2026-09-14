@@ -84,64 +84,9 @@
     // a filter list maintained daily beats anything hand-written here.
     ["ads", "Hide ads around video (does not skip ads inside the video)", false, ADS],
   ];
-  const KEYS = FEATURES.map(([key]) => key);
-
   // Settings that also appear in a second place. None here yet; the options
   // page asks so that both extensions can share one page.
   const MIRRORS = [];
-
-  // The choices a setting offers, or null when it is an ordinary switch.
-  // Nothing here offers any yet; the options page asks so that both extensions
-  // can share one page.
-  function choicesFor(key) {
-    const feature = FEATURES.find(([featureKey]) => featureKey === key);
-    return (feature && feature[5]) || null;
-  }
-
-  // What choicesFor offers once the current settings are taken into account.
-  // Nothing here is a chooser, so this is the empty case.
-  function choicesOffered(key) {
-    return choicesFor(key);
-  }
-
-  function defaults() {
-    return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
-  }
-
-  // Stored settings over the defaults. Only booleans count, so a key that is
-  // absent, removed (storage.onChanged reports a removal as undefined) or
-  // junk falls back to its default. That is what lets us store only the
-  // switches you have actually changed, and lets a later version's new
-  // default reach everyone who never touched that switch.
-  function withDefaults(settings) {
-    const merged = defaults();
-    for (const [key, value] of Object.entries(settings || {})) {
-      if (typeof value === "boolean") merged[key] = value;
-    }
-    return merged;
-  }
-
-  // Settings -> the value of the root element's data-peacebestill attribute: the
-  // enabled keys, space separated, so hide.css can gate on ~="key".
-  function tokensFor(settings) {
-    const merged = withDefaults(settings);
-    return KEYS.filter((key) => merged[key] === true).join(" ");
-  }
-
-  // True when this value is what the feature would do anyway, so storing it
-  // would be storing nothing. Unknown keys are never redundant: we do not
-  // own them and must not delete them.
-  function isDefaultValue(key, value) {
-    const all = defaults();
-    return Object.prototype.hasOwnProperty.call(all, key) && all[key] === value;
-  }
-
-  // The stored keys worth deleting: everything already equal to its default.
-  function redundantKeys(stored) {
-    return Object.entries(stored || {})
-      .filter(([key, value]) => isDefaultValue(key, value))
-      .map(([key]) => key);
-  }
 
   // 1234 -> "1.2K", the way YouTube shows its own counts. Anything that is not
   // a non-negative finite number becomes "", so a bad API answer shows nothing.
@@ -213,19 +158,6 @@
     return { record: prev, hide: now - prev.since >= staleMs };
   }
 
-  // "(3) Some video - YouTube" -> "Some video - YouTube": the unread count
-  // YouTube prepends to the tab title.
-  function untitled(title) {
-    return String(title).replace(/^\(\d+\)\s+/, "");
-  }
-
-  // The switch a feature lives inside, or null. Only one level deep today,
-  // but isMoot walks the whole chain so deeper nesting would just work.
-  function parentOf(key) {
-    const feature = FEATURES.find(([featureKey]) => featureKey === key);
-    return (feature && feature[4]) || null;
-  }
-
   // True when some ancestor of this feature is switched on, i.e. the thing it
   // acts on is already hidden, so the feature cannot have any effect. The
   // options page greys such a switch out; its stored value is left alone, so
@@ -235,41 +167,17 @@
   // that both extensions' options pages stay the one piece of code.
   const COVERS = [];
 
-  function coverOf(key) {
-    for (const [global, covered] of COVERS) if (covered.includes(key)) return global;
-    return null;
-  }
+  // Everything about settings that is not YouTube's own -- defaults, what is
+  // stored, what is in force, nesting and covering -- is shared/settings.js.
+  const shared = root.PeaceBeStillSettings({ FEATURES, COVERS, MIRRORS });
+  const { withDefaults } = shared;
 
-  // The global doing this switch's job for it, or null. Kept apart from isMoot:
-  // a switch whose parent has gone is not worth showing at all, while one
-  // covered by a global is worth showing as the settled fact it is.
-  function coveredBy(key, settings) {
-    const global = coverOf(key);
-    return global && withDefaults(settings)[global] === true ? global : null;
-  }
+  // What the options page calls this site, and what it must ask before a
+  // switch that sends data elsewhere goes on: the dislike count tells a third
+  // party which video you are watching, which Firefox tracks as an optional
+  // data-collection permission.
+  const SITE_NAME = "YouTube";
+  const CONSENT = { dislikeCount: { data_collection: ["browsingActivity"] } };
 
-  function isMoot(key, settings) {
-    const merged = withDefaults(settings);
-    const seen = new Set();
-    for (let parent = parentOf(key); parent && !seen.has(parent); parent = parentOf(parent)) {
-      if (merged[parent] === true) return true;
-      seen.add(parent);
-    }
-    return false;
-  }
-
-  // What the content script should actually do, given what is stored: the
-  // defaults filled in, and any switch its parent has made moot forced off.
-  // Everything downstream reads this and tests each key for truth, so a key
-  // that is absent -- which is every key on a fresh install, since only
-  // non-default values are stored -- can never be mistaken for "on".
-  function effective(stored) {
-    const merged = withDefaults(stored);
-    for (const key of KEYS) {
-      if (merged[key] && isMoot(key, merged)) merged[key] = false;
-    }
-    return merged;
-  }
-
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, COVERS, coverOf, coveredBy, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.PeaceBeStill = { SITE_NAME, CONSENT, GROUPS, FEATURES, ...shared, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict };
 })(globalThis);

@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, statSync } from "node:fs";
 import { selfHostedManifest } from "../../../scripts/variant.mjs";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
-const { KEYS } = loadClassic(new URL("../src/core.js", import.meta.url)).PeaceBeStill;
+const { KEYS } = loadCore(new URL("../src/", import.meta.url)).PeaceBeStill;
 
 const manifest = JSON.parse(readFileSync(new URL("../src/manifest.json", import.meta.url), "utf8"));
 
@@ -36,9 +36,9 @@ test("manifest asks for nothing beyond storage and youtube.com", () => {
   assert.equal(manifest.background, undefined);
 });
 
-test("content script loads the core before the script that uses it, at document_start", () => {
+test("content script loads the shared settings, then the core, then the script that uses them, at document_start", () => {
   const [cs] = manifest.content_scripts;
-  assert.deepEqual(cs.js, ["core.js", "content.js"]);
+  assert.deepEqual(cs.js, ["settings.js", "core.js", "content.js"]);
   assert.deepEqual(cs.css, ["hide.css"]);
   assert.equal(cs.run_at, "document_start");
 });

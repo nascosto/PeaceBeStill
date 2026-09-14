@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadClassic } from "../../../test/helpers/load-classic.mjs";
+import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
 // content.js is the wiring: it reads storage, writes the attribute the
 // stylesheet gates on, and marks what CSS cannot select. It had no test, and a
@@ -63,7 +63,7 @@ function fakeStore(map, blocked = false) {
 async function run(options) {
   const world = fakeWorld(options);
   world.remembered = new Map(Object.entries(options?.remembered ?? {}));
-  const context = loadClassic(new URL("../src/core.js", import.meta.url));
+  const context = loadCore(new URL("../src/", import.meta.url));
   loadClassic(new URL("../src/content.js", import.meta.url), {
     PeaceBeStill: context.PeaceBeStill,
     browser: world.api,
@@ -163,7 +163,7 @@ test("with everything off, nothing is left polling the URL", async () => {
 test("the last tokens are on the page before storage has answered", async () => {
   const world = fakeWorld({ stored: { games: true } });
   const store = new Map([["peacebestill.tokens", "sponsored games"]]);
-  const context = loadClassic(new URL("../src/core.js", import.meta.url));
+  const context = loadCore(new URL("../src/", import.meta.url));
   loadClassic(new URL("../src/content.js", import.meta.url), {
     PeaceBeStill: context.PeaceBeStill,
     browser: world.api,
@@ -186,7 +186,7 @@ test("the last tokens are on the page before storage has answered", async () => 
 
 test("a page that will not keep anything still works", async () => {
   const world = fakeWorld({ stored: { games: true } });
-  const context = loadClassic(new URL("../src/core.js", import.meta.url));
+  const context = loadCore(new URL("../src/", import.meta.url));
   loadClassic(new URL("../src/content.js", import.meta.url), {
     PeaceBeStill: context.PeaceBeStill,
     browser: world.api,

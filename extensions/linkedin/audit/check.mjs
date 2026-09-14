@@ -16,7 +16,8 @@ import { fileURLToPath } from "node:url";
 import { linkedInTab } from "./rdp.mjs";
 
 const SRC = fileURLToPath(new URL("../src/", import.meta.url));
-const core = readFileSync(SRC + "core.js", "utf8");
+// settings.js first: core.js hands its features to the shared settings machinery.
+const core = readFileSync(SRC + "settings.js", "utf8") + "\n" + readFileSync(SRC + "core.js", "utf8");
 const content = readFileSync(SRC + "content.js", "utf8");
 const helpers = content.slice(content.indexOf("  const FEED_ITEMS ="), content.indexOf("  const MARKED = ["));
 

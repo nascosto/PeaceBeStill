@@ -1,15 +1,23 @@
-// One checkbox per feature, grouped into a fieldset per section and nested
+// One control per setting, grouped into a fieldset per section and nested
 // under the switch each one depends on, read from and written to storage.sync.
 // The content script listens for those writes, so a change shows up in open
 // tabs at once.
+//
+// Shared by every PeaceBeStill extension: this lives in shared/ and is copied
+// into each src/ by scripts/sync-shared.mjs. Anything that differs per site --
+// its name, its settings, what needs permission first -- comes from core.js.
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
-  const { GROUPS, FEATURES, KEYS, MIRRORS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, coveredBy, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
+  const { SITE_NAME, CONSENT, GROUPS, FEATURES, KEYS, MIRRORS, defaults, withDefaults, isDefaultValue, redundantKeys, parentOf, isMoot, coveredBy, choicesFor, choicesOffered } = globalThis.PeaceBeStill;
   const form = document.getElementById("features");
   const filter = document.getElementById("filter");
   const summary = document.getElementById("summary");
   const status = document.getElementById("status");
   const allOff = document.getElementById("all-off");
+
+  document.title = `PeaceBeStill for ${SITE_NAME}`;
+  const site = document.getElementById("site");
+  if (site) site.textContent = `for ${SITE_NAME}`;
   const labelOf = (key) => (FEATURES.find(([featureKey]) => featureKey === key) || [])[1] || key;
 
   // What storage holds, and what that means with the defaults filled in.
@@ -125,7 +133,10 @@
         const covered = isMoot(key, settings) || settings[mirrorParent] === true;
         box.checked = covered || settings[key] === true;
         box.disabled = covered;
-        row.hidden = filtered || isMoot(mirrorParent, settings);
+        // And it goes when the switch it is shown under is on, not only when
+        // that switch has itself been taken over: hiding the feed hides the
+        // adverts in the feed, and a locked tick saying so is only noise.
+        row.hidden = filtered || isMoot(mirrorParent, settings) || settings[mirrorParent] === true;
         continue;
       }
       // A global switch doing this one's job everywhere leaves it ticked and
@@ -179,16 +190,18 @@
     }
   }).catch(report);
 
-  // The dislike count sends the video ID to a third party, which Firefox tracks
-  // as an optional data-collection permission: ask for it on the way in, and
-  // take the tick back if it is refused. Chromium has no such permission and
-  // rejects the request, which is not a refusal, so treat a throw as consent
-  // already given.
+  // A switch that sends data somewhere names the permission it needs in
+  // core.js's CONSENT -- YouTube's dislike count tells a third party which
+  // video you are watching, which Firefox tracks as an optional data-collection
+  // permission. Ask for it on the way in, and take the tick back if it is
+  // refused. Chromium has no such permission and rejects the request, which is
+  // not a refusal, so treat a throw as consent already given.
   async function consentFor(box) {
-    if (box.name !== "dislikeCount" || !box.checked) return true;
+    const permissions = (CONSENT || {})[box.name];
+    if (!permissions || !box.checked) return true;
     if (!api.permissions?.request) return true;
     try {
-      return await api.permissions.request({ data_collection: ["browsingActivity"] });
+      return await api.permissions.request(permissions);
     } catch {
       return true;
     }
