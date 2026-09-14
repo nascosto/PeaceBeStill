@@ -18,12 +18,15 @@ test("manifest is MV3 with the agreed identity", () => {
   assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "142.0");
 });
 
-// The description is also the store summary, and it counts the switches. A
-// switch added without updating it leaves both saying something untrue.
-test("the description's switch count is the number of switches", () => {
-  const claimed = manifest.description.match(/(\d+) switches/);
-  assert.ok(claimed, `description should state a switch count: ${manifest.description}`);
+// The description is also the store summary, and it counts the settings. One
+// added without updating it leaves both saying something untrue -- and the
+// README quotes it, so that copy has to follow.
+test("the description's count is the number of settings, and the README quotes it", () => {
+  const claimed = manifest.description.match(/(\d+) options/);
+  assert.ok(claimed, `description should state a count: ${manifest.description}`);
   assert.equal(Number(claimed[1]), KEYS.length);
+  const readme = readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
+  assert.ok(readme.includes(`> ${manifest.description}`), "README should quote the manifest description");
 });
 
 test("manifest asks for nothing beyond storage and youtube.com", () => {
