@@ -85,7 +85,8 @@ writeFileSync(join(profile, "user.js"), [
 // --remote-allow-system-access lets the audit read the add-on's internal UUID.
 // Every real page load counts against a budget shared by all audit runs on this
 // machine (scripts/audit-budget.mjs), so claim this run's before starting.
-claimRunOrExit("youtube", 4);
+// One load: the watch page, then every pass applied to it live.
+claimRunOrExit("youtube", 1);
 
 const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", "--headless", "--no-remote", "--new-instance", "--profile", profile, "about:blank"], { stdio: "ignore" });
 
@@ -184,11 +185,20 @@ try {
   report.optionsUuid = uuid ?? null;
   if (!uuid) throw new Error("the add-on has no internal UUID yet");
 
-  // Writing settings means being on the extension's own origin.
+  // Two tabs, as the Chromium audit has: the options page in one, since writing
+  // settings means being on the extension's own origin, and YouTube in the
+  // other. With one tab those alternated, and every pass reloaded the watch
+  // page -- four loads of YouTube for what one does, since a setting reaches an
+  // open tab over storage.onChanged exactly as it does for a real user.
+  const watchTab = (await client.send("WebDriver:GetWindowHandle")).value;
+  const optionsTab = (await client.send("WebDriver:NewWindow", { type: "tab" })).handle;
+  await client.send("WebDriver:SwitchToWindow", { handle: optionsTab });
+  await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
+  await sleep(600);
+
   async function write(settings) {
-    await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
-    await sleep(600);
-    return client.asyncScript(`
+    await client.send("WebDriver:SwitchToWindow", { handle: optionsTab });
+    const result = await client.asyncScript(`
       const done = arguments[arguments.length - 1];
       const w = window.wrappedJSObject ?? window;
       const api = w.browser ?? (typeof browser !== "undefined" ? browser : null);
@@ -196,9 +206,14 @@ try {
       const value = JSON.parse(arguments[0]);
       api.storage.sync.set(typeof cloneInto === "function" ? cloneInto(value, w) : value).then(() => done("ok"), (e) => done(String(e)));`,
       [JSON.stringify(settings)]);
+    await client.send("WebDriver:SwitchToWindow", { handle: watchTab });
+    await sleep(1500); // long enough for the open page to hear the change and re-apply
+    return result;
   }
 
-  async function onWatchPage() {
+  // The one load of YouTube in this audit.
+  async function openWatchPage() {
+    await client.send("WebDriver:SwitchToWindow", { handle: watchTab });
     await beforeLoad("youtube");
     await client.send("WebDriver:Navigate", { url: VIDEO });
     const rendered = await waitForWatch(client);
@@ -207,14 +222,12 @@ try {
     return rendered;
   }
 
-  await client.send("WebDriver:Navigate", { url: `moz-extension://${uuid}/options.html` });
-  await sleep(600);
   report.optionsBoxes = await client.script('return [...document.querySelectorAll("input[type=checkbox]")].map((b) => `${b.name}=${b.checked}`);');
 
   // Pass one: every child switch on, parents off, so each child has a visible
   // container to act inside.
   report.storageWrite = await write(CHILDREN_PASS);
-  report.watchRendered = await onWatchPage();
+  report.watchRendered = await openWatchPage();
   const notYouTube = whyNotYouTube((await client.send("WebDriver:GetCurrentURL")).value, "www.youtube.com");
   if (notYouTube) throw new Error(notYouTube);
   if (!report.watchRendered) throw new Error("the watch page never rendered, so nothing could be measured");
@@ -237,17 +250,17 @@ try {
 
   // The middle layer, its grandparents still off.
   await write(MIDDLE_PASS);
-  await onWatchPage();
   report.middle = await client.script(SURVEY, [SELECTORS]);
 
   // Pass two: the parents as well.
   await write(EVERYTHING);
-  report.watchRenderedAgain = await onWatchPage();
+  // Still the watch page: nothing navigates it now, and hiding what is on it
+  // must not have taken the page itself away.
+  report.watchRenderedAgain = await client.script('return !!document.querySelector("ytd-watch-flexy");');
   report.parents = await client.script(SURVEY, [SELECTORS]);
 
   // And switching one back off must bring its target back.
   await write({ relatedVideos: false });
-  await onWatchPage();
   report.afterToggle = await client.script(SURVEY, [SELECTORS]);
   writeFileSync(OUT + "youtube-firefox-after-toggle.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
   await client.send("Marionette:Quit", {}).catch(() => {});

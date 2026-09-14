@@ -78,7 +78,9 @@ function survey(selectors) {
 
 // Every real page load counts against a budget shared by all audit runs on this
 // machine (scripts/audit-budget.mjs), so claim this run's before starting.
-claimRunOrExit("youtube", 1);
+// Two loads: the watch page, with every pass applied to it live, and one reload
+// for the one thing a reload is the only way to see -- early apply.
+claimRunOrExit("youtube", 2);
 
 const browser = await puppeteer.launch({
   executablePath: CHROMIUM,
@@ -148,6 +150,37 @@ try {
   await page.bringToFront();
   await sleep(1200);
   report.afterToggle = await page.evaluate(survey, SELECTORS);
+
+  // Early apply, the one thing only a fresh load can show: what was applied
+  // last time is on the page before storage answers, and then what storage says
+  // wins. To tell the two apart, the memory is set to something storage does not
+  // say, and every value the attribute takes during the load is recorded in
+  // order -- so the answer does not depend on how fast storage happens to be.
+  const fromStorage = await page.evaluate(() => document.documentElement.dataset.peacebestill);
+  await page.evaluate(() => localStorage.setItem("peacebestill.tokens", "shorts"));
+  await page.evaluateOnNewDocument(() => {
+    const seen = (window.__pbsValues = []);
+    const note = () => {
+      const value = document.documentElement && document.documentElement.getAttribute("data-peacebestill");
+      if (value !== null && value !== seen[seen.length - 1]) seen.push(value);
+    };
+    note();
+    new MutationObserver(note).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-peacebestill"] });
+  });
+  await beforeLoad("youtube");
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
+  const reloadedAt = whyNotYouTube(page.url(), "www.youtube.com");
+  if (reloadedAt) throw new Error(reloadedAt);
+  await sleep(4000);
+  report.earlyApply = await page.evaluate(() => ({
+    values: window.__pbsValues,
+    settled: document.documentElement.dataset.peacebestill,
+    remembered: localStorage.getItem("peacebestill.tokens"),
+  }));
+  report.earlyApply.fromStorage = fromStorage;
+  report.earlyApply.ok = report.earlyApply.values[0] === "shorts"
+    && report.earlyApply.settled === fromStorage
+    && report.earlyApply.remembered === fromStorage;
 } catch (e) {
   report.error = String(e.stack || e);
 } finally {
@@ -158,4 +191,5 @@ report.titleCalmed = report.titleCalm === calmTitle(SHOUTING);
 if (!report.titleCalmed) console.error(`title not calmed: got ${JSON.stringify(report.titleCalm)}`);
 writeFileSync(OUT + "chromium-report.json", JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
-process.exitCode = report.error || !report.titleCalmed ? 1 : 0;
+if (report.earlyApply && !report.earlyApply.ok) console.error(`early apply did not behave: ${JSON.stringify(report.earlyApply.values)} then ${JSON.stringify(report.earlyApply.settled)}`);
+process.exitCode = report.error || !report.titleCalmed || !report.earlyApply?.ok ? 1 : 0;
