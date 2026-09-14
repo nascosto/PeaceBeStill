@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, statSync } from "node:fs";
-import { selfHostedManifest } from "../../../scripts/variant.mjs";
 import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
 
 const { KEYS } = loadCore(new URL("../src/", import.meta.url)).PeaceBeStill;
@@ -83,16 +82,10 @@ test("icons are declared at every size a browser asks for, and the files exist",
   }
 });
 
-// The source tree is what both stores get, and each of them rejects a package
-// that names its own update service. The self-hosted build adds the two keys
-// back, pointed at the constant latest-release assets.
-test("the source manifest names no update service, and the self-hosted build adds ours", () => {
+// Each store rejects a package that names its own update service, and the
+// store is where this is published: the package is the source tree as it is.
+test("the manifest names no update service of its own", () => {
   assert.equal(manifest.update_url, undefined);
   assert.equal(manifest.browser_specific_settings.gecko.update_url, undefined);
-
-  const base = "https://github.com/nascosto/PeaceBeStill/releases/latest/download/";
-  const selfHosted = selfHostedManifest(manifest, { repo: "nascosto/PeaceBeStill", assets: "peacebestill-youtube" });
-  assert.equal(selfHosted.browser_specific_settings.gecko.update_url, base + "peacebestill-youtube-updates.json");
-  assert.equal(selfHosted.update_url, base + "peacebestill-youtube-updates.xml");
-  assert.equal(selfHosted.browser_specific_settings.gecko.id, "youtube-selfhosted@peacebestill.fyi");
+  assert.equal(manifest.browser_specific_settings.gecko.id, "youtube@peacebestill.fyi");
 });

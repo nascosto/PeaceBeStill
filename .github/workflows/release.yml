@@ -1,40 +1,35 @@
 name: release
 
-# A v* tag publishes every extension in the repo as a new version of its
+# A v* tag on main publishes every extension as a new version of its
 # addons.mozilla.org listing, through Mozilla's API. Nothing is signed or hosted
 # here: Mozilla signs each version and ships it to everyone who installed from
-# AMO once review passes, which is how updates reach them.
+# AMO once review passes. The Chrome Web Store is published to as well once
+# that store's credentials and listings exist.
 #
-# AMO is what a release is for, so a tag with its credentials or either listing
-# missing fails before anything is submitted, rather than quietly skipping an
-# extension. The Chrome Web Store steps are skipped until that store's
-# credentials and listings exist.
+# Releases are cut from main and nowhere else, so a tag on any other commit
+# fails before anything is built. AMO is what a release is for, so a tag with
+# its credentials or either listing missing fails there too, rather than
+# quietly skipping an extension.
 #
-# There is no self-hosted channel: no unlisted signing, no .crx, no update
-# manifests, and so no private keys. scripts/variant.mjs, pack-crx.mjs and
-# update-manifests.mjs are the tooling for one, unused by this workflow.
+# Each extension is submitted by a job of its own (submit.yml), and one failing
+# does not stop the other. The release page is only created once every
+# submission has gone through, so it never claims a version went out that did
+# not.
 on:
   push:
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  check:
     runs-on: ubuntu-latest
     env:
       AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
       YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
       LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
-      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-      YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
-      LINKEDIN_CWS_ITEM_ID: ${{ vars.LINKEDIN_CWS_ITEM_ID }}
     steps:
-      # Names what is missing, one line each. The first v1.1.0 run stopped here
-      # with a message that listed all four and said nothing about which, and
-      # the likeliest mistake -- a slug saved under Secrets, where vars.* cannot
-      # see it -- is one this step can recognise, so it says so.
       - name: addons.mozilla.org must be set up for both extensions
         env:
           HAS_AMO_SECRET: ${{ secrets.AMO_JWT_SECRET != '' }}
@@ -59,7 +54,15 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: The tag must be on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main. Releases are cut from main: merge the work into main, then tag main."
+            exit 1
+          fi
 
       - run: npm ci --ignore-scripts
       - run: npm test
@@ -68,58 +71,33 @@ jobs:
       - name: The tag must match every extension's manifest version
         run: node scripts/check-version.mjs "$GITHUB_REF_NAME" extensions/youtube/src extensions/linkedin/src
 
-      # The package each store receives is the source tree as it is: a listed
-      # add-on may not name its own update service, and needs no other build.
-      - name: Build the store packages
-        run: npm run build:youtube:store && npm run build:linkedin:store
+  submit:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: [youtube, linkedin]
+    uses: ./.github/workflows/submit.yml
+    with:
+      extension: ${{ matrix.extension }}
+      ref: ${{ github.sha }}
+      require_amo: true
+    secrets: inherit
 
-      # Not waited on: a listed version can sit in review for days, and web-ext
-      # otherwise gives up after fifteen minutes with an error -- which fails
-      # the step even though the version was submitted, and skips every step
-      # after it, the other extension's submission included.
-      # --approval-timeout 0 submits and exits.
-      - name: Submit YouTube to addons.mozilla.org
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir extensions/youtube/src \
-            --artifacts-dir dist/amo --channel listed --approval-timeout 0
-
-      - name: Submit LinkedIn to addons.mozilla.org
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: |
-          npx web-ext sign --source-dir extensions/linkedin/src \
-            --artifacts-dir dist/amo --channel listed --approval-timeout 0
-
-      - name: Publish YouTube to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.YOUTUBE_CWS_ITEM_ID != ''
-        env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-        run: |
-          node scripts/publish-cws.mjs --item "$YOUTUBE_CWS_ITEM_ID" \
-            --zip dist/peacebestill-youtube-store.zip
-
-      - name: Publish LinkedIn to the Chrome Web Store
-        if: env.CWS_CLIENT_ID != '' && env.LINKEDIN_CWS_ITEM_ID != ''
-        env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-        run: |
-          node scripts/publish-cws.mjs --item "$LINKEDIN_CWS_ITEM_ID" \
-            --zip dist/peacebestill-linkedin-store.zip
-
-      # Last, so a tag whose submission failed does not also carry a release
-      # page claiming it went out. No assets: the zips are unsigned, and a
-      # browser installs these from the stores.
+  release:
+    needs: submit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
+      LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
+    steps:
+      # No assets: the zips are unsigned, and a browser installs these from the
+      # stores.
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
             --notes "PeaceBeStill $GITHUB_REF_NAME, submitted to addons.mozilla.org: https://addons.mozilla.org/firefox/addon/$YOUTUBE_AMO_SLUG/ and https://addons.mozilla.org/firefox/addon/$LINKEDIN_AMO_SLUG/ -- each version appears there once Mozilla's review passes."
