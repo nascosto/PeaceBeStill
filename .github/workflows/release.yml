@@ -26,27 +26,43 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      AMO_JWT_ISSUER: ${{ vars.AMO_JWT_ISSUER }}
       YOUTUBE_AMO_SLUG: ${{ vars.YOUTUBE_AMO_SLUG }}
       LINKEDIN_AMO_SLUG: ${{ vars.LINKEDIN_AMO_SLUG }}
     steps:
+      # The API key is a pair. Its JWT issuer only names the key -- your
+      # account's number and the key's -- and signs nothing on its own, so it is
+      # a Variable, like the slugs. The JWT secret is the part that signs, and
+      # is the one Secret. Saved in the wrong place, either reads as unset, so
+      # the check says where it went rather than that it is missing.
       - name: addons.mozilla.org must be set up for both extensions
         env:
           HAS_AMO_SECRET: ${{ secrets.AMO_JWT_SECRET != '' }}
+          AMO_SECRET_AS_VARIABLE: ${{ vars.AMO_JWT_SECRET != '' }}
+          ISSUER_AS_SECRET: ${{ secrets.AMO_JWT_ISSUER != '' }}
           YOUTUBE_SLUG_AS_SECRET: ${{ secrets.YOUTUBE_AMO_SLUG != '' }}
           LINKEDIN_SLUG_AS_SECRET: ${{ secrets.LINKEDIN_AMO_SLUG != '' }}
         run: |
           missing=0
           miss() { echo "::error::$1"; missing=1; }
-          [ -n "$AMO_JWT_ISSUER" ] || miss "The AMO_JWT_ISSUER secret is not set (https://addons.mozilla.org/developers/addon/api/key/)."
-          [ "$HAS_AMO_SECRET" = "true" ] || miss "The AMO_JWT_SECRET secret is not set (https://addons.mozilla.org/developers/addon/api/key/)."
-          for ext in YOUTUBE LINKEDIN; do
-            var="${ext}_AMO_SLUG"; as_secret="${ext}_SLUG_AS_SECRET"
+          key_page="https://addons.mozilla.org/developers/addon/api/key/"
+          if [ "$HAS_AMO_SECRET" != "true" ]; then
+            if [ "$AMO_SECRET_AS_VARIABLE" = "true" ]; then
+              miss "AMO_JWT_SECRET is saved as a Variable. It signs releases, so it must be a Secret: add it under Settings > Secrets and variables > Actions > Secrets, delete the Variable, and generate a new key at $key_page if the Variable's value could have been seen."
+            else
+              miss "The AMO_JWT_SECRET secret is not set: add the JWT secret from $key_page under Settings > Secrets and variables > Actions > Secrets."
+            fi
+          fi
+          for var in AMO_JWT_ISSUER YOUTUBE_AMO_SLUG LINKEDIN_AMO_SLUG; do
+            case "$var" in
+              AMO_JWT_ISSUER) as_secret=ISSUER_AS_SECRET; from=" (the JWT issuer from $key_page)" ;;
+              *) as_secret="${var%%_AMO_SLUG}_SLUG_AS_SECRET"; from="" ;;
+            esac
             if [ -z "${!var}" ]; then
               if [ "${!as_secret}" = "true" ]; then
                 miss "$var is saved as a Secret. The workflow reads it as a Variable: add it under Settings > Secrets and variables > Actions > Variables."
               else
-                miss "The $var variable is not set: add it under Settings > Secrets and variables > Actions > Variables."
+                miss "The $var variable is not set: add it$from under Settings > Secrets and variables > Actions > Variables."
               fi
             fi
           done

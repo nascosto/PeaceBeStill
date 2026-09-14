@@ -398,11 +398,13 @@ data-use question is answered "nothing collected".
 
 | Secret | Where it comes from |
 | --- | --- |
-| `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account; one pair publishes every extension) |
+| `AMO_JWT_SECRET` | https://addons.mozilla.org/developers/addon/api/key/ (a free Mozilla account; one key publishes every extension) |
 | `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` | a Google Cloud OAuth client with the Chrome Web Store API enabled, authorised once against the developer account |
 
-And four variables, not secrets: `YOUTUBE_AMO_SLUG` and `LINKEDIN_AMO_SLUG`,
-which a release requires, and `YOUTUBE_CWS_ITEM_ID` and `LINKEDIN_CWS_ITEM_ID`,
+And five variables, not secrets: `AMO_JWT_ISSUER`, the other half of the
+addons.mozilla.org key from the same page, which only names the key and signs
+nothing without the secret; `YOUTUBE_AMO_SLUG` and `LINKEDIN_AMO_SLUG`, which a
+release requires with it; and `YOUTUBE_CWS_ITEM_ID` and `LINKEDIN_CWS_ITEM_ID`,
 which switch on the Chrome Web Store steps once those listings exist. Put them
 under **Variables**: the workflow reads `vars.*`, and a value saved as a secret
 is not seen at all.
