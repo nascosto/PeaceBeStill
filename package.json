@@ -1,6 +1,6 @@
 {
   "name": "peacebestill",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Quiet the web down. A family of small, switch-driven extensions, one per site.",
