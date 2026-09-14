@@ -110,7 +110,6 @@ test("a child is indented directly under its parent when they share a section", 
   const order = rows().map((r) => r.name);
   const at = (name) => order.indexOf(name);
   for (const [parent, children] of [
-    ["header", ["create", "notifications"]],
     ["description", ["expandDescription", "descriptionChannelLinks", "descriptionCards", "descriptionChips", "summary"]],
     ["relatedVideos", ["recommended", "liveChat", "playlistPanel"]],
     ["comments", ["profilePhotos"]],
@@ -137,11 +136,13 @@ test("a child is indented directly under its parent when they share a section", 
 
 test("a switch its parent covers is taken off the list, not explained away", async () => {
   const { rows, change, writes, removes } = await render({ header: true, comments: true, relatedVideos: true });
-  for (const key of ["create", "notifications", "profilePhotos", "liveChat", "recommended", "playlistPanel"]) {
+  for (const key of ["profilePhotos", "liveChat", "recommended", "playlistPanel"]) {
     assert.equal(rows().find((r) => r.name === key).hidden, true, key);
   }
-  // The switches that did the covering are still there to turn back off.
-  for (const key of ["header", "comments", "relatedVideos"]) {
+  // The switches that did the covering are still there to turn back off. So
+  // are Create and the notifications switch with the top bar hidden: it does
+  // not cover them.
+  for (const key of ["header", "comments", "relatedVideos", "create", "notifications"]) {
     assert.equal(rows().find((r) => r.name === key).hidden, false, key);
   }
   // Cross-section: hiding Subscriptions strands the home redirect.

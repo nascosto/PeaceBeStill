@@ -14,7 +14,14 @@
   // until you switch something on. That also means storage holds exactly the
   // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
-    ["create", "Hide Create button in header", false, HEADER, "header"],
+    // Neither Create nor the notifications switch sits under the top bar,
+    // though both live in it on a desktop. A covered switch is dropped, and
+    // the top bar does not cover either everywhere: on the mobile site Create
+    // is in the bottom bar, which hiding the top bar leaves alone, and the
+    // unread count is in the tab title, which is no part of any bar. Nested,
+    // turning the top bar off brought both back, and took their switches off
+    // the options page so they could not be turned back on.
+    ["create", "Hide Create button in header", false, HEADER],
     ["moreFromYoutube", "Hide “More from YouTube” sidebar section", false, HEADER],
     ["subscriptionDots", "Hide new-video dot beside channels in Subscriptions", false, HEADER, "subscriptions"],
     ["expandDescription", "Always show full description", false, WATCH, "description"],
@@ -35,7 +42,7 @@
     ["dislikeCount", "Show dislike count (asks Return YouTube Dislike service about each video)", false, WATCH, "buttonsBar"],
     // Ported from Unhook.
     ["header", "Hide whole top bar (logo, search, account)", false, HEADER],
-    ["notifications", "Hide notifications bell and unread count in tab title", false, HEADER, "header"],
+    ["notifications", "Hide notifications bell and unread count in tab title", false, HEADER],
     ["exploreTrending", "Hide Explore section, Trending, and their pages", false, HEADER],
     ["subscriptions", "Hide Subscriptions (sidebar entry, channel list and feed page)", false, HEADER],
     // Home had no switch of its own: hiding its feed left the entry in the

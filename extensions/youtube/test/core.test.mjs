@@ -54,10 +54,13 @@ test("every parent named is a real key, and no feature is its own ancestor", () 
 
 test("a feature is moot while any ancestor of it is switched on", () => {
   const moot = PeaceBeStill.isMoot;
-  // Hiding the whole top bar makes its parts moot.
-  assert.equal(moot("create", { header: true }), true);
-  assert.equal(moot("notifications", { header: true }), true);
-  assert.equal(moot("create", { header: false }), false);
+  // Hiding the whole top bar does not make Create or the notifications switch
+  // moot: Create is in the bottom bar on mobile, and the unread count is in the
+  // tab title, and neither goes with the top bar.
+  assert.equal(moot("create", { header: true }), false);
+  assert.equal(moot("notifications", { header: true }), false);
+  assert.equal(PeaceBeStill.effective({ header: true, notifications: true }).notifications, true);
+  assert.equal(PeaceBeStill.effective({ header: true, create: true }).create, true);
   // Hiding the description makes everything inside it moot.
   for (const child of ["expandDescription", "descriptionCards", "summary"]) {
     assert.equal(moot(child, { description: true }), true, child);
@@ -73,6 +76,17 @@ test("a feature is moot while any ancestor of it is switched on", () => {
   // A parent, and an unknown key, are never moot.
   assert.equal(moot("header", { header: true }), false);
   assert.equal(moot("bogus", { header: true }), false);
+});
+
+// A covered switch is dropped, so a switch may only sit under one that hides
+// everything it acts on, on every surface it works on -- desktop, mobile, and
+// the tab title. Each parent here was checked on both sites; anything new has
+// to be checked the same way before it joins the list.
+test("nothing is nested under a switch that leaves the child's target showing", () => {
+  const HIDES_ITS_CHILDREN = new Set(["subscriptions", "description", "buttonsBar", "relatedVideos", "comments", "videoDetails"]);
+  for (const [key, , , , parent] of PeaceBeStill.FEATURES) {
+    if (parent) assert.ok(HIDES_ITS_CHILDREN.has(parent), `${key} is nested under ${parent}`);
+  }
 });
 
 test("nothing is on by default: the extension does nothing until asked", () => {
