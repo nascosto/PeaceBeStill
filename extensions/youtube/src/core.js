@@ -63,7 +63,10 @@
     ["relatedVideos", "Hide whole column beside video (related videos, chat, playlist)", false, WATCH],
     ["recommended", "Hide recommended-videos list beside video and “More videos” overlay on pause", false, WATCH, "relatedVideos"],
     ["liveChat", "Hide live chat", false, WATCH, "relatedVideos"],
-    ["playlistPanel", "Hide playlist panel beside video", false, WATCH, "relatedVideos"],
+    // Not under relatedVideos: on a phone the playlist is a panel of its own
+    // under the player, outside the recommendations that switch hides there,
+    // and nesting it would switch it off whenever relatedVideos is on.
+    ["playlistPanel", "Hide playlist panel", false, WATCH],
     ["fundraiser", "Hide fundraiser banner", false, WATCH],
     ["merch", "Hide merch, tickets, offers and context boxes under video", false, WATCH],
     ["comments", "Hide comments", false, WATCH],

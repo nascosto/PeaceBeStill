@@ -24,6 +24,8 @@ const UA = "Mozilla/5.0 (Android 14; Mobile; rv:142.0) Gecko/142.0 Firefox/142.0
 const PHONE = { width: 412, height: 915, isMobile: true, hasTouch: true, deviceScaleFactor: 2.6 };
 const VIDEO = process.argv[2] ?? "https://m.youtube.com/watch?v=dQw4w9WgXcQ";
 const HOME = "https://m.youtube.com/";
+// A Mix: the one kind of page with the playlist panel under the player.
+const PLAYLIST = "https://m.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(OUT, { recursive: true });
 
@@ -40,12 +42,19 @@ const { KEYS, FEATURES } = await (async () => {
 })();
 
 // Split hide.css into the mobile rules (what this audit is for) and the
-// desktop ones, which must match nothing on a mobile page.
+// desktop ones, which must match nothing on a mobile page. The split is the
+// stylesheet's own section heading, not a guess from the selector: guessing
+// from "ytm-" filed a phone rule with no ytm- element in it as a desktop one,
+// and it silently dropped out of this audit. hide-css.test.mjs keeps the
+// heading there.
+const MOBILE_SECTION = "/* ---- Firefox for Android (m.youtube.com)";
 const MOBILE = {};
 const DESKTOP = {};
-for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8")
-  .matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
-  const into = m[2].includes("ytm-") ? MOBILE : DESKTOP;
+const stylesheet = readFileSync(new URL("../src/hide.css", import.meta.url), "utf8");
+const phoneFrom = stylesheet.indexOf(MOBILE_SECTION);
+if (phoneFrom === -1) throw new Error("hide.css has lost its Firefox for Android section heading");
+for (const m of stylesheet.matchAll(/html\[data-peacebestill~="([^"]+)"\]\s*([^{]+?)\s*\{\s*display: none !important;\s*\}/g)) {
+  const into = m.index > phoneFrom ? MOBILE : DESKTOP;
   into[m[1]] = into[m[1]] ? `${into[m[1]]}, ${m[2]}` : m[2];
 }
 
@@ -122,6 +131,10 @@ try {
   report.home = await home.evaluate(survey, MOBILE);
   await home.screenshot({ path: OUT + "youtube-mobile-home.png" });
   await home.close();
+
+  const playlist = await phone(browser, PLAYLIST);
+  report.playlist = await playlist.evaluate(survey, MOBILE);
+  await playlist.close();
 } catch (e) {
   report.error = String(e.stack || e);
 } finally {
@@ -138,6 +151,7 @@ for (const [pass, data, judge] of [
   ["watch/middle", report.watchMiddle, (k) => !GRANDPARENTS.includes(k)],
   ["watch/parents", report.watchParents, () => true],
   ["home", report.home, () => true],
+  ["playlist", report.playlist, () => true],
 ]) {
   for (const [key, r] of Object.entries(data ?? {})) {
     if (judge(key) && r.present > 0 && r.visible > 0) failures.push(`${pass}: ${key} (${r.visible}/${r.present} still rendered)`);
@@ -149,10 +163,10 @@ if (report.afterToggle?.relatedVideos?.present > 0 && report.afterToggle.related
 }
 const leaked = Object.entries(report.desktopRulesOnMobile ?? {}).filter(([, r]) => r.present > 0).map(([k]) => k);
 
-const rows = [["switch", "watch/children", "watch/middle", "watch/parents", "home"]];
+const rows = [["switch", "watch/children", "watch/middle", "watch/parents", "home", "playlist"]];
 for (const key of Object.keys(MOBILE)) {
   const cell = (d) => (d?.[key] ? `${d[key].visible}/${d[key].present}` : "-");
-  rows.push([key, cell(report.watchChildren), cell(report.watchMiddle), cell(report.watchParents), cell(report.home)]);
+  rows.push([key, cell(report.watchChildren), cell(report.watchMiddle), cell(report.watchParents), cell(report.home), cell(report.playlist)]);
 }
 const w = rows[0].map((_, i) => Math.max(...rows.map((r) => r[i].length)));
 console.log("visible/present, so 0/n means the rule worked and 0/0 means nothing to hide here\n");

@@ -239,7 +239,9 @@ html[data-peacebestill~="comments"] :is(ytm-item-section-renderer.scwnr-content:
 /* Watch: fundraisers, offers and the playlist, where a phone has them */
 html[data-peacebestill~="fundraiser"] ytm-donation-shelf-renderer-outer { display: none !important; }
 html[data-peacebestill~="merch"] ytm-compact-offer-module-renderer { display: none !important; }
-html[data-peacebestill~="playlistPanel"] ytm-playlist { display: none !important; }
+/* The playlist on a phone: the panel under the player and the collapsed bar
+   that opens it. Both only exist on a playlist or Mix page. */
+html[data-peacebestill~="playlistPanel"] :is(ytm-playlist-engagement-panel, ytm-playlist-panel-entry-point) { display: none !important; }
 
 /* Player: autoplay's toggle and its up-next bar on a phone (content.js
    switches it off) */

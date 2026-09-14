@@ -112,7 +112,7 @@ test("a child is indented directly under its parent when they share a section", 
   const at = (name) => order.indexOf(name);
   for (const [parent, children] of [
     ["description", ["expandDescription", "descriptionChannelLinks", "descriptionCards", "descriptionChips", "summary"]],
-    ["relatedVideos", ["recommended", "liveChat", "playlistPanel"]],
+    ["relatedVideos", ["recommended", "liveChat"]],
     ["comments", ["profilePhotos"]],
     ["buttonsBar", ["dislikeCount"]],
     ["subscriptions", ["subscriptionDots"]],
@@ -137,7 +137,7 @@ test("a child is indented directly under its parent when they share a section", 
 
 test("a switch its parent covers is taken off the list, not explained away", async () => {
   const { rows, change, writes, removes } = await render({ header: true, comments: true, relatedVideos: true });
-  for (const key of ["profilePhotos", "liveChat", "recommended", "playlistPanel"]) {
+  for (const key of ["profilePhotos", "liveChat", "recommended"]) {
     assert.equal(rows().find((r) => r.name === key).hidden, true, key);
   }
   // The switches that did the covering are still there to turn back off. So
