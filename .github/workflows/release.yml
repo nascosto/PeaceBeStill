@@ -31,11 +31,31 @@ jobs:
       YOUTUBE_CWS_ITEM_ID: ${{ vars.YOUTUBE_CWS_ITEM_ID }}
       LINKEDIN_CWS_ITEM_ID: ${{ vars.LINKEDIN_CWS_ITEM_ID }}
     steps:
+      # Names what is missing, one line each. The first v1.1.0 run stopped here
+      # with a message that listed all four and said nothing about which, and
+      # the likeliest mistake -- a slug saved under Secrets, where vars.* cannot
+      # see it -- is one this step can recognise, so it says so.
       - name: addons.mozilla.org must be set up for both extensions
-        if: env.AMO_JWT_ISSUER == '' || env.YOUTUBE_AMO_SLUG == '' || env.LINKEDIN_AMO_SLUG == ''
+        env:
+          HAS_AMO_SECRET: ${{ secrets.AMO_JWT_SECRET != '' }}
+          YOUTUBE_SLUG_AS_SECRET: ${{ secrets.YOUTUBE_AMO_SLUG != '' }}
+          LINKEDIN_SLUG_AS_SECRET: ${{ secrets.LINKEDIN_AMO_SLUG != '' }}
         run: |
-          echo "::error::A release publishes to addons.mozilla.org. It needs the AMO_JWT_ISSUER and AMO_JWT_SECRET secrets, and the YOUTUBE_AMO_SLUG and LINKEDIN_AMO_SLUG variables (Variables, not Secrets)."
-          exit 1
+          missing=0
+          miss() { echo "::error::$1"; missing=1; }
+          [ -n "$AMO_JWT_ISSUER" ] || miss "The AMO_JWT_ISSUER secret is not set (https://addons.mozilla.org/developers/addon/api/key/)."
+          [ "$HAS_AMO_SECRET" = "true" ] || miss "The AMO_JWT_SECRET secret is not set (https://addons.mozilla.org/developers/addon/api/key/)."
+          for ext in YOUTUBE LINKEDIN; do
+            var="${ext}_AMO_SLUG"; as_secret="${ext}_SLUG_AS_SECRET"
+            if [ -z "${!var}" ]; then
+              if [ "${!as_secret}" = "true" ]; then
+                miss "$var is saved as a Secret. The workflow reads it as a Variable: add it under Settings > Secrets and variables > Actions > Variables."
+              else
+                miss "The $var variable is not set: add it under Settings > Secrets and variables > Actions > Variables."
+              fi
+            fi
+          done
+          exit $missing
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
