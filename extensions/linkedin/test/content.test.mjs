@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadClassic, loadCore } from "../../../test/helpers/load-classic.mjs";
+import { loadCore, loadContent } from "../../../test/helpers/load-classic.mjs";
 
 // content.js is the wiring: it reads storage, writes the attribute the
 // stylesheet gates on, and marks what CSS cannot select. It had no test, and a
@@ -57,6 +57,7 @@ function fakeStore(map, blocked = false) {
   return {
     getItem: (key) => { if (blocked) throw new Error("blocked"); return map.has(key) ? map.get(key) : null; },
     setItem: (key, value) => { if (blocked) throw new Error("blocked"); map.set(key, String(value)); },
+    removeItem: (key) => { if (blocked) throw new Error("blocked"); map.delete(key); },
   };
 }
 
@@ -64,7 +65,7 @@ async function run(options) {
   const world = fakeWorld(options);
   world.remembered = new Map(Object.entries(options?.remembered ?? {}));
   const context = loadCore(new URL("../src/", import.meta.url));
-  loadClassic(new URL("../src/content.js", import.meta.url), {
+  loadContent(new URL("../src/", import.meta.url), {
     PeaceBeStill: context.PeaceBeStill,
     browser: world.api,
     document: world.document,
@@ -164,7 +165,7 @@ test("the last tokens are on the page before storage has answered", async () => 
   const world = fakeWorld({ stored: { games: true } });
   const store = new Map([["peacebestill.tokens", "sponsored games"]]);
   const context = loadCore(new URL("../src/", import.meta.url));
-  loadClassic(new URL("../src/content.js", import.meta.url), {
+  loadContent(new URL("../src/", import.meta.url), {
     PeaceBeStill: context.PeaceBeStill,
     browser: world.api,
     document: world.document,
@@ -187,7 +188,7 @@ test("the last tokens are on the page before storage has answered", async () => 
 test("a page that will not keep anything still works", async () => {
   const world = fakeWorld({ stored: { games: true } });
   const context = loadCore(new URL("../src/", import.meta.url));
-  loadClassic(new URL("../src/content.js", import.meta.url), {
+  loadContent(new URL("../src/", import.meta.url), {
     PeaceBeStill: context.PeaceBeStill,
     browser: world.api,
     document: world.document,
@@ -225,4 +226,25 @@ test("a click that is not the logo is left alone", async () => {
   world.listeners.click(event);
   assert.equal(event.prevented, undefined);
   assert.deepEqual(world.replaced, []);
+});
+
+// LinkedIn's own scripts can read its localStorage, and it is still there after
+// the extension is gone. Turning everything off must leave nothing of ours in it.
+test("with everything off, nothing is left in the site's storage", async () => {
+  const world = fakeWorld({ stored: {} });
+  const store = new Map([["peacebestill.tokens", "sponsored"], ["peacebestill.goes", "/jobs/"]]);
+  const context = loadCore(new URL("../src/", import.meta.url));
+  loadContent(new URL("../src/", import.meta.url), {
+    PeaceBeStill: context.PeaceBeStill,
+    browser: world.api,
+    document: world.document,
+    location: { ...world.location, pathname: "/jobs/" },
+    MutationObserver: world.MutationObserver,
+    setTimeout, clearTimeout,
+    setInterval: world.setInterval, clearInterval: world.clearInterval,
+    localStorage: fakeStore(store),
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual([...store.keys()], [], "an empty setting was kept as an empty string");
 });

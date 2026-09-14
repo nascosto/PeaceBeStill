@@ -21,3 +21,12 @@ export function loadCore(srcDir, extraGlobals = {}) {
   vm.runInContext(readFileSync(new URL("core.js", srcDir), "utf8"), context, { filename: String(new URL("core.js", srcDir)) });
   return context;
 }
+
+// An extension's content script, as the manifest loads it: shared/page.js as
+// the extension carries it, then content.js, in one context with the fake page
+// the test hands in. Takes the extension's src directory as a URL.
+export function loadContent(srcDir, extraGlobals = {}) {
+  const context = loadClassic(new URL("page.js", srcDir), extraGlobals);
+  vm.runInContext(readFileSync(new URL("content.js", srcDir), "utf8"), context, { filename: String(new URL("content.js", srcDir)) });
+  return context;
+}

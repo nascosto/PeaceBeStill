@@ -5,14 +5,13 @@
 (function () {
   const api = globalThis.browser ?? globalThis.chrome;
   const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor, kindsFor, pageFor, cutoffAt } = globalThis.PeaceBeStill;
+  const { recall, remember, listen, watchMutations, followLogo } = globalThis.PeaceBeStillPage;
 
-  // What storage holds, and what that means once defaults are filled in and
-  // anything blackout has made moot is forced off. Only `settings` is ever
-  // read, and every read tests for truth: storage keeps only values that
-  // differ from a default, so an absent key means off and must never be
-  // mistaken for on.
-  let stored = {};
-  let settings = effective(stored);
+  // What is in force: the defaults filled in, and anything blackout has made
+  // moot forced off. Only this is ever read, and every read tests for truth:
+  // storage keeps only values that differ from a default, so an absent key
+  // means off and must never be mistaken for on.
+  let settings = effective({});
 
   // The last title LinkedIn set for itself. Captured as it goes past rather
   // than once at startup, because at document_start the title has not been
@@ -72,23 +71,13 @@
     }
   }
 
-  // Where the last-applied tokens are kept. storage.sync answers a moment
-  // after the page starts drawing, so on the first paint nothing would be
-  // hidden yet. This is read at once instead, and whatever storage says a
-  // moment later replaces it.
+  // What was applied last time, for the next load to use before storage
+  // answers (shared/page.js explains why, and removes a key once it would be
+  // empty). The tokens, and where the home page goes -- which is not a switch,
+  // so is not among the tokens, and without which the redirect waited for
+  // storage while the page you asked never to see was drawn.
   const REMEMBERED = "peacebestill.tokens";
-  // And where the home page goes, which is not a switch and so is not among
-  // the tokens. Without it the redirect had to wait for storage, and waiting
-  // means the page you asked never to see is drawn before you leave it.
   const REMEMBERED_GOES = "peacebestill.goes";
-
-  function remember(key, value) {
-    try {
-      globalThis.localStorage.setItem(key, value);
-    } catch {
-      // Site storage can be blocked. The page simply draws before we answer.
-    }
-  }
 
   function apply() {
     const tokens = tokensFor(settings);
@@ -106,7 +95,6 @@
     const wanted = titleFor(document.title, settings);
     if (wanted !== null) document.title = wanted;
   }
-
 
   // --- Marking what CSS cannot select ---------------------------------------
   // LinkedIn tells a promoted, suggested or recommended post apart from an
@@ -172,10 +160,6 @@
   // different panel's label. Growing to the first ancestor with siblings, which
   // is the obvious rule, marks only the heading: LinkedIn wraps a heading and
   // its body as two children of the panel.
-  // How far a panel may grow from its label, per kind. One number cannot serve
-  // them all: LinkedIn puts seven wrappers between "Start a post" and the
-  // composer box, while an advert or an upsell is a small box near its label
-  // and given the same room swallows the whole column.
   // Panels that no switch owns, but that a switch must not swallow either.
   // Every other guard needs a landmark -- another marker, a heading element, a
   // list -- and LinkedIn's cards often have none: "Manage my network" is a
@@ -183,15 +167,18 @@
   // less clever than a rule, and it is the thing that actually holds.
   const NEIGHBOURS = /^(Manage my network|No pending invitations|Profile viewers|Saved items|Who's viewed your profile|Recent|Connections|Followers)$/;
 
-  // Things no panel may swallow: another page's place in the top bar, or a
-  // post in the feed.
-  // Things a panel must never take with it. The footer is the whole site's, not
-  // any panel's: an advert in the rail sits above it, and a box that grew one
-  // step too far took About, Help Center and the copyright line with it.
+  // Things a panel must never take with it: another page's place in the top
+  // bar, a post in the feed, and the footer, which is the whole site's rather
+  // than any panel's -- an advert in the rail sits above it, and a box that
+  // grew one step too far took About, Help Center and the copyright line.
   const KEEP_OUT = '[data-testid="primary-nav"] li, [data-testid="mainFeed"] [role="listitem"], footer';
 
   // A box this tall is a panel in its own right, not a label pointing at one.
   const PANEL_SIZE = 100;
+  // How far a panel may grow from its label, per kind. One number cannot serve
+  // them all: LinkedIn puts seven wrappers between "Start a post" and the
+  // composer box, while an advert or an upsell is a small box near its label
+  // and given the same room swallows the whole column.
   const DEPTH = { composer: 8, premium: 6 };
   const DEFAULT_DEPTH = 6;
 
@@ -239,9 +226,6 @@
       if (headings(node) >= 1 && headings(parent) > headings(node)) break;
       // A list item is its own thing. Growing out of one into the list takes
       // its neighbours with it -- which is how hiding Premium adverts was
-      // hiding the "For Business" menu sitting beside one in the top bar.
-      // A list item is its own thing. Growing out of one into the list takes
-      // its neighbours with it -- which is how hiding Premium adverts was
       // hiding the "For Business" menu sitting beside one in the top bar. But
       // a list of one has no neighbours to take, and is only a wrapper: "Post
       // a free job" is a single item in its own nav, and stopping at the item
@@ -275,13 +259,30 @@
     return box;
   }
 
+  // Every element whose whole text might be a label, with that text. Reading
+  // textContent walks an element's entire subtree, and every kind of panel asks
+  // the same question of the same elements, so a pass reads the text once and
+  // each kind filters that list. Asking per kind cost fifteen full reads of the
+  // page on every mutation -- 64 ms a pass on a thirteen-thousand-element page,
+  // over a frame's budget several times, and growing with the feed. pass()
+  // clears this, so a pass never sees text left from the last one; anything
+  // calling markModules on its own gets the page as it is when first asked.
+  let texts = null;
+
+  function textsOnPage() {
+    if (!texts) {
+      texts = [...document.querySelectorAll("span,p,h1,h2,h3,div,button")]
+        .map((el) => [el, (el.textContent || "").trim()]);
+    }
+    return texts;
+  }
+
   // Elements whose whole text is the label, innermost first: LinkedIn wraps
   // some headings around a span, so requiring a childless node misses them,
   // and accepting every ancestor would match half the page. Keeping only those
   // with no matching descendant gives exactly the label itself.
   function labelled(pattern) {
-    const matches = [...document.querySelectorAll("span,p,h1,h2,h3,div,button")]
-      .filter((el) => pattern.test((el.textContent || "").trim()));
+    const matches = textsOnPage().filter(([, text]) => pattern.test(text)).map(([el]) => el);
     return matches.filter((el) => !matches.some((other) => other !== el && el.contains(other)));
   }
 
@@ -346,12 +347,10 @@
     const neighbours = labelled(NEIGHBOURS);
     // An advert sitting inside a panel is part of that panel, so adverts do not
     // fence a panel in: without this the Premium button inside the composer
-    // stopped the composer growing past its first row. A panel that swallows an
-    // advert hides it too, which is the wanted result either way.
-    // An advert sitting inside a panel is part of that panel, so adverts do not
-    // fence a panel in: the promoted jobs are inside "More jobs for you", and
-    // treating them as a foreign panel left that section as a heading with the
-    // jobs still under it. But one advert does not grow through another -- a
+    // stopped the composer growing past its first row, and the promoted jobs
+    // inside "More jobs for you" left that section a heading with the jobs
+    // still under it. A panel that swallows an advert hides it too, which is
+    // the wanted result either way. But one advert does not grow through another -- a
     // Premium upsell on the jobs page did exactly that and took a job listing
     // with it -- so this holds only for a panel that is not itself an advert.
     const ADVERTS = new Set(["premium", "otherAds", "jobsPromoted", "sponsored"]);
@@ -512,12 +511,8 @@
     "jobsSuggestions", "composer", "premium", "otherAds", "ads"];
 
   // LinkedIn is a single-page app: it rewrites the title and renders the feed
-  // long after load, so everything here is redone on mutation rather than once.
-  // The observer runs only while a switch needs it, and its callback is
-  // debounced so a busy feed cannot starve the page.
-  let observer = null;
-  let observeTimer = null;
-
+  // long after load, so everything here is redone on mutation rather than once,
+  // and only while a switch needs it.
   const FEED = '[data-testid="mainFeed"]';
 
   // Stop the feed once it is only bringing more of what is being hidden.
@@ -589,6 +584,7 @@
   }
 
   function pass() {
+    texts = null; // read the page afresh: it has changed since the last pass
     keepTitle();
     styleShadow();
     markAppNags(settings.appNag === true);
@@ -598,30 +594,22 @@
       tidyRules();
     }
     capFeed();
+    texts = null;
   }
+
+  // Marking runs in the observer's own turn, before the browser paints, so what
+  // it hides is never seen; waiting even a fifth of a second means the thing
+  // appears and then vanishes. It runs again once things have settled, for
+  // whatever arrives after the element that holds it -- a panel's height, a
+  // post's label.
+  const watcher = watchMutations({ immediate: pass, settled: pass });
 
   function watchDom() {
     // Always: this is also how the title is put back when blackout goes off.
     pass();
     const overlayOn = SHADOW_RULES.some(([key]) => settings[key]);
-    if (!(settings.blackout || settings.notificationCount || settings.appNag || overlayOn || MARKED.some((key) => settings[key]))) {
-      observer?.disconnect();
-      observer = null;
-      return;
-    }
-    if (observer) return;
-    observer = new MutationObserver(() => {
-      // Run in the observer's own turn. The browser has not painted yet when
-      // this happens, so what is hidden here is never seen at all. Waiting even
-      // a fifth of a second means the thing appears and then vanishes, which
-      // reads worse than leaving it alone would.
-      pass();
-      // And again once things have settled, for whatever arrives after the
-      // element that holds it -- a panel's height, a post's label.
-      clearTimeout(observeTimer);
-      observeTimer = setTimeout(pass, 200);
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    if (settings.blackout || settings.notificationCount || settings.appNag || overlayOn || MARKED.some((key) => settings[key])) watcher.start();
+    else watcher.stop();
   }
 
   // LinkedIn is a single-page app: clicking the logo or the top bar changes the
@@ -651,25 +639,10 @@
     }, 300);
   }
 
-  // The logo goes home. When home is not where you want to be, it should go
-  // where the home page would have sent you -- rather than there and away
-  // again, which is a page you asked never to see, seen. It is a button rather
-  // than a link, so there is no address on it to change: the click is taken
-  // instead, and only when there is somewhere else to be.
-  let watchingLogo = false;
-
-  function watchLogo() {
-    if (watchingLogo || !document.addEventListener) return;
-    watchingLogo = true;
-    document.addEventListener("click", (event) => {
-      const goes = redirectFor("/feed/", settings);
-      if (!goes) return;
-      const el = event.target && event.target.closest && event.target.closest('[role="button"], a');
-      if (!el || !el.querySelector('svg[aria-label="LinkedIn"]')) return;
-      event.preventDefault();
-      event.stopPropagation();
-      location.assign(goes);
-    }, true);
+  // LinkedIn's logo is a button or a link holding its wordmark.
+  function isLogo(target) {
+    const el = target.closest('[role="button"], a');
+    return Boolean(el && el.querySelector('svg[aria-label="LinkedIn"]'));
   }
 
   function refresh({ redirect = true } = {}) {
@@ -679,59 +652,32 @@
     tidyRules();
     watchDom();
     watchPath();
-    watchLogo();
+    followLogo(isLogo, () => redirectFor("/feed/", settings));
   }
 
-  // Before anything else, and before the first paint: everything set last time.
-  // Not the tokens alone -- the whole pass, so that what the stylesheet cannot
-  // name is marked and hidden as it arrives rather than after. Until this, the
-  // watching did not begin until storage had answered, and whatever the page
-  // drew in the meantime was there to see.
-  //
-  // Being wrong here costs a moment of the page looking as it did when you
-  // left it. Being late costs seeing everything you asked to be rid of.
-  //
-  // The redirect is left out: it is not a switch, so it is not among the
-  // tokens, and acting on a guess about where you want to be sent is worse
-  // than waiting the moment it takes to know.
   // First of all, and before a pixel of it is drawn: if the home page is one
-  // you have asked never to see, leave now. Waiting for storage to say so
-  // means arriving, being shown it, and only then being sent away.
-  try {
-    const goes = globalThis.localStorage.getItem(REMEMBERED_GOES);
-    if (goes && pageFor(location.pathname) === "home") {
-      location.replace(goes);
-      return;
-    }
-  } catch { /* nothing remembered, or site storage is blocked */ }
+  // you have asked never to see, leave now, on what was remembered. Waiting for
+  // storage to say so means arriving, being shown it, and only then being sent
+  // away.
+  const goes = recall(REMEMBERED_GOES);
+  if (goes && pageFor(location.pathname) === "home") {
+    location.replace(goes);
+    return;
+  }
 
-  try {
-    const remembered = globalThis.localStorage.getItem(REMEMBERED);
-    if (remembered !== null) {
-      stored = Object.fromEntries(remembered.split(" ").filter(Boolean).map((key) => [key, true]));
-      settings = effective(stored);
-      refresh({ redirect: false });
-    }
-  } catch { /* nothing remembered, or site storage is blocked */ }
+  // Then everything else set last time, before the first paint. Not the tokens
+  // alone -- the whole pass, so that what the stylesheet cannot name is marked
+  // and hidden as it arrives rather than after. Being wrong here costs a moment
+  // of the page looking as it did when you left it; being late costs seeing
+  // everything you asked to be rid of. Redirecting again is left to storage:
+  // the one redirect worth taking on a guess has just been taken above.
+  const remembered = recall(REMEMBERED);
+  if (remembered !== null) {
+    settings = effective(Object.fromEntries(remembered.split(" ").filter(Boolean).map((key) => [key, true])));
+    refresh({ redirect: false });
+  }
 
-  api.storage.sync.get(KEYS).then((values) => {
-    stored = values;
-  }).catch(() => {
-    // Storage unavailable: fall back to the defaults, which are all off.
-    stored = {};
-  }).then(() => {
-    settings = effective(stored);
-    refresh();
-  });
-
-  api.storage.onChanged.addListener((changes, area) => {
-    if (area !== "sync") return;
-    // A removal arrives as a change with no newValue: drop the key so it falls
-    // back to its default rather than reading as "off".
-    for (const [key, change] of Object.entries(changes)) {
-      if ("newValue" in change) stored[key] = change.newValue;
-      else delete stored[key];
-    }
+  listen(api, KEYS, (stored) => {
     settings = effective(stored);
     refresh();
   });

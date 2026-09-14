@@ -36,9 +36,9 @@ test("manifest asks for nothing beyond storage and youtube.com", () => {
   assert.equal(manifest.background, undefined);
 });
 
-test("content script loads the shared settings, then the core, then the script that uses them, at document_start", () => {
+test("content script loads the shared settings and page helpers, then the core, then the script that uses them, at document_start", () => {
   const [cs] = manifest.content_scripts;
-  assert.deepEqual(cs.js, ["settings.js", "core.js", "content.js"]);
+  assert.deepEqual(cs.js, ["settings.js", "page.js", "core.js", "content.js"]);
   assert.deepEqual(cs.css, ["hide.css"]);
   assert.equal(cs.run_at, "document_start");
 });

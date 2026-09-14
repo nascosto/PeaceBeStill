@@ -24,6 +24,7 @@
       ],
       "js": [
         "settings.js",
+        "page.js",
         "core.js",
         "content.js"
       ],

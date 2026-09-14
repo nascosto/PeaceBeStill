@@ -21,7 +21,7 @@ test("every extension loads the shared settings before its own core, everywhere 
   for (const extension of extensions()) {
     const manifest = JSON.parse(readFileSync(`extensions/${extension}/src/manifest.json`, "utf8"));
     const js = manifest.content_scripts[0].js;
-    assert.ok(js.indexOf("settings.js") !== -1 && js.indexOf("settings.js") < js.indexOf("core.js"), `${extension} manifest`);
+    assert.deepEqual(js, ["settings.js", "page.js", "core.js", "content.js"], `${extension} manifest`);
   }
   const html = readFileSync("shared/options.html", "utf8");
   assert.ok(html.indexOf('src="settings.js"') < html.indexOf('src="core.js"'));

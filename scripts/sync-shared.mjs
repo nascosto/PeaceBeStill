@@ -8,7 +8,7 @@
 import { copyFileSync, readdirSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-export const SHARED = ["settings.js", "options.js", "options.html", "options.css"];
+export const SHARED = ["settings.js", "page.js", "options.js", "options.html", "options.css"];
 
 export function extensions(root = ".") {
   return readdirSync(`${root}/extensions`, { withFileTypes: true })
