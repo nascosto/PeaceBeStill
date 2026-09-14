@@ -14,57 +14,80 @@
   // until you switch something on. That also means storage holds exactly the
   // switches you turned on, since a value equal to its default is not stored.
   const FEATURES = [
-    ["create", "Hide the Create button in the header", false, HEADER, "header"],
-    ["moreFromYoutube", "Hide the “More from YouTube” sidebar section", false, HEADER],
-    ["subscriptionDots", "Hide the new-video dot beside channels in Subscriptions", false, HEADER, "subscriptions"],
-    ["expandDescription", "Always show the full description", false, WATCH, "description"],
-    ["descriptionChannelLinks", "Hide the channel row at the bottom of the description", false, WATCH, "description"],
-    ["descriptionCards", "Hide the extra cards in the description (transcript, podcast, chapters, music)", false, WATCH, "description"],
-    ["descriptionChips", "Hide hashtags and link chips in the description", false, WATCH, "description"],
-    ["footer", "Hide the About / Press / Copyright block under the sidebar", false, HEADER],
+    ["create", "Hide Create button in header", false, HEADER, "header"],
+    ["moreFromYoutube", "Hide “More from YouTube” sidebar section", false, HEADER],
+    ["subscriptionDots", "Hide new-video dot beside channels in Subscriptions", false, HEADER, "subscriptions"],
+    ["expandDescription", "Always show full description", false, WATCH, "description"],
+    ["descriptionChannelLinks", "Hide channel row at bottom of description", false, WATCH, "description"],
+    ["descriptionCards", "Hide extra cards in description (transcript, podcast, chapters, music)", false, WATCH, "description"],
+    ["descriptionChips", "Hide hashtags and link chips in description", false, WATCH, "description"],
+    ["footer", "Hide About / Press / Copyright block under sidebar", false, HEADER],
     ["ask", "Hide YouTube's AI “Ask” button and card", false, WATCH],
-    ["summary", "Hide the AI-generated video summary", false, WATCH, "description"],
-    ["upcoming", "Hide upcoming videos and their Notify me button in the Subscriptions feed", false, HOME, "subscriptions"],
+    ["summary", "Hide AI-generated video summary", false, WATCH, "description"],
+    ["upcoming", "Hide upcoming videos and their Notify me button in Subscriptions feed", false, HOME, "subscriptions"],
     ["channelTabs", "Hide a channel's Posts and Store tabs", false, CHANNEL],
-    ["channelTabRedirect", "Send a channel's Posts and Store pages to the channel home", false, CHANNEL],
-    ["stalePlaceholders", "Hide the loading placeholders and spinner left behind at the end of a feed", false, HOME],
+    ["channelTabRedirect", "Send a channel's Posts and Store pages to channel home", false, CHANNEL],
+    ["stalePlaceholders", "Hide loading placeholders and spinner left at end of a feed", false, HOME],
     ["titleCase", "Turn ALL-CAPS titles into sentence case", false, HOME],
     // Worth knowing before switching this one on: the count comes from the
     // Return YouTube Dislike service, which means telling a third party which
     // video you are watching.
-    ["dislikeCount", "Show the dislike count (asks the Return YouTube Dislike service about each video)", false, WATCH, "buttonsBar"],
+    ["dislikeCount", "Show dislike count (asks Return YouTube Dislike service about each video)", false, WATCH, "buttonsBar"],
     // Ported from Unhook.
-    ["header", "Hide the whole top bar (logo, search, account)", false, HEADER],
-    ["notifications", "Hide the notifications bell and the unread count in the tab title", false, HEADER, "header"],
-    ["exploreTrending", "Hide the Explore section, Trending, and their pages", false, HEADER],
-    ["subscriptions", "Hide Subscriptions (the sidebar entry, the channel list and the feed page)", false, HEADER],
-    ["homeFeed", "Hide the home page feed", false, HOME],
-    ["homeToSubscriptions", "Send the home page to the Subscriptions feed", false, HOME, "subscriptions"],
+    ["header", "Hide whole top bar (logo, search, account)", false, HEADER],
+    ["notifications", "Hide notifications bell and unread count in tab title", false, HEADER, "header"],
+    ["exploreTrending", "Hide Explore section, Trending, and their pages", false, HEADER],
+    ["subscriptions", "Hide Subscriptions (sidebar entry, channel list and feed page)", false, HEADER],
+    // Home had no switch of its own: hiding its feed left the entry in the
+    // sidebar pointing at an empty page, and nothing at all took the entry
+    // away. This is the same shape as Subscriptions above -- the entry, and
+    // the page behind it.
+    ["home", "Hide Home (sidebar entry and the page)", false, HEADER],
+    ["homeFeed", "Hide home page feed", false, HOME, "home"],
+    ["homeToSubscriptions", "Send home page to Subscriptions feed", false, HOME, "subscriptions"],
     ["shorts", "Hide Shorts everywhere, and open a Short as a normal video", false, HOME],
     ["mixes", "Hide Mixes (auto-generated playlists)", false, HOME],
     ["promos", "Hide YouTube's own promos and surveys", false, HOME],
-    ["relatedVideos", "Hide the whole column beside the video (related videos, chat, playlist)", false, WATCH],
-    ["recommended", "Hide the recommended-videos list beside the video and the “More videos” overlay on pause", false, WATCH, "relatedVideos"],
+    ["relatedVideos", "Hide whole column beside video (related videos, chat, playlist)", false, WATCH],
+    ["recommended", "Hide recommended-videos list beside video and “More videos” overlay on pause", false, WATCH, "relatedVideos"],
     ["liveChat", "Hide live chat", false, WATCH, "relatedVideos"],
-    ["playlistPanel", "Hide the playlist panel beside the video", false, WATCH, "relatedVideos"],
-    ["fundraiser", "Hide the fundraiser banner", false, WATCH],
-    ["merch", "Hide merch, tickets, offers and context boxes under the video", false, WATCH],
+    ["playlistPanel", "Hide playlist panel beside video", false, WATCH, "relatedVideos"],
+    ["fundraiser", "Hide fundraiser banner", false, WATCH],
+    ["merch", "Hide merch, tickets, offers and context boxes under video", false, WATCH],
     ["comments", "Hide comments", false, WATCH],
     ["profilePhotos", "Hide profile photos in comments", false, WATCH, "comments"],
-    ["videoInfo", "Hide the views and date line under the video", false, WATCH],
-    ["buttonsBar", "Hide the like / share / save row under the video", false, WATCH],
-    ["channelRow", "Hide the channel row under the video", false, WATCH],
-    ["description", "Hide the description", false, WATCH],
+    ["videoInfo", "Hide views and date line under video", false, WATCH],
+    ["buttonsBar", "Hide like / share / save row under video", false, WATCH],
+    ["channelRow", "Hide channel row under video", false, WATCH],
+    ["description", "Hide description", false, WATCH],
     ["autoplay", "Switch autoplay off and hide its toggle and countdown", false, PLAYER],
-    ["endScreenFeed", "Hide the video wall when a video ends", false, PLAYER],
+    ["endScreenFeed", "Hide video wall when a video ends", false, PLAYER],
     ["endScreenCards", "Hide end-screen cards", false, PLAYER],
-    ["annotations", "Hide info cards, the cards button and the channel watermark on the player", false, PLAYER],
-    ["searchShelves", "Hide the extra rows in search results (For you, People also watched)", false, SEARCH],
+    ["annotations", "Hide info cards, cards button and channel watermark on player", false, PLAYER],
+    ["searchShelves", "Hide extra rows in search results (For you, People also watched)", false, SEARCH],
     // Ads in the page only. Ads inside the video are a different problem, and
     // a filter list maintained daily beats anything hand-written here.
-    ["ads", "Hide ads around the video (this does not skip ads inside the video)", false, ADS],
+    ["ads", "Hide ads around video (does not skip ads inside the video)", false, ADS],
   ];
   const KEYS = FEATURES.map(([key]) => key);
+
+  // Settings that also appear in a second place. None here yet; the options
+  // page asks so that both extensions can share one page.
+  const MIRRORS = [];
+
+  // The choices a setting offers, or null when it is an ordinary switch.
+  // Nothing here offers any yet; the options page asks so that both extensions
+  // can share one page.
+  function choicesFor(key) {
+    const feature = FEATURES.find(([featureKey]) => featureKey === key);
+    return (feature && feature[5]) || null;
+  }
+
+  // What choicesFor offers once the current settings are taken into account.
+  // Nothing here is a chooser, so this is the empty case.
+  function choicesOffered(key) {
+    return choicesFor(key);
+  }
 
   function defaults() {
     return Object.fromEntries(FEATURES.map(([key, , defaultOn]) => [key, defaultOn]));
@@ -188,6 +211,24 @@
   // acts on is already hidden, so the feature cannot have any effect. The
   // options page greys such a switch out; its stored value is left alone, so
   // turning the parent off brings it back exactly as it was.
+  // A switch that does something everywhere, and the per-page switches doing
+  // the same thing in one place each. Nothing here needs it yet; it exists so
+  // that both extensions' options pages stay the one piece of code.
+  const COVERS = [];
+
+  function coverOf(key) {
+    for (const [global, covered] of COVERS) if (covered.includes(key)) return global;
+    return null;
+  }
+
+  // The global doing this switch's job for it, or null. Kept apart from isMoot:
+  // a switch whose parent has gone is not worth showing at all, while one
+  // covered by a global is worth showing as the settled fact it is.
+  function coveredBy(key, settings) {
+    const global = coverOf(key);
+    return global && withDefaults(settings)[global] === true ? global : null;
+  }
+
   function isMoot(key, settings) {
     const merged = withDefaults(settings);
     const seen = new Set();
@@ -211,5 +252,5 @@
     return merged;
   }
 
-  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
+  root.PeaceBeStill = { GROUPS, FEATURES, KEYS, MIRRORS, choicesFor, choicesOffered, defaults, withDefaults, effective, isDefaultValue, redundantKeys, parentOf, isMoot, COVERS, coverOf, coveredBy, tokensFor, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled };
 })(globalThis);

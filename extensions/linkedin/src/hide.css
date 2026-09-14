@@ -1,0 +1,174 @@
+/* Each rule is gated on a token in the root element's data-peacebestill attribute,
+   which content.js keeps equal to the set of enabled feature keys. So the
+   stylesheet is fully static and a toggle takes effect without a reload.
+   Rules only ever hide (display: none); blackout is the one exception, because
+   replacing the site means drawing something as well as hiding everything.
+
+   LinkedIn's class names are hashed and rotate with each deploy, so nothing
+   here keys on one. The durable hooks are ARIA roles and labels, data-testid,
+   and -- where the only distinguishing feature is a visible label, which CSS
+   cannot select on -- a data-pbs mark that content.js puts on the element. */
+
+/* ---- The whole site ----------------------------------------------------- */
+
+/* Blackout: the page goes, and a sentence takes its place.
+   Hiding body and generating the text on the root element depends on no
+   LinkedIn markup whatsoever, so this works unchanged on the mobile site and
+   needs no second set of rules for Firefox for Android.
+   The sentence is core.js's BLACKOUT_TITLE, which also becomes the tab title;
+   a test holds the two to the same string.
+   Sizes are absolute, not rem: LinkedIn sets html { font-size: 62.5% }, so a
+   1rem sentence renders at 10px. Colours are stated rather than inherited,
+   because LinkedIn ships a dark mode. */
+html[data-peacebestill~="blackout"] body { display: none !important; }
+html[data-peacebestill~="blackout"] { color-scheme: light dark; background: light-dark(#ffffff, #1c1b22) !important; }
+html[data-peacebestill~="blackout"]::before {
+  content: "You made the right choice.";
+  display: block;
+  padding: 64px 16px;
+  font: 16px/1.5 system-ui, sans-serif;
+  color: light-dark(#1b1b1f, #ececed);
+  text-align: center;
+}
+
+/* ---- Home and feed ------------------------------------------------------ */
+
+/* The feed itself: the list, not the column, so the composer above it stays. */
+html[data-peacebestill~="feed"] [data-testid="mainFeed"] { display: none !important; }
+
+/* ---- Feed posts --------------------------------------------------------- */
+
+/* Each of these is a kind of post LinkedIn puts in front of you that nobody you
+   follow posted. They are told apart by the label in the post header
+   ("Promoted", "Suggested", "Recommended for you") or by the line saying
+   someone reacted to a stranger's post -- text, which CSS cannot match, so
+   content.js reads it and marks the item. */
+html[data-peacebestill~="sponsored"] [role="listitem"][data-pbs~="sponsored"] { display: none !important; }
+html[data-peacebestill~="suggested"] [role="listitem"][data-pbs~="suggested"] { display: none !important; }
+html[data-peacebestill~="recommended"] [role="listitem"][data-pbs~="recommended"] { display: none !important; }
+html[data-peacebestill~="socialProof"] [role="listitem"][data-pbs~="socialProof"] { display: none !important; }
+
+/* ---- Panels beside the feed --------------------------------------------- */
+
+/* The column beside the feed carries the advert, the puzzles and the news
+   panel. Each is switchable on its own; the column is one unlabelled
+   container, so content.js marks the modules inside it rather than the column,
+   which is also what makes these work on a phone, where there is no column and
+   the same modules are stacked into the one column there is. */
+html[data-peacebestill~="otherAds"] [data-pbs~="otherAds"] { display: none !important; }
+/* The banner beside the messages. It is an iframe, so it carries no words for
+   the marking pass to read -- but it says what it is in an attribute, which is
+   better than a class here: these are the old-style class names, and the rest
+   of the site has moved on from them. The card around it goes, or a bordered
+   space is left where the advert was. Asking for a <section> keeps this to the
+   card itself rather than whatever else might hold such a frame. */
+html[data-peacebestill~="otherAds"] iframe[data-ad-banner] { display: none !important; }
+html[data-peacebestill~="otherAds"] section:has(> iframe[data-ad-banner]) { display: none !important; }
+html[data-peacebestill~="games"] [data-pbs~="games"] { display: none !important; }
+/* The same thing on one page only. What a puzzle is does not change with the
+   page, so the mark stays "games" and the page decides whether it applies. */
+html[data-peacebestill~="homeGames"][data-pbs-page="home"] [data-pbs~="games"] { display: none !important; }
+html[data-peacebestill~="networkGames"][data-pbs-page="myNetwork"] [data-pbs~="games"] { display: none !important; }
+html[data-peacebestill~="networkPremium"][data-pbs-page="myNetwork"] [data-pbs~="premium"] { display: none !important; }
+html[data-peacebestill~="news"] [data-pbs~="news"] { display: none !important; }
+
+/* The mobile site's prompts to install the app, marked by content.js. The
+   blocking one also holds the page still while it is up; letting it go again
+   is content.js's job, since a rule here may only ever hide. */
+html[data-peacebestill~="appNag"] [data-pbs~="appNag"] { display: none !important; }
+
+/* ---- Elsewhere on LinkedIn ---------------------------------------------- */
+
+/* Panels found by a label inside them and marked by content.js, the same way
+   the right-rail modules are. "Promoted" is scoped to the jobs pages there,
+   since in the feed it means a sponsored post, which `sponsored` already
+   covers. */
+html[data-peacebestill~="jobsPromoted"] [data-pbs~="jobsPromoted"] { display: none !important; }
+html[data-peacebestill~="networkPeople"] [data-pbs~="networkPeople"] { display: none !important; }
+html[data-peacebestill~="profilePeople"] [data-pbs~="profilePeople"] { display: none !important; }
+html[data-peacebestill~="profileSuggestions"] [data-pbs~="profileSuggestions"] { display: none !important; }
+html[data-peacebestill~="networkSuggestions"] [data-pbs~="networkSuggestions"] { display: none !important; }
+html[data-peacebestill~="jobsSuggestions"] [data-pbs~="jobsSuggestions"] { display: none !important; }
+
+/* The box that invites you to post, above the feed. */
+html[data-peacebestill~="composer"] [data-pbs~="composer"] { display: none !important; }
+
+/* LinkedIn's AI assistant, which labels its own panel and so needs no mark. */
+html[data-peacebestill~="aiAssistant"] aside#coach-container, html[data-peacebestill~="aiAssistant"] aside[aria-label^="AI-powered assistant"] { display: none !important; }
+
+/* Premium adverts and upsells, wherever they turn up. */
+html[data-peacebestill~="premium"] [data-pbs~="premium"] { display: none !important; }
+
+/* Every advert at once, whatever kind and whatever page: the parent switch
+   repeats what its children do, so turning it on needs none of them on. */
+html[data-peacebestill~="ads"] [role="listitem"][data-pbs~="sponsored"],
+html[data-peacebestill~="ads"] [data-pbs~="otherAds"],
+html[data-peacebestill~="ads"] [data-pbs~="premium"],
+html[data-peacebestill~="ads"] [data-pbs~="jobsPromoted"],
+html[data-peacebestill~="ads"] iframe[data-ad-banner],
+html[data-peacebestill~="ads"] section:has(> iframe[data-ad-banner]) { display: none !important; }
+
+/* ---- The top bar -------------------------------------------------------- */
+
+/* Two top bars, not one. Messaging and other older corners of the site still
+   run the previous front end, whose nav has none of the testid the new one
+   carries -- so every rule here missed them entirely, and the whole bar stayed.
+   The old one names its items in a class instead, and reaches its pages by
+   link where the new one sometimes uses a button.
+
+   The button is no longer required to be the item's own child either: a badge
+   wraps it, and a rule that insists on a direct child stops matching the
+   moment there is something to be notified about.
+
+   Each item in the primary navigation. They are the one part of the site whose
+   markup says what it is: an anchor to the page it opens, or -- for Home and
+   the profile menu, which are buttons -- a label, or the only avatar in the
+   bar. Nothing here needs a mark. */
+html[data-peacebestill~="home"] [data-testid="primary-nav"] li:has(button[aria-label^="Home"]),
+html[data-peacebestill~="home"] li.global-nav__primary-item:has(a[href*="/feed"]) { display: none !important; }
+html[data-peacebestill~="myNetwork"] [data-testid="primary-nav"] li:has(a[href*="/mynetwork"]),
+html[data-peacebestill~="myNetwork"] li.global-nav__primary-item:has(a[href*="/mynetwork"]) { display: none !important; }
+html[data-peacebestill~="jobs"] [data-testid="primary-nav"] li:has(a[href*="/jobs"]),
+html[data-peacebestill~="jobs"] li.global-nav__primary-item:has(a[href*="/jobs"]) { display: none !important; }
+html[data-peacebestill~="messaging"] [data-testid="primary-nav"] li:has(a[href*="/messaging"]),
+html[data-peacebestill~="messaging"] li.global-nav__primary-item:has(a[href*="/messaging"]) { display: none !important; }
+html[data-peacebestill~="notifications"] [data-testid="primary-nav"] li:has(a[href*="/notifications"]),
+html[data-peacebestill~="notifications"] li.global-nav__primary-item:has(a[href*="/notifications"]) { display: none !important; }
+html[data-peacebestill~="profile"] [data-testid="primary-nav"] li:has(button img),
+html[data-peacebestill~="profile"] li.global-nav__primary-item:has(button img) { display: none !important; }
+/* The row of links at the foot of the page, and the copyright line under it.
+   Named by the one link in it that does not move, since the class names are
+   hashed and rotate. Whatever follows it inside the same parent goes with it:
+   that is the copyright line, and naming the footer alone would leave it
+   sitting there on its own.
+
+   What this must not do is hide the parent. It did, and on a profile that
+   parent is the page: everything vanished. A form's own <footer> holding a
+   submit button must be left alone as well, which is the other reason this
+   names the site's footer rather than every footer. */
+html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]),
+html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]) ~ * { display: none !important; }
+html[data-peacebestill~="forBusiness"] [data-pbs~="forBusiness"] { display: none !important; }
+html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(button[aria-label="For Business"]),
+html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(button[aria-label="For Business"]) { display: none !important; }
+
+/* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's
+   older screens, whose class names are not hashed and whose ids are stable. */
+html[data-peacebestill~="messagingOverlay"] aside#msg-overlay,
+html[data-peacebestill~="messagingOverlay"] aside[class*="msg-overlay"],
+html[data-peacebestill~="messagingOverlay"] [class*="msg-overlay-list-bubble"],
+html[data-peacebestill~="messagingOverlay"] [id^="msg-overlay"] { display: none !important; }
+
+/* Hiding a destination takes its page too, not just its place in the top bar:
+   content.js puts the destination this page belongs to in data-pbs-page. */
+html[data-peacebestill~="home"][data-pbs-page="home"] section[aria-label="Primary content"] { display: none !important; }
+html[data-peacebestill~="myNetwork"][data-pbs-page="myNetwork"] section[aria-label="Primary content"] { display: none !important; }
+html[data-peacebestill~="jobs"][data-pbs-page="jobs"] section[aria-label="Primary content"] { display: none !important; }
+html[data-peacebestill~="messaging"][data-pbs-page="messaging"] section[aria-label="Primary content"] { display: none !important; }
+html[data-peacebestill~="notifications"][data-pbs-page="notifications"] section[aria-label="Primary content"] { display: none !important; }
+
+/* Where the feed was cut off. Not a switch: content.js sets this when the feed
+   has stopped bringing anything that survives being hidden, and clears it the
+   moment it does again. Hiding it takes the site's own "you are at the bottom"
+   marker with it, which is what stops the fetching. */
+[data-pbs-cutoff] { display: none !important; }
