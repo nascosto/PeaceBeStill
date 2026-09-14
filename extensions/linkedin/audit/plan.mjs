@@ -9,16 +9,19 @@ export function checksRedirects(path, { redirectFor }) {
   return redirectFor(path, {}) !== null || path === "/feed/" || path === "/";
 }
 
-// The loads for one run over `paths`:
+// The loads for one run over `paths`. A page is loaded once and every setting
+// is tried on it where it stands, so a load is spent only where the test is a
+// load:
 //  - the tab LinkedIn is opened in, once per run;
-//  - every page: the visit, and the return after blackout replaces it;
-//  - a page with redirects: one load per destination, and the return after;
-//  - plus the switches that take a page away and so send the tab elsewhere,
-//    each costing a load to come back. On the home page that is Home itself,
-//    and a spare is allowed, since which switches move the tab depends on
-//    what LinkedIn draws that day.
+//  - every page: its one visit;
+//  - a page with redirects: one load per destination, since arriving is the
+//    test, and one more for the redirect taken before the page is drawn;
+//  - the switches that take a page away and so send the tab elsewhere, each a
+//    load to come back. On the home page that is Home itself, and a spare is
+//    allowed, since which switches move the tab depends on what LinkedIn draws
+//    that day.
 export function plannedLoads(paths, core) {
   const destinations = (core.choicesFor("homeRedirect") || [])
     .filter(([value]) => core.redirectFor("/feed/", { homeRedirect: value }) !== null).length;
-  return paths.reduce((total, path) => total + 2 + (checksRedirects(path, core) ? destinations + 1 + 2 : 0), 1);
+  return paths.reduce((total, path) => total + 1 + (checksRedirects(path, core) ? destinations + 1 + 2 : 0), 1);
 }

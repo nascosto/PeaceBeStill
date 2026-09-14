@@ -223,9 +223,11 @@ panel.
 `live:linkedin` writes every setting through the extension's own storage, so it
 keeps yours first -- in memory and in `~/.cache/peacebestill/` -- and puts them
 back when it ends, whether it finished, was stopped at a sign-in wall, ran out
-of page-load budget or gave up on a stall. A full run of five pages is about
-nineteen loads, counting the one that opens the tab, which is as much as one
-hour's LinkedIn budget allows.
+of page-load budget or gave up on a stall. Each page is loaded once and every
+setting is tried on it where it stands; a load is spent only where the load is
+the test -- a redirect arriving, or the home page leaving before it is drawn --
+or to come back after a switch took the page away. A full run of five pages is
+about fourteen loads, counting the one that opens the tab.
 
 All three drive the browser over Firefox's remote debugging protocol, the
 channel devtools uses, so they set no automation flag on your session. They
@@ -295,6 +297,11 @@ out, and never in a burst -- through `scripts/audit-budget.mjs`:
   20 an hour and 50 a day. A run declares its loads up front and does not start
   if they would not fit; the message says when they will.
 - **A gap between loads**: 3 seconds for YouTube, 20 for LinkedIn.
+- **No reload that is not the test.** A page is loaded once, and settings reach
+  it the way they reach a real user's open tab. The YouTube Firefox audit loads
+  the watch page once; the Chromium one reloads it once more, because early
+  apply -- remembered settings on the page before storage answers -- is the
+  one thing only a fresh load can show.
 - **Stop at the first objection.** A sign-in wall, a security check, a consent
   page or Google's unusual-traffic page ends the run: measuring it would read
   as every switch passing, and asking again only makes it worse.

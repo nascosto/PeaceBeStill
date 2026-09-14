@@ -370,8 +370,13 @@ try {
           ? "the whole page, and the tab says so"
           : `the whole page, but the tab still says ${JSON.stringify(dark.title)}`
     }`);
+    // Switched off again, blackout must give the page back as it was, with no
+    // reload -- which is what a real user turning it off gets. No reload is
+    // needed here to carry on either: whatever comes next loads a page anyway.
     await store({});
-    await goToPage(path);
+    const back = await look();
+    const lost = present.filter((name) => back.probes[name] === 0);
+    console.log(`  ${"blackout off".padEnd(17)} ${lost.length ? `FAILED: did not come back: ${lost.join(", ")}` : "the page came back, with no reload"}`);
 
     // The redirect only applies to the home page, so it is only worth asking
     // there. Each destination is set in turn and the tab has to arrive at it.
@@ -388,8 +393,26 @@ try {
           || (want.startsWith("/in/") && where.path.startsWith("/in/"));
         console.log(`  ${`homeRedirect=${value}`.padEnd(17)} ${ok ? `sent us to ${where.path}` : `FAILED: wanted ${want}, got ${where.path}`}`);
       }
+
+      // Each of those redirects was taken on what storage said, because store()
+      // clears the page's memory first. The one the user asked for -- leaving
+      // the home page before it is ever drawn -- is taken on that memory, before
+      // storage answers, and only a fresh load of the home page can show it. So
+      // storage is left saying nothing, the memory alone names a destination,
+      // and the load must land there: nothing else could have sent it.
       await store({});
+      const early = redirectFor("/feed/", { homeRedirect: "jobs" });
+      await page.evaluate(`(() => { try {
+        localStorage.setItem("peacebestill.goes", ${JSON.stringify(early)});
+      } catch { return "blocked"; } return "ok"; })()`);
       await goToPage(path);
+      const arrived = await look();
+      console.log(`  ${"before paint".padEnd(17)} ${arrived.path.startsWith(early)
+        ? `left the home page for ${arrived.path} on what was remembered, before storage answered`
+        : `FAILED: remembered ${early}, but the load stayed at ${arrived.path}`}`);
+      // Storage says nothing, so the content script has already cleared that
+      // memory by now; this makes sure of it before the next page.
+      await store({});
     }
   }
 } catch (error) {

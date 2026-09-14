@@ -6,18 +6,23 @@ import { BUDGETS } from "../../../scripts/audit-budget.mjs";
 
 const core = loadCore(new URL("../src/", import.meta.url)).PeaceBeStill;
 
-// Totals counted from real live:linkedin runs (2026-09-10 and 2026-09-14), by
-// its own counter -- which did not count the load that opens the LinkedIn tab,
-// so each run really made one more, and that one is added here. The
-// estimate must never fall short of them -- a run that claims too few is
-// stopped halfway by its own real total -- and should not overshoot by more
-// than the spare it allows.
+// What real live:linkedin runs spent (2026-09-10 and 2026-09-14), counted by
+// its own counter, which did not count the load that opens the tab. Since
+// then two reloads that measured nothing are gone -- one per page after
+// blackout, one per home page after the redirects -- and one home-page load
+// that does measure something is added, the redirect taken before paint. So
+// the totals the plan answers to are the measured ones, less those, plus that.
+// The estimate must never fall short -- a run that claims too few is stopped
+// halfway by its own real total -- and should not overshoot by more than the
+// spare it allows.
+// Per page that is one fewer; on a home page the reload gone and the load
+// added cancel out.
 const MEASURED = [
   [["/messaging/"], [2]],
   [["/jobs/", "/in/me/", "/messaging/"], [6]],
   [["/feed/", "/mynetwork/grow/"], [11]],
   [["/feed/", "/mynetwork/grow/", "/jobs/", "/in/me/", "/messaging/"], [17, 18]],
-];
+].map(([paths, seen]) => [paths, seen.map((n) => n - paths.length)]);
 
 test("the loads a run claims cover what real runs have spent, without much to spare", () => {
   for (const [paths, seen] of MEASURED) {
