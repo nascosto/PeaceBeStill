@@ -39,18 +39,36 @@
   // removal arrives with no newValue and is dropped, so the key falls back to
   // its default rather than reading as "off". If storage cannot be read at all,
   // that is the defaults -- every one of them off -- not a page left untouched.
+  //
+  // The first read is asked for as the page loads, and a change can land while
+  // it is still out -- a switch flipped in another tab at that moment -- with
+  // the read then answering with what storage held before. So changes that
+  // arrive first are kept, and laid over whatever that read returns rather
+  // than lost under it.
   function listen(api, keys, onSettings) {
     let stored = {};
+    let early = {};
+
+    const take = (target, changes) => {
+      for (const [key, change] of Object.entries(changes)) {
+        if ("newValue" in change) target[key] = change.newValue;
+        else delete target[key];
+      }
+    };
+
     api.storage.sync.get(keys)
-      .then((values) => { stored = values || {}; })
-      .catch(() => { stored = {}; })
-      .then(() => onSettings(stored));
+      .then((values) => values || {})
+      .catch(() => ({}))
+      .then((values) => {
+        stored = { ...values };
+        take(stored, early);
+        early = null;
+        onSettings(stored);
+      });
     api.storage.onChanged.addListener((changes, area) => {
       if (area !== "sync") return;
-      for (const [key, change] of Object.entries(changes)) {
-        if ("newValue" in change) stored[key] = change.newValue;
-        else delete stored[key];
-      }
+      if (early) Object.assign(early, changes);
+      take(stored, changes);
       onSettings(stored);
     });
   }

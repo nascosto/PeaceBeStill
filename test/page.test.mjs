@@ -101,3 +101,24 @@ test("followLogo sends a logo click where home would go, and leaves every other 
   assert.equal(click(logo).prevented, false);
   assert.deepEqual(went, ["/feed/subscriptions"]);
 });
+
+// The first read of storage is asked for as the page loads. A change can land
+// while it is still out -- a switch flipped in another tab at that moment -- and
+// the read may come back with what storage held before it. Laid over the top,
+// that older answer would undo the change until the next one.
+test("a change that arrives before the first read answers is not undone by that read", async () => {
+  const seen = [];
+  let onChanged;
+  let answer;
+  const api = { storage: {
+    sync: { get: () => new Promise((resolve) => { answer = resolve; }) },
+    onChanged: { addListener: (fn) => { onChanged = fn; } },
+  } };
+  const { PeaceBeStillPage: page } = loadClassic(PAGE);
+  page.listen(api, ["shorts", "comments"], (stored) => seen.push(JSON.stringify(stored)));
+  onChanged({ shorts: { newValue: true } }, "sync"); // turned on while the read is out
+  onChanged({ comments: {} }, "sync");               // and this one removed
+  answer({ comments: true });                       // the read, taken before either
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(seen.at(-1), '{"shorts":true}', "the older read won");
+});
