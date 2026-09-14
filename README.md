@@ -18,27 +18,33 @@ and runs only on its own site.
 > Make YouTube "Be Still". Fully configurable with 45 options.
 
 Every feature is a switch on the options page, grouped by where it acts and
-nested under the switch it depends on, so hiding the description greys out the
-five switches for things inside it.
+nested under the switch it depends on. Turning a switch on takes away the ones
+it covers -- hiding the description takes away the five for things inside it --
+and their values are kept, so turning it back off brings them back as they were.
 
 - the Create button, the whole top bar, the notifications bell and the unread
   count in the tab title
 - sidebar clutter: Home, "More from YouTube", Explore and Trending,
   Subscriptions, the new-video dots beside channels, the About / Press /
-  Copyright block
-- feeds: the home feed (or send home straight to Subscriptions), Shorts
+  Copyright block. A hidden Subscriptions, Explore or Trending page sends you
+  Home rather than showing a blank
+- feeds: the home feed (or send home straight to Subscriptions -- the logo goes
+  there too, and Home's own entries go), Shorts
   everywhere (a Short opens as a normal video), Mixes, promo banners and
   surveys, upcoming videos and their Notify me button, and the loading
   placeholders a feed leaves behind at its end
 - the watch page: the whole column beside the video or just its
   recommendations, live chat, the playlist panel, fundraisers, merch, comments
-  and their profile photos, the views line, buttons row and channel row
+  and their profile photos, and everything under the video -- title, channel,
+  buttons, views and description -- or any of the views line, buttons row,
+  channel row and description on its own
 - the description: opened automatically with its "Show less" dropped, and its
   channel row, its transcript / podcast / chapters / music and "How this was
   made" cards, its hashtags and link chips, YouTube's AI "Ask" card and button,
   and the AI-generated summary
 - the player: autoplay switched off with its toggle hidden, the end-screen
-  video wall and cards, info cards and the channel watermark
+  video wall and cards, info cards and the channel watermark -- in YouTube
+  players embedded on other sites as well as on YouTube itself
 - search: the For you / People also watched shelves
 - channel pages: the Posts and Store tabs, and landing on one of those pages
   goes to the channel home instead
@@ -66,33 +72,50 @@ Android supports no extensions at all, so Android means Firefox.
 Mobile YouTube is a separate application, not a narrow desktop one: `ytm-*`
 components, a bottom pivot bar in place of the sidebar, and the video's
 metadata inline under the player rather than in a column beside it. So the
-desktop rules match nothing there and `hide.css` carries a second set. Fourteen
-switches work on mobile: the top bar, Create, notifications, Home,
-Subscriptions, Shorts, the home feed, promos, the recommendations and the videos
-in them, the views line, the buttons row, the channel row, and in-page ads.
+desktop rules match nothing there, and `hide.css` carries a second set in a
+section of its own.
 
-The rest do nothing on a phone, which costs nothing, since an unmatched
-selector hides nothing and every switch is off until you turn it on. They fall
-into three groups: those needing a sidebar mobile does not have ("More from
-YouTube", the About/Press/Copyright block, Explore and Trending, the
-subscription dots); those inside the player, whose mobile controls are a
-different component (autoplay, the end-screen wall and cards, info cards); and
-those whose mobile equivalent is not yet written -- comments and their photos,
-the description's sub-switches, mixes, upcoming videos, search shelves,
-fundraisers, merch, live chat and the playlist panel.
+Seen working on a signed-out phone page (`npm run audit:mobile`): the top bar,
+Home, sending home to Subscriptions, the home feed, Shorts, Mixes, promos, the
+recommendations, everything under the video and each of its parts -- views
+line, buttons, channel row, description -- comments, the playlist panel and
+in-page ads. The redirects work the same, since they follow the address.
+
+Written for a phone but only there signed in, so checked by hand: Create, the
+notifications bell and the Subscriptions tab. Written, but with nothing to hide
+on the pages the audit visits: Explore and Trending, fundraisers, offers, the
+autoplay toggle and the end screen's next and previous suggestions.
+
+The rest have no phone rule of their own. Those that need a sidebar do nothing
+there, since a phone has none: "More from YouTube", the About / Press /
+Copyright block and the subscription dots. The end-screen cards and info cards
+share the desktop player's markup, so may well work, but have not been checked
+on a phone. Live chat, upcoming videos, search shelves, profile photos in
+comments, the description's own switches and sentence-casing titles are not
+written for one. None of this costs anything: an unmatched selector hides
+nothing, and every switch is off until you turn it on.
 
 ### How it works
 
 `content.js` keeps a `data-peacebestill` attribute on `<html>` equal to the
 enabled feature keys; `hide.css` has one `display: none` rule per feature gated
 on that attribute, so toggles apply to open tabs instantly. The same script
-opens the description, calms shouting titles, prunes stale feed placeholders
-and, when asked, fetches the dislike count. `core.js` holds the feature list
-that the content script, the options page and both audits all read.
+redirects, opens the description, calms shouting titles, prunes stale feed
+placeholders and, when asked, fetches the dislike count. `core.js` holds the
+feature list that the content script, the options page and the audits all read.
 
 Settings live in `storage.sync`, so they follow your Firefox or Chrome account.
 Only switches that differ from their default are stored, so a profile on the
-defaults stores nothing at all.
+defaults stores nothing at all. Storage answers a moment after a page starts
+drawing, so what was applied last time is also kept in YouTube's own
+`localStorage` and put on the page before it is painted -- see
+[PRIVACY.md](PRIVACY.md). That early pass hides and redirects, and never asks
+the dislike service anything: a remembered switch may since have been turned
+off.
+
+The content script runs in YouTube players embedded on other sites too, where
+the player switches apply; it never navigates, or remembers anything, from
+inside someone else's page, and does nothing in YouTube's other frames.
 
 ## PeaceBeStill - LinkedIn
 
@@ -101,8 +124,8 @@ Thirty-four settings, and the first one is the blunt one.
 - **Hide everything** — every page on the site becomes one
   line of ordinary text reading "You made the right choice." It is the whole
   site, with no exceptions; to use LinkedIn again you turn it off. While it is
-  on, every other switch is greyed out and says so, because none of them can
-  matter when there is no page left to act on.
+  on, every other switch is taken off the options page, because none of them
+  can matter when there is no page left to act on.
 - **the pages**, one switch each: Home, My Network, Jobs, Messaging,
   Notifications and Profile. A page switch takes its place in the top bar and
   the page itself, and what is on that page sits under it — the feed and its
@@ -196,10 +219,12 @@ LinkedIn never serves the same page twice, a removal counts only once the thing
 has come back without the setting and gone again with it -- one round of that
 is a coin toss, which had three unrelated settings appearing to hide the same
 panel.
-it drives the browser over Firefox's remote debugging protocol, the channel
-devtools uses, so it sets no automation flag on your session. It reads the
-extension's own `core.js` and lifts the marking pass out of its `content.js`,
-so what it tests is what ships.
+
+All three drive the browser over Firefox's remote debugging protocol, the
+channel devtools uses, so they set no automation flag on your session. They
+read the extension's own `settings.js` and `core.js`, and `check:linkedin`
+lifts the marking pass out of its `content.js`, so what they test is what
+ships.
 
 Pages read this way are never committed, in any form — this repository is
 public, and a signed-in LinkedIn page carries real names and profile
@@ -211,7 +236,8 @@ the fix is to open the page again and correct the rule.
     npm install
     npm test                 # node --test, across the shared tooling and every extension
     npm run lint             # web-ext lint
-    npm run build            # both packages per extension, into dist/
+    npm run build            # each extension's store package, into dist/
+    npm run sync             # copy shared/ into every extension (a test fails if one drifts)
     npm run bump patch       # one version across package.json and every manifest
     npm run start:firefox:youtube     # throwaway profile with that extension loaded
     npm run start:chromium:youtube
@@ -224,27 +250,29 @@ Chromium → `chrome://extensions` → Developer mode → Load unpacked →
 `extensions/<site>/src`.
 
 A site's markup is undocumented and changes. The audits below are the YouTube
-extension's; LinkedIn has none, for the reason given above. When one of its
-switches stops working, run the audits, which drive a signed-out headless browser through a live page and
-report, per switch, how many targets exist and how many are still rendered
-(screenshots land in `extensions/youtube/audit/out/`):
+extension's; LinkedIn's are described above. When a YouTube switch stops
+working, run them: they drive a signed-out headless browser through a live page
+and report, per switch, how many targets exist and how many are still rendered
+(screenshots land in `extensions/youtube/audit/out/`). Each runs muted, and the
+Firefox one switches off every other extension first, since an enterprise
+policy can install a content blocker into even a throwaway profile:
 
     npm run audit:chromium    # puppeteer-core against /usr/bin/chromium-browser
     npm run audit:firefox     # Marionette against /usr/bin/firefox, no driver needed
     npm run audit:mobile      # m.youtube.com, Chromium emulating a phone
 
-`audit:mobile` covers the Firefox for Android surface, exercising only the
-`ytm-*` rules and checking the desktop ones stay inert there; Chromium stands
-in for Firefox because it emulates a phone with no device attached, and what is
-under test is the stylesheet against the mobile DOM. On mobile the Create
-button, the notifications bell and the Subscriptions pivot item are all
-signed-in only, so those three are the ones to check by hand.
+`audit:mobile` covers the Firefox for Android surface: the rules in
+`hide.css`'s phone section, on a watch page, Home and a Mix, and checks the
+desktop rules stay inert there. Chromium stands in for Firefox because it
+emulates a phone with no device attached, and what is under test is the
+stylesheet against the mobile DOM.
 
-All three run two passes: first every child switch on with the parents off, so
-each child has a visible container to act inside, then the parents as well. Turning
-everything on at once tells you nothing, because a parent hides the container
-its children live in. The Create button and the subscription dots only exist
-signed in, so those two are checked by hand.
+All three run in passes: every child switch on with its parents off, so each
+child has a visible container to act inside; then the middle layer, with only
+the switches that hold other parents off; then everything. Turning everything
+on at once tells you nothing, because a parent hides the container its children
+live in. The Create button, the notifications bell and the subscription dots
+only exist signed in, so those are checked by hand.
 
 ## Layout
 
@@ -252,19 +280,24 @@ signed in, so those two are checked by hand.
 extensions/<site>/src     the extension itself
 extensions/<site>/test    its unit tests
 extensions/<site>/audit   its live-page audits, where the site allows one
+shared/                   settings, page helpers and the options page, copied into every src/
 scripts/                  release tooling, shared by every extension
-test/                     tests for that tooling, and the shared test helper
+test/                     tests for that tooling and shared/, and the test helpers
 ```
 
 ## Releasing
 
-Releases are built by `.github/workflows/release.yml` from a version tag. Every
-extension in the repo shares the repo's version, and one release carries them
-all, so the tag must equal `v` + the version in each `manifest.json`.
+Releases are built by `.github/workflows/release.yml` from a version tag, and
+only from `main`: a tag on any other commit fails before anything is built.
+Every extension in the repo shares the repo's version, and one release carries
+them all, so the tag must equal `v` + the version in each `manifest.json`.
 
+    git switch -c release-1.0.1
     npm run bump patch      # or minor, major, or an exact 1.2.3
     git commit -am "Release 1.0.1"
-    git tag v1.0.1 && git push origin main v1.0.1
+    # push the branch and merge it into main by pull request, then:
+    git switch main && git pull
+    git tag v1.0.1 && git push origin v1.0.1
 
 `npm run bump` writes the new version to `package.json` and to every
 extension's manifest at once, which is the one part of a release that reliably
@@ -286,15 +319,14 @@ exist.
 `<site>` is `youtube` or `linkedin`. Both stores reject a package that names its
 own update service, so the source tree carries no `update_url`.
 
-The submission does not wait for review, which can take days: the job submits
-and finishes, and the version appears on the listing once it passes. A tag
-whose AMO credentials or listing slugs are missing fails before anything is
-submitted, rather than quietly skipping an extension. The GitHub release is
-created last, once the submissions have gone.
-
-`scripts/variant.mjs`, `pack-crx.mjs` and `update-manifests.mjs` build a
-self-hosted channel (an unlisted add-on ID, a signed `.crx`, update manifests).
-Nothing uses them at present.
+Each extension is submitted by a job of its own (`submit.yml`, which
+`publish-stores.yml` uses too), so a failed submission for one does not stop the
+other's. The submission does not wait for review, which can take days: the job
+submits and finishes, and the version appears on the listing once it passes. A
+tag whose AMO credentials or listing slugs are missing fails before anything is
+submitted, rather than quietly skipping an extension, and says which setting is
+missing. The GitHub release is created last, and only once every submission has
+gone.
 
 ### First listing on each store, by hand
 
