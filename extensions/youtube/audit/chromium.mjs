@@ -28,7 +28,7 @@ const EXT_ID = [...createHash("sha256").update(SRC).digest("hex").slice(0, 32)]
 
 // Keep in step with src/hide.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
-const { KEYS, FEATURES } = await (async () => {
+const { KEYS, FEATURES, calmTitle } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
@@ -47,6 +47,12 @@ for (const m of readFileSync(new URL("../src/hide.css", import.meta.url), "utf8"
 // takes the sidebar button with it). So: one pass with the parents off, which
 // exercises every child, then a second with them on, which exercises the
 // parents themselves.
+// A shouting title written into the page, which the observer must calm. The
+// recommendations are tried first and the video's own title after, because a
+// signed-out headless browser does not always get the recommendations.
+const SHOUTING = "THIS IS A SHOUTING TEST TITLE FOR THE AUDIT";
+const TITLE_PROBES = ["yt-lockup-metadata-view-model h3 a", "#video-title", "ytd-watch-metadata h1 yt-formatted-string"];
+
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
@@ -98,15 +104,15 @@ try {
   report.children = await page.evaluate(survey, SELECTORS);
   await page.screenshot({ path: OUT + "youtube-chromium-children.png" });
 
-  report.titleCalm = await page.evaluate(async () => {
-    const el = document.querySelector("yt-lockup-metadata-view-model h3 a, #video-title");
+  report.titleCalm = await page.evaluate(async (probes, shouting) => {
+    const el = probes.map((sel) => document.querySelector(sel)).find(Boolean);
     if (!el) return "no title element found";
     const node = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode();
     if (!node) return "no text node";
-    node.nodeValue = "THIS IS A SHOUTING TEST TITLE FOR THE AUDIT";
+    node.nodeValue = shouting;
     await new Promise((r) => setTimeout(r, 700));
     return node.nodeValue;
-  });
+  }, TITLE_PROBES, SHOUTING);
 
   // The dislike count needs the buttons row it attaches to, so it belongs here.
   for (let i = 0; i < 40 && !report.dislikes; i++) {
@@ -141,6 +147,9 @@ try {
 } finally {
   await browser.close();
 }
+// Title calming is script, not stylesheet, so no survey sees it: judged here.
+report.titleCalmed = report.titleCalm === calmTitle(SHOUTING);
+if (!report.titleCalmed) console.error(`title not calmed: got ${JSON.stringify(report.titleCalm)}`);
 writeFileSync(OUT + "chromium-report.json", JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
-process.exitCode = report.error ? 1 : 0;
+process.exitCode = report.error || !report.titleCalmed ? 1 : 0;

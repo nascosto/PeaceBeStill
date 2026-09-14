@@ -86,7 +86,7 @@ const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", 
 
 // Keep in step with src/hide.css: read it. Every "display: none" rule gated
 // on a feature key contributes its selector (the gate stripped off).
-const { KEYS, FEATURES } = await (async () => {
+const { KEYS, FEATURES, calmTitle } = await (async () => {
   const vm = await import("node:vm");
   const context = { URLSearchParams };
   context.globalThis = context;
@@ -100,6 +100,12 @@ const { KEYS, FEATURES } = await (async () => {
 // takes the sidebar button with it). So: one pass with the parents off, which
 // exercises every child, then a second with them on, which exercises the
 // parents themselves.
+// A shouting title written into the page, which the observer must calm. The
+// recommendations are tried first and the video's own title after, because a
+// signed-out headless browser does not always get the recommendations.
+const SHOUTING = "THIS IS A SHOUTING TEST TITLE FOR THE AUDIT";
+const TITLE_PROBES = ["yt-lockup-metadata-view-model h3 a", "#video-title", "ytd-watch-metadata h1 yt-formatted-string"];
+
 const PARENTS = [...new Set(FEATURES.map(([, , , , parent]) => parent).filter(Boolean))];
 const CHILDREN_PASS = Object.fromEntries(KEYS.map((key) => [key, !PARENTS.includes(key)]));
 const EVERYTHING = Object.fromEntries(KEYS.map((key) => [key, true]));
@@ -160,6 +166,11 @@ try {
       done(others.map((a) => a.id));
     })().catch((e) => done("ERROR " + e));`, args: ["youtube@peacebestill.fyi"] }).then((r) => r.value);
   await client.send("Marionette:SetContext", { value: "content" });
+  // Switching an extension off can take the tab it had open with it -- the
+  // containers extension does -- and every command after that fails with
+  // "Browsing context has been discarded". So carry on in a tab of our own.
+  const fresh = (await client.send("WebDriver:NewWindow", { type: "tab" })).handle;
+  await client.send("WebDriver:SwitchToWindow", { handle: fresh });
 
   await client.send("Marionette:SetContext", { value: "chrome" });
   const uuids = JSON.parse(await client.script('return Services.prefs.getStringPref("extensions.webextensions.uuids");'));
@@ -202,6 +213,14 @@ try {
   if (notYouTube) throw new Error(notYouTube);
   if (!report.watchRendered) throw new Error("the watch page never rendered, so nothing could be measured");
   report.children = await client.script(SURVEY, [SELECTORS]);
+  report.titleCalm = await client.asyncScript(`
+    const done = arguments[arguments.length - 1];
+    const el = arguments[0].map((sel) => document.querySelector(sel)).find(Boolean);
+    if (!el) return done("no title element found");
+    const node = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode();
+    if (!node) return done("no text node");
+    node.nodeValue = arguments[1];
+    setTimeout(() => done(node.nodeValue), 700);`, [TITLE_PROBES, SHOUTING]);
   writeFileSync(OUT + "youtube-firefox-children.png", Buffer.from((await client.send("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
 
   // The dislike count needs the buttons row it attaches to, so it belongs here.
@@ -233,6 +252,9 @@ try {
   await sleep(1500);
   rmSync(profile, { recursive: true, force: true });
 }
+// Title calming is script, not stylesheet, so no survey sees it: judged here.
+report.titleCalmed = report.titleCalm === calmTitle(SHOUTING);
+if (!report.titleCalmed) console.error(`title not calmed: got ${JSON.stringify(report.titleCalm)}`);
 writeFileSync(OUT + "firefox-report.json", JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
-process.exitCode = report.error ? 1 : 0;
+process.exitCode = report.error || !report.titleCalmed ? 1 : 0;
