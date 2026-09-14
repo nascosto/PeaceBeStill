@@ -61,10 +61,13 @@
     ["merch", "Hide merch, tickets, offers and context boxes under video", false, WATCH],
     ["comments", "Hide comments", false, WATCH],
     ["profilePhotos", "Hide profile photos in comments", false, WATCH, "comments"],
-    ["videoInfo", "Hide views and date line under video", false, WATCH],
-    ["buttonsBar", "Hide like / share / save row under video", false, WATCH],
-    ["channelRow", "Hide channel row under video", false, WATCH],
-    ["description", "Hide description", false, WATCH],
+    // Unhook's "Hide Video Info": the whole block under the video, title
+    // included. The four finer switches below act inside it.
+    ["videoDetails", "Hide everything under video (title, channel, buttons, description)", false, WATCH],
+    ["videoInfo", "Hide views and date line under video", false, WATCH, "videoDetails"],
+    ["buttonsBar", "Hide like / share / save row under video", false, WATCH, "videoDetails"],
+    ["channelRow", "Hide channel row under video", false, WATCH, "videoDetails"],
+    ["description", "Hide description", false, WATCH, "videoDetails"],
     ["autoplay", "Switch autoplay off and hide its toggle and countdown", false, PLAYER],
     ["endScreenFeed", "Hide video wall when a video ends", false, PLAYER],
     ["endScreenCards", "Hide end-screen cards", false, PLAYER],
@@ -176,11 +179,15 @@
   }
 
   // Where a page should go instead, given the settings, or null: the home
-  // page to the Subscriptions feed (never when that feed is itself hidden),
-  // a Short to its ordinary watch page.
+  // page to the Subscriptions feed (never when that feed is itself hidden), a
+  // hidden Subscriptions or Explore / Trending page home, a Short to its
+  // ordinary watch page.
   function redirectFor(pathname, settings) {
     const merged = withDefaults(settings);
     if (merged.homeToSubscriptions && !merged.subscriptions && pathname === "/") return "/feed/subscriptions";
+    // A page its switch hides goes home rather than sitting there blank.
+    if (merged.subscriptions && /^\/feed\/subscriptions(\/|$)/.test(pathname || "")) return "/";
+    if (merged.exploreTrending && /^\/feed\/(trending|explore)(\/|$)/.test(pathname || "")) return "/";
     const short = /^\/shorts\/([A-Za-z0-9_-]{6,})/.exec(pathname || "");
     if (merged.shorts && short) return "/watch?v=" + short[1];
     return null;

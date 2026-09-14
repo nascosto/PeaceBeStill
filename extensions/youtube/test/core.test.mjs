@@ -16,7 +16,7 @@ const DEFAULTS = [
   "header", "notifications", "exploreTrending", "subscriptions", "home",
   "homeFeed", "homeToSubscriptions", "shorts", "mixes", "promos",
   "relatedVideos", "recommended", "liveChat", "playlistPanel",
-  "fundraiser", "merch", "comments", "profilePhotos", "videoInfo",
+  "fundraiser", "merch", "comments", "profilePhotos", "videoDetails", "videoInfo",
   "buttonsBar", "channelRow", "description",
   "autoplay", "endScreenFeed", "endScreenCards", "annotations",
   "searchShelves", "ads",
@@ -28,7 +28,7 @@ const GROUPS = ["Ads", "Header and sidebar", "Home and feeds", "Watch page", "Pl
 
 // PeaceBeStill comes from another vm realm, so its arrays and objects have foreign
 // prototypes; copy them before strict deep-equality.
-test("the feature keys are the agreed forty-four, in order, each with a label, a default and a group", () => {
+test("the feature keys are the agreed forty-five, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
   for (const [key, label, defaultOn, group] of PeaceBeStill.FEATURES) {
     assert.ok(KEYS.includes(key));
@@ -149,6 +149,33 @@ test("redirectFor sends home to the subscriptions feed and a Short to its watch 
   assert.equal(PeaceBeStill.redirectFor("/", { homeToSubscriptions: true, subscriptions: true }), null);
   // Missing keys take their defaults, and every default is now off.
   assert.equal(PeaceBeStill.redirectFor("/", {}), null);
+});
+
+// Unhook's behaviour: a page whose switch hides it is not left on screen as a
+// blank, it goes home instead.
+test("redirectFor sends a hidden Subscriptions or Explore / Trending page home", () => {
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions", { subscriptions: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions/shorts", { subscriptions: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/trending", { exploreTrending: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/explore", { exploreTrending: true }), "/");
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions", {}), null, "not while Subscriptions is shown");
+  assert.equal(PeaceBeStill.redirectFor("/feed/trending", {}), null);
+  assert.equal(PeaceBeStill.redirectFor("/feed/history", { subscriptions: true, exploreTrending: true }), null);
+  // The two home redirects can never chase each other: sending home to
+  // Subscriptions already refuses while Subscriptions is hidden.
+  const both = { subscriptions: true, homeToSubscriptions: true };
+  assert.equal(PeaceBeStill.redirectFor("/feed/subscriptions", both), "/");
+  assert.equal(PeaceBeStill.redirectFor("/", both), null);
+});
+
+// Unhook's "Hide Video Info" takes the whole block under the video, title
+// included; the four finer switches live inside it.
+test("one switch hides everything under the video, and the finer switches nest in it", () => {
+  const { parentOf, isMoot } = PeaceBeStill;
+  for (const key of ["videoInfo", "buttonsBar", "channelRow", "description"]) assert.equal(parentOf(key), "videoDetails", key);
+  assert.equal(isMoot("dislikeCount", { videoDetails: true }), true, "moot two levels down");
+  assert.equal(isMoot("descriptionChips", { videoDetails: true }), true);
+  assert.equal(isMoot("comments", { videoDetails: true }), false, "comments are not under the video info");
 });
 
 test("effective settings: a missing key is off, and a switch its parent made moot is off too", () => {

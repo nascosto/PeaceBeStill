@@ -5,11 +5,13 @@ import { loadClassic } from "../../../test/helpers/load-classic.mjs";
 
 const css = readFileSync(new URL("../src/hide.css", import.meta.url), "utf8");
 const { PeaceBeStill } = loadClassic(new URL("../src/core.js", import.meta.url));
-// Features with no stylesheet rule at all: pure script.
-const SCRIPT_ONLY = ["channelTabRedirect", "stalePlaceholders", "titleCase", "dislikeCount", "homeToSubscriptions"];
-// The only declarations a rule may carry. Hiding, plus the one layout fix
-// hiding the header needs (the page otherwise keeps a gap where it was).
-const ALLOWED = new Set(["display: none !important;", "margin-top: 0 !important;"]);
+// Features with no stylesheet rule at all: pure script. (homeToSubscriptions
+// left this list when it began hiding the way back to Home as well.)
+const SCRIPT_ONLY = ["channelTabRedirect", "stalePlaceholders", "titleCase", "dislikeCount"];
+// The only declarations a rule may carry. Hiding, plus the layout resets
+// hiding the header needs: the page, the narrow sidebar and the phone's
+// sticky player all keep the bar's height clear otherwise.
+const ALLOWED = new Set(["display: none !important;", "margin-top: 0 !important;", "padding-top: 0 !important;", "top: 0 !important;"]);
 const gates = [...css.matchAll(/html\[data-peacebestill~="([^"]+)"\]/g)].map((m) => m[1]);
 
 test("every gate in tidy.css is a known feature key", () => {

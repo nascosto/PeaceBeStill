@@ -4,6 +4,12 @@
 // loading placeholders a feed leaves behind, and shows the dislike count when
 // asked.
 (function () {
+  // The manifest runs this in every youtube.com frame, for the sake of players
+  // embedded on other sites. Any other YouTube frame -- live chat, for one --
+  // is left alone entirely.
+  const inFrame = window !== window.top;
+  if (inFrame && !location.pathname.startsWith("/embed/")) return;
+
   const api = globalThis.browser ?? globalThis.chrome;
   const { KEYS, tokensFor, effective, formatCount, videoIdFrom, calmTitle, channelHomeFor, redirectFor, placeholderVerdict, untitled } = globalThis.PeaceBeStill;
 
@@ -105,7 +111,8 @@
   // own setting alone.
   function switchAutoplayOff() {
     if (!settings.autoplay || !onWatchPage()) return;
-    whenPresent('.ytp-autonav-toggle-button[aria-checked="true"]', (toggle) => toggle.click(), { visible: false });
+    // The desktop toggle says aria-checked, the phone's says aria-pressed.
+    whenPresent('.ytp-autonav-toggle-button[aria-checked="true"], .ytm-autonav-toggle-button-container[aria-pressed="true"]', (toggle) => toggle.click(), { visible: false });
   }
 
   // --- ALL-CAPS titles -------------------------------------------------------
@@ -188,10 +195,36 @@
   // channel home (channelTabRedirect), the home page to the Subscriptions feed
   // (homeToSubscriptions), a Short to its ordinary watch page (shorts).
   function redirectIfAsked() {
+    if (inFrame) return false; // an embedded player never navigates its host page
     const target = (settings.channelTabRedirect && channelHomeFor(location.pathname)) || redirectFor(location.pathname, settings);
     if (!target) return false;
     location.replace(target);
     return true;
+  }
+
+  // --- The logo --------------------------------------------------------------
+  // While home is sent to Subscriptions the logo goes straight there, rather
+  // than to a home page that would only redirect. YouTube's own click handler
+  // would still route to Home, so the click stops at the link and the browser
+  // follows the href. Put back as it was the moment the redirect is off.
+  const SUBSCRIPTIONS = "/feed/subscriptions";
+  const keepToHref = (event) => event.stopPropagation();
+
+  function pointLogo() {
+    for (const logo of document.querySelectorAll("a#logo")) {
+      const pointed = logo.hasAttribute("data-peacebestill-logo");
+      if (settings.homeToSubscriptions && logo.getAttribute("href") !== SUBSCRIPTIONS) {
+        logo.setAttribute("href", SUBSCRIPTIONS);
+        if (!pointed) {
+          logo.setAttribute("data-peacebestill-logo", "");
+          logo.addEventListener("click", keepToHref, true);
+        }
+      } else if (!settings.homeToSubscriptions && pointed) {
+        logo.setAttribute("href", "/");
+        logo.removeAttribute("data-peacebestill-logo");
+        logo.removeEventListener("click", keepToHref, true);
+      }
+    }
   }
 
   // --- The observer ----------------------------------------------------------
@@ -203,6 +236,7 @@
   let scrollTimer = null;
 
   function observe() {
+    pointLogo();
     if (settings.titleCase) calmTitles();
     tightenDescription();
     pruneStalePlaceholders();
@@ -210,8 +244,9 @@
   }
 
   function watchDom() {
-    const wanted = settings.titleCase || settings.expandDescription || settings.stalePlaceholders || settings.notifications;
+    const wanted = settings.titleCase || settings.expandDescription || settings.stalePlaceholders || settings.notifications || settings.homeToSubscriptions;
     if (!wanted) {
+      pointLogo(); // one last pass puts the logo back
       observer?.disconnect();
       observer = null;
       return;

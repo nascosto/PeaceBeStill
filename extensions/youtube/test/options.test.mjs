@@ -67,6 +67,7 @@ function rowsOf(root) {
     isSelect: box.tag === "select",
     depth: Number(row?.getAttribute("data-depth") ?? 0),
     indented: Number(row?.getAttribute("data-depth") ?? 0) > 0,
+    depth: Number(row?.getAttribute("data-depth") ?? 0),
     ariaDisabled: box.getAttribute("aria-disabled"),
     reallyDisabled: box.disabled === true,
     hidden: row?.hidden === true,
@@ -117,9 +118,21 @@ test("a child is indented directly under its parent when they share a section", 
     ["subscriptions", ["subscriptionDots"]],
   ]) {
     assert.deepEqual(order.slice(at(parent) + 1, at(parent) + 1 + children.length), children, parent);
-    for (const child of children) assert.equal(rows()[at(child)].indented, true, child);
-    assert.equal(rows()[at(parent)].indented, false, parent);
+    for (const child of children) {
+      assert.equal(rows()[at(child)].indented, true, child);
+      assert.equal(rows()[at(child)].depth, rows()[at(parent)].depth + 1, `${child} sits one level under ${parent}`);
+    }
   }
+  // Two levels: the block under the video holds four switches, two of which
+  // hold switches of their own. Each direct child comes after the parent and
+  // before the next row back out at the parent's own depth.
+  const top = at("videoDetails");
+  const end = order.findIndex((_, i) => i > top && rows()[i].depth <= rows()[top].depth);
+  for (const child of ["videoInfo", "buttonsBar", "channelRow", "description"]) {
+    assert.ok(at(child) > top && (end === -1 || at(child) < end), `${child} is inside videoDetails`);
+    assert.equal(rows()[at(child)].depth, rows()[top].depth + 1, child);
+  }
+  assert.equal(rows()[at("dislikeCount")].depth, rows()[top].depth + 2, "a grandchild is two levels in");
 });
 
 test("a switch its parent covers is taken off the list, not explained away", async () => {
@@ -158,12 +171,12 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and turning everything off clears the lot", async () => {
   const { byId, rows, removes } = await render({ footer: true, create: true });
-  assert.match(byId.summary.textContent, /2 of 44/);
+  assert.match(byId.summary.textContent, /2 of 45/);
 
   await byId["all-off"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["footer", "create"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 44/);
+  assert.match(byId.summary.textContent, /0 of 45/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

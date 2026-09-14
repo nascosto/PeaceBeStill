@@ -47,6 +47,12 @@ test("content script loads the core before the script that uses it, at document_
 // lists the add-on as desktop-only and Android never offers it. The mobile
 // site is a separate application (ytm-* components), so the content script has
 // to match m.youtube.com as well or it never runs on a phone at all.
+// Unhook also acts inside YouTube players embedded on other sites -- end
+// screens, cards, the pause overlay. content.js stands down in any other frame.
+test("runs in embedded players too", () => {
+  assert.equal(manifest.content_scripts[0].all_frames, true);
+});
+
 test("opts in to Firefox for Android, and runs on the mobile site", () => {
   assert.deepEqual(manifest.browser_specific_settings.gecko_android, { strict_min_version: "142.0" });
   assert.ok(manifest.content_scripts[0].matches.includes("*://m.youtube.com/*"));
