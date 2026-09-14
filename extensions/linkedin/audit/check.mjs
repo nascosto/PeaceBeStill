@@ -11,6 +11,7 @@
 //
 // It uses the extension's own core.js and lifts the marking pass out of its
 // content.js, so what it exercises is exactly what ships.
+import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { linkedInTab } from "./rdp.mjs";
@@ -152,13 +153,21 @@ const collateral = (keys, markOf, containers) => core +
 const wantCollateral = process.argv.includes("--collateral");
 const wantPanels = process.argv.includes("--panels");
 const paths = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+// Every real page load counts against a budget shared by all audit runs on this
+// machine (scripts/audit-budget.mjs), so claim this run's before starting.
+claimRunOrExit("linkedin", paths.length);
 const { evaluate, goTo, close } = await linkedInTab();
 let problems = 0;
 try {
   for (const path of paths.length ? paths : [null]) {
     if (path) {
+      await beforeLoad("linkedin");
       await goTo(new URL(path, "https://www.linkedin.com").href);
       await new Promise((r) => setTimeout(r, 5000));
+      // A sign-in wall or a security check is LinkedIn objecting: measuring it
+      // reads as every switch passing, and asking again only makes it worse.
+      const challenge = challengedAt(await evaluate("location.href"));
+      if (challenge) throw new Error(`stopped at ${challenge}; nothing more will be loaded`);
     }
     if (wantCollateral) {
       const found = JSON.parse(await evaluate(collateral(MARKED, MARK_OF, CONTAINERS)));

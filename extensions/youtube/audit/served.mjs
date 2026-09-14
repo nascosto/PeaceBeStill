@@ -8,6 +8,8 @@
 //
 // Returns null when the page is the YouTube host expected, and otherwise why
 // the run must stop.
+import { challengedAt } from "../../../scripts/audit-budget.mjs";
+
 export function whyNotYouTube(url, expectedHost) {
   let parsed;
   try {
@@ -16,11 +18,10 @@ export function whyNotYouTube(url, expectedHost) {
     return `the audit was not shown a page at all (${url})`;
   }
   if (parsed.host === expectedHost) return null;
-  if (/(^|\.)google\.[a-z.]+$/.test(parsed.host) && parsed.pathname.startsWith("/sorry")) {
+  const challenge = challengedAt(url);
+  if (challenge && /unusual-traffic/.test(challenge)) {
     return "Google is rate-limiting this network (google.com/sorry: unusual traffic). Stop sending YouTube headless traffic and try again in a few hours; nothing was measured.";
   }
-  if (/^consent\./.test(parsed.host)) {
-    return `YouTube served its consent page (${parsed.host}) instead; nothing was measured.`;
-  }
+  if (challenge) return `YouTube served ${challenge} (${parsed.host}) instead; nothing was measured.`;
   return `expected ${expectedHost} but was served ${parsed.host}${parsed.pathname}; nothing was measured.`;
 }

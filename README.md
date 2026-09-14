@@ -274,6 +274,30 @@ on at once tells you nothing, because a parent hides the container its children
 live in. The Create button, the notifications bell and the subscription dots
 only exist signed in, so those are checked by hand.
 
+## Being a good neighbour to the sites
+
+The unit tests and CI never touch YouTube or LinkedIn. The live audits do, and
+they are kept to what one person browsing would ask of a site -- small, spaced
+out, and never in a burst -- through `scripts/audit-budget.mjs`:
+
+- **One run per site at a time**, whichever checkout or session starts it. A
+  second one is refused before it opens a browser.
+- **A budget of page loads per site**, counted across every run in a ledger
+  outside the repository (`~/.cache/peacebestill/page-loads.json`, holding
+  only a site and a time per load): YouTube 30 an hour and 120 a day, LinkedIn
+  20 an hour and 50 a day. A run declares its loads up front and does not start
+  if they would not fit; the message says when they will.
+- **A gap between loads**: 3 seconds for YouTube, 20 for LinkedIn.
+- **Stop at the first objection.** A sign-in wall, a security check, a consent
+  page or Google's unusual-traffic page ends the run: measuring it would read
+  as every switch passing, and asking again only makes it worse.
+
+Each limit is there because a site has objected. LinkedIn signed the account
+out after a few hundred loads in an hour on 2026-09-09, and Google began
+answering this network's YouTube traffic with its unusual-traffic page on
+2026-09-14 after a day of repeated runs from two sessions at once. Neither
+came from a single run; both came from the total.
+
 ## Layout
 
 ```

@@ -10,6 +10,7 @@
 // This one writes the setting through the extension's own storage, lets the
 // content script do its work, and compares the page against a baseline taken
 // with everything off. What it prints is what a person would see go.
+import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { RDP, devPort, session } from "./rdp.mjs";
@@ -144,6 +145,10 @@ const OPTIONS = (mine.manifestURL || "").replace(/manifest\.json$/, "") + "optio
 // tab, and LinkedIn is loaded once per page audited and then left alone --
 // settings arrive over storage.onChanged, which is how they reach an open tab
 // for a real user anyway.
+// Every real page load counts against a budget shared by all audit runs on this
+// machine (scripts/audit-budget.mjs), so claim this run's before starting.
+// About two loads a page, with the gap between loads set in the budget.
+claimRunOrExit("linkedin", paths.length * 2);
 step("attaching to the browser");
 const live = await session(port);
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -185,6 +190,7 @@ async function store(values) {
 let loads = 0;
 
 async function goToPage(path) {
+  await beforeLoad("linkedin");
   loads += 1;
   step("opening " + path);
   const landed = await page.goTo("https://www.linkedin.com" + path);

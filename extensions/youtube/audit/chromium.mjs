@@ -9,6 +9,7 @@
 //
 // Signed out means the Create button, the subscription dots and (in some
 // layouts) the More from YouTube section do not exist; check those by hand.
+import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import puppeteer from "puppeteer-core";
 import { whyNotYouTube } from "./served.mjs";
 import { createHash } from "node:crypto";
@@ -75,6 +76,10 @@ function survey(selectors) {
   return out;
 }
 
+// Every real page load counts against a budget shared by all audit runs on this
+// machine (scripts/audit-budget.mjs), so claim this run's before starting.
+claimRunOrExit("youtube", 1);
+
 const browser = await puppeteer.launch({
   executablePath: CHROMIUM,
   headless: true,
@@ -94,6 +99,7 @@ try {
   // container to act inside.
   await write(CHILDREN_PASS);
   const page = await browser.newPage();
+  await beforeLoad("youtube");
   await page.goto(VIDEO, { waitUntil: "domcontentloaded", timeout: 60000 });
   const notYouTube = whyNotYouTube(page.url(), "www.youtube.com");
   if (notYouTube) throw new Error(notYouTube);

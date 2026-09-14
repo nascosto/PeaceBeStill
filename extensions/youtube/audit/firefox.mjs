@@ -9,6 +9,7 @@
 //
 // Signed out means the Create button and the subscription dots do not exist,
 // and the sidebar may not render at all; check those by hand.
+import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import net from "node:net";
 import { whyNotYouTube } from "./served.mjs";
 import { spawn } from "node:child_process";
@@ -82,6 +83,10 @@ writeFileSync(join(profile, "user.js"), [
   "",
 ].join("\n"));
 // --remote-allow-system-access lets the audit read the add-on's internal UUID.
+// Every real page load counts against a budget shared by all audit runs on this
+// machine (scripts/audit-budget.mjs), so claim this run's before starting.
+claimRunOrExit("youtube", 4);
+
 const firefox = spawn(FIREFOX, ["--marionette", "--remote-allow-system-access", "--headless", "--no-remote", "--new-instance", "--profile", profile, "about:blank"], { stdio: "ignore" });
 
 // Keep in step with src/hide.css: read it. Every "display: none" rule gated
@@ -194,6 +199,7 @@ try {
   }
 
   async function onWatchPage() {
+    await beforeLoad("youtube");
     await client.send("WebDriver:Navigate", { url: VIDEO });
     const rendered = await waitForWatch(client);
     await sleep(3000);
