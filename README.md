@@ -262,9 +262,12 @@ A site's markup is undocumented and changes. The audits below are the YouTube
 extension's; LinkedIn's are described above. When a YouTube switch stops
 working, run them: they drive a signed-out headless browser through a live page
 and report, per switch, how many targets exist and how many are still rendered
-(screenshots land in `extensions/youtube/audit/out/`). Each runs muted, and the
-Firefox one switches off every other extension first, since an enterprise
-policy can install a content blocker into even a throwaway profile:
+(screenshots land in `extensions/youtube/audit/out/`). Each runs muted. An
+enterprise policy installs its extensions into even a throwaway Firefox profile
+-- content blockers, and PeaceBeStill itself as published on AMO, under the same
+ID -- so the Firefox audit waits for the policy to finish, switches every one of
+them off, installs `src/` over the published copy, and stops unless `src/` is
+the only extension running:
 
     npm run audit:chromium    # puppeteer-core against /usr/bin/chromium-browser
     npm run audit:firefox     # Marionette against /usr/bin/firefox, no driver needed
@@ -282,6 +285,13 @@ the switches that hold other parents off; then everything. Turning everything
 on at once tells you nothing, because a parent hides the container its children
 live in. The Create button, the notifications bell and the subscription dots
 only exist signed in, so those are checked by hand.
+
+With everything on, each audit also runs YouTube's own check for an ad blocker
+on the live page -- a bare `div#player-ads` appended to `<body>`, taken as an
+ad blocker if it comes out hidden -- and fails if it does. That check is why
+every ad rule in `hide.css` reaches only inside `ytd-app` or `ytm-app`: an
+unscoped `#player-ads` rule hid the bait too, and YouTube refused to play
+videos for anyone with "Hide ads around video" on.
 
 ## Being a good neighbour to the sites
 

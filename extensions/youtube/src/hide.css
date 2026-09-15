@@ -83,8 +83,13 @@ html[data-peacebestill~="upcoming"] ytd-browse[page-subtype="subscriptions"] ytd
    renderers are the long-standing names for promoted results, kept for the
    contexts this pass did not reach. Note what is deliberately absent:
    #sponsor-button and #sponsor-comment-badge are channel memberships, which
-   YouTube also calls sponsorship, and have nothing to do with advertising. */
-html[data-peacebestill~="ads"] :is(ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer, ytd-companion-slot-renderer, ytd-player-legacy-desktop-watch-ads-renderer, ytd-ads-engagement-panel-content-renderer, #player-ads, #masthead-ad, ytd-promoted-sparkles-web-renderer, ytd-promoted-sparkles-text-search-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer) { display: none !important; }
+   YouTube also calls sponsorship, and have nothing to do with advertising.
+
+   Every one is hidden only inside ytd-app, where the page itself lives.
+   YouTube tests for ad blockers by appending a bare div#player-ads to <body>
+   and refusing to play if it comes out display: none; unscoped, this rule
+   hid that too. */
+html[data-peacebestill~="ads"] ytd-app :is(ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer, ytd-companion-slot-renderer, ytd-player-legacy-desktop-watch-ads-renderer, ytd-ads-engagement-panel-content-renderer, #player-ads, #masthead-ad, ytd-promoted-sparkles-web-renderer, ytd-promoted-sparkles-text-search-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer) { display: none !important; }
 
 /* ---- Watch page --------------------------------------------------------- */
 
@@ -247,5 +252,6 @@ html[data-peacebestill~="playlistPanel"] :is(ytm-playlist-engagement-panel, ytm-
    switches it off) */
 html[data-peacebestill~="autoplay"] :is(.ytm-autonav-toggle-button-container, .ytm-autonav-bar) { display: none !important; }
 
-/* Ads: the companion slot under the mobile player */
-html[data-peacebestill~="ads"] ytm-companion-slot { display: none !important; }
+/* Ads: the companion slot under the mobile player, inside ytm-app for the
+   same reason as the desktop rule */
+html[data-peacebestill~="ads"] ytm-app ytm-companion-slot { display: none !important; }

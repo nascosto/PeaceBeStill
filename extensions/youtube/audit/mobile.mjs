@@ -13,7 +13,7 @@
 // not exist, so those three are checked by hand.
 import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import puppeteer from "puppeteer-core";
-import { whyNotYouTube } from "./served.mjs";
+import { whyNotYouTube, AD_BLOCKER_BAIT, baitProblem } from "./served.mjs";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -123,6 +123,7 @@ try {
   await watch.bringToFront();
   await sleep(1500);
   report.watchParents = await watch.evaluate(survey, MOBILE);
+  report.adBlockerBait = await watch.evaluate(`(() => { ${AD_BLOCKER_BAIT} })()`);
   // The desktop rules must be inert here; anything they match is a rule that
   // could hide the wrong thing on a phone.
   report.desktopRulesOnMobile = await watch.evaluate(survey, DESKTOP);
@@ -170,6 +171,8 @@ for (const [pass, data, judge] of [
 if (report.afterToggle?.relatedVideos?.present > 0 && report.afterToggle.relatedVideos.visible === 0) {
   failures.push("afterToggle: relatedVideos stayed hidden after being switched off");
 }
+const bait = baitProblem(report.adBlockerBait);
+if (bait) failures.push(bait);
 const leaked = Object.entries(report.desktopRulesOnMobile ?? {}).filter(([, r]) => r.present > 0).map(([k]) => k);
 
 const rows = [["switch", "watch/children", "watch/middle", "watch/parents", "home", "playlist"]];

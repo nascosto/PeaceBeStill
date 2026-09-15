@@ -55,3 +55,19 @@ test("the phone's rules have a section of their own, which the mobile audit spli
   const before = css.slice(0, css.indexOf(heading)).replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(before, /\bytm-(?!mweb)[a-z-]+/, "a phone component in the desktop section would be audited as a desktop rule");
 });
+
+// YouTube looks for ad blockers by creating an element with an ad's name
+// outside its app -- a bare div#player-ads appended to <body> -- and asking
+// whether it is display: none (uBlockOrigin/uAssets#27415, June 2025). A rule
+// naming #player-ads anywhere on the page hides that bait too, and YouTube
+// refuses to play. So every ad rule hides only what sits inside YouTube's own
+// app, ytd-app on the desktop and ytm-app on a phone, where the real
+// containers live and the bait does not.
+test("the ad rules reach only inside YouTube's app, so the ad-blocker bait outside it stays visible", () => {
+  const ads = gated.filter((r) => r.gate === "ads");
+  assert.ok(ads.length >= 2, "expected desktop and phone ad rules");
+  for (const { selector } of ads) {
+    const scoped = selector.replace(/^html\[data-peacebestill~="ads"\]\s+/, "");
+    assert.match(scoped, /^yt[dm]-app\s/, `ad rule not scoped to the app: ${selector.slice(0, 90)}`);
+  }
+});

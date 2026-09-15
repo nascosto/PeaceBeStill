@@ -11,7 +11,7 @@
 // layouts) the More from YouTube section do not exist; check those by hand.
 import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import puppeteer from "puppeteer-core";
-import { whyNotYouTube } from "./served.mjs";
+import { whyNotYouTube, AD_BLOCKER_BAIT, baitProblem } from "./served.mjs";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -143,6 +143,7 @@ try {
   await page.bringToFront();
   await sleep(1200);
   report.parents = await page.evaluate(survey, SELECTORS);
+  report.adBlockerBait = await page.evaluate(`(() => { ${AD_BLOCKER_BAIT} })()`);
   await page.screenshot({ path: OUT + "youtube-chromium-parents.png" });
 
   // And switching one back off must bring its target back, without a reload.
@@ -192,4 +193,6 @@ if (!report.titleCalmed) console.error(`title not calmed: got ${JSON.stringify(r
 writeFileSync(OUT + "chromium-report.json", JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
 if (report.earlyApply && !report.earlyApply.ok) console.error(`early apply did not behave: ${JSON.stringify(report.earlyApply.values)} then ${JSON.stringify(report.earlyApply.settled)}`);
-process.exitCode = report.error || !report.titleCalmed || !report.earlyApply?.ok ? 1 : 0;
+const bait = baitProblem(report.adBlockerBait);
+if (bait) console.error(bait);
+process.exitCode = report.error || !report.titleCalmed || !report.earlyApply?.ok || bait ? 1 : 0;

@@ -11,12 +11,12 @@
 // and the sidebar may not render at all; check those by hand.
 import { claimRunOrExit, beforeLoad, challengedAt } from "../../../scripts/audit-budget.mjs";
 import net from "node:net";
-import { whyNotYouTube } from "./served.mjs";
+import { whyNotYouTube, AD_BLOCKER_BAIT, baitProblem } from "./served.mjs";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SRC = fileURLToPath(new URL("../src", import.meta.url));
 const OUT = fileURLToPath(new URL("./out/", import.meta.url));
@@ -79,6 +79,9 @@ writeFileSync(join(profile, "user.js"), [
   'user_pref("app.update.enabled", false);',
   // Headless Firefox still plays the video's sound out loud.
   'user_pref("media.volume_scale", "0.0");',
+  // Switching an extension off can close the tab it owns, and a window that
+  // loses its last tab closes -- the last window taking Firefox down with it.
+  'user_pref("browser.tabs.closeWindowWithLastTab", false);',
   `user_pref("marionette.port", ${PORT});`,
   "",
 ].join("\n"));
@@ -159,11 +162,27 @@ try {
   client = await Marionette.connect(PORT);
   await client.send("WebDriver:NewSession", { capabilities: { alwaysMatch: {} } });
   await client.send("WebDriver:SetWindowRect", { width: 1400, height: 1000 });
-  report.addon = (await client.send("Addon:Install", { path: SRC, temporary: true })).value;
-  // An enterprise policy installs its extensions into every profile, this
-  // throwaway one included, and a content blocker hiding an ad would pass for
-  // one of our switches working. Switch every other extension off first.
+  // The machine's enterprise policy installs its extensions into every
+  // profile, this throwaway one included -- content blockers that would pass
+  // for our switches working, and PeaceBeStill itself as published on AMO,
+  // under the same ID as the copy being audited. So: let the policy finish,
+  // switch every one of its extensions off, and only then install src/, which
+  // takes the ID over from the published copy for this session. The audit
+  // then checks that the one extension running is src/, and stops if not:
+  // measuring the published build, or anything alongside ours, would pass
+  // for this checkout working.
   await client.send("Marionette:SetContext", { value: "chrome" });
+  report.policyExtensions = await client.send("WebDriver:ExecuteAsyncScript", { script: `const done = arguments[arguments.length - 1];
+    const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+    const wanted = Object.entries(Services.policies.getActivePolicies()?.ExtensionSettings ?? {})
+      .filter(([id, setting]) => id !== "*" && ["normal_installed", "force_installed"].includes(setting.installation_mode)).map(([id]) => id);
+    const started = Date.now();
+    (async function poll() {
+      const have = new Set((await AddonManager.getAddonsByTypes(["extension"])).map((a) => a.id));
+      const missing = wanted.filter((id) => !have.has(id));
+      if (!missing.length || Date.now() - started > 30000) return done({ wanted, missing });
+      setTimeout(poll, 250);
+    })();`, timeout: 40000 }).then((r) => r.value);
   report.otherExtensionsDisabled = await client.send("WebDriver:ExecuteAsyncScript", { script: `const done = arguments[arguments.length - 1];
     const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
     (async () => {
@@ -171,12 +190,26 @@ try {
       for (const a of others) await a.disable();
       done(others.map((a) => a.id));
     })().catch((e) => done("ERROR " + e));`, args: ["youtube@peacebestill.fyi"] }).then((r) => r.value);
-  await client.send("Marionette:SetContext", { value: "content" });
+  report.addon = (await client.send("Addon:Install", { path: SRC, temporary: true })).value;
+  const running = await client.send("WebDriver:ExecuteAsyncScript", { script: `const done = arguments[arguments.length - 1];
+    const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+    AddonManager.getAddonsByTypes(["extension"]).then((all) => done(all.filter((a) => !a.isSystem && !a.isBuiltin && a.isActive)
+      .map((a) => ({ id: a.id, temporary: a.temporarilyInstalled, root: a.getResourceURI().spec }))));` }).then((r) => r.value);
+  report.running = running;
+  const srcRoot = pathToFileURL(SRC + "/").href;
+  if (running.length !== 1 || running[0].id !== "youtube@peacebestill.fyi" || !running[0].temporary || running[0].root !== srcRoot) {
+    throw new Error(`expected only this checkout's src/ running, got ${JSON.stringify(running)}`);
+  }
+
   // Switching an extension off can take the tab it had open with it -- the
   // containers extension does -- and every command after that fails with
-  // "Browsing context has been discarded". So carry on in a tab of our own.
-  const fresh = (await client.send("WebDriver:NewWindow", { type: "tab" })).handle;
-  await client.send("WebDriver:SwitchToWindow", { handle: fresh });
+  // "Browsing context has been discarded". So carry on in a tab of our own,
+  // opened from the browser itself, since the tab Marionette was driving may
+  // be the one that went.
+  await client.script('gBrowser.selectedTab = gBrowser.addTrustedTab("about:blank"); return true;');
+  await client.send("Marionette:SetContext", { value: "content" });
+  const handles = await client.send("WebDriver:GetWindowHandles").then((r) => r.value ?? r);
+  await client.send("WebDriver:SwitchToWindow", { handle: handles[handles.length - 1] });
 
   await client.send("Marionette:SetContext", { value: "chrome" });
   const uuids = JSON.parse(await client.script('return Services.prefs.getStringPref("extensions.webextensions.uuids");'));
@@ -258,6 +291,7 @@ try {
   // must not have taken the page itself away.
   report.watchRenderedAgain = await client.script('return !!document.querySelector("ytd-watch-flexy");');
   report.parents = await client.script(SURVEY, [SELECTORS]);
+  report.adBlockerBait = await client.script(AD_BLOCKER_BAIT);
 
   // And switching one back off must bring its target back.
   await write({ relatedVideos: false });
@@ -276,4 +310,6 @@ report.titleCalmed = report.titleCalm === calmTitle(SHOUTING);
 if (!report.titleCalmed) console.error(`title not calmed: got ${JSON.stringify(report.titleCalm)}`);
 writeFileSync(OUT + "firefox-report.json", JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
-process.exitCode = report.error || !report.titleCalmed ? 1 : 0;
+const bait = baitProblem(report.adBlockerBait);
+if (bait) console.error(bait);
+process.exitCode = report.error || !report.titleCalmed || bait ? 1 : 0;
