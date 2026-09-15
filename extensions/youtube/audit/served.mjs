@@ -25,3 +25,25 @@ export function whyNotYouTube(url, expectedHost) {
   if (challenge) return `YouTube served ${challenge} (${parsed.host}) instead; nothing was measured.`;
   return `expected ${expectedHost} but was served ${parsed.host}${parsed.pathname}; nothing was measured.`;
 }
+
+// YouTube's check for an ad blocker, as uBlock Origin's volunteers found it in
+// June 2025 (uBlockOrigin/uAssets#27415): a bare div#player-ads appended to
+// <body>, and an ad blocker assumed if it comes out display: none. Run on the
+// real page with the ads switch on, it must stay visible: if it is hidden, the
+// extension would get a real user's videos refused. A script body, so it runs
+// the same through puppeteer and Marionette.
+export const AD_BLOCKER_BAIT = `
+  const bait = document.createElement("div");
+  bait.id = "player-ads";
+  document.body.appendChild(bait);
+  const hidden = getComputedStyle(bait).display === "none";
+  bait.remove();
+  return { adsSwitchOn: (document.documentElement.dataset.peacebestill || "").split(" ").includes("ads"), baitHidden: hidden };`;
+
+// Why a bait result fails the run, or null when it passes.
+export function baitProblem(result) {
+  if (!result) return "the ad-blocker bait check did not run";
+  if (!result.adsSwitchOn) return "the ads switch was not on when the ad-blocker bait was checked, so the check proved nothing";
+  if (result.baitHidden) return "YouTube's ad-blocker bait (div#player-ads on <body>) was hidden: YouTube would refuse to play for this user";
+  return null;
+}
