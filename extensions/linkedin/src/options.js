@@ -15,6 +15,13 @@
   const status = document.getElementById("status");
   const allOff = document.getElementById("all-off");
 
+  // The toolbar button opens this page as its popup, as options.html?popup. A
+  // popup takes its width from the page, so give it one -- but not on a phone,
+  // where Firefox for Android opens the popup as a tab of its own.
+  if (new URLSearchParams(globalThis.location?.search ?? "").has("popup") && globalThis.screen?.width > 480) {
+    document.documentElement.classList.add("popup");
+  }
+
   document.title = `PeaceBeStill for ${SITE_NAME}`;
   const site = document.getElementById("site");
   if (site) site.textContent = `for ${SITE_NAME}`;
@@ -196,10 +203,26 @@
   // permission. Ask for it on the way in, and take the tick back if it is
   // refused. Chromium has no such permission and rejects the request, which is
   // not a refusal, so treat a throw as consent already given.
+  //
+  // Not from the toolbar popup, though. Firefox shows the prompt over the page,
+  // and a popup can close before the answer comes back, taking the tick and
+  // the answer with it. So a popup that would have to ask hands over to the
+  // full options page, which can ask safely, and closes; one whose permission
+  // is already granted just carries on.
   async function consentFor(box) {
     const permissions = (CONSENT || {})[box.name];
     if (!permissions || !box.checked) return true;
     if (!api.permissions?.request) return true;
+    if (document.documentElement.classList.contains("popup")) {
+      try {
+        if (await api.permissions.contains(permissions)) return true;
+      } catch {
+        return true; // Chromium: no such permission to ask for
+      }
+      await api.runtime.openOptionsPage();
+      globalThis.close?.();
+      return false;
+    }
     try {
       return await api.permissions.request(permissions);
     } catch {

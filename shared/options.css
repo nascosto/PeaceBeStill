@@ -63,3 +63,10 @@ input[type="checkbox"] { margin: 0; }
 label:has(select) { grid-template-columns: auto max-content; justify-content: start; align-items: center; }
 select { font: inherit; padding: 2px 4px; border: 1px solid var(--edge); border-radius: 4px;
          background: var(--page); color: var(--ink); }
+
+/* Opened from the toolbar button (options.js adds the class). A popup is as
+   wide as its page asks, so ask for one wide enough for the labels, and keep
+   room for the scrollbar: the popup measures the page before the scrollbar
+   appears, and without the gutter the scrollbar then covers the right edge. */
+html.popup { scrollbar-gutter: stable; }
+html.popup body { width: 360px; }
