@@ -335,24 +335,38 @@ test/                     tests for that tooling and shared/, and the test helpe
 
 ## Releasing
 
-Releases are built by `.github/workflows/release.yml` from a version tag, and
-only from `main`: a tag on any other commit fails before anything is built.
-Every extension in the repo shares the repo's version, and one release carries
-them all, so the tag must equal `v` + the version in each `manifest.json`.
+Merging a version bump into `main` releases it. Every extension in the repo
+shares the repo's version, and one release carries them all:
 
     git switch -c release-1.0.1
     npm run bump patch      # or minor, major, or an exact 1.2.3
-    git commit -am "Release 1.0.1"
-    # push the branch and merge it into main by pull request, then:
-    git switch main && git pull
-    git tag v1.0.1 && git push origin v1.0.1
+    git commit -am "Version 1.0.1"
+    # push the branch and merge it into main by pull request: that is the release
+
+Once `ci` has built and passed a push to `main`, `.github/workflows/release.yml`
+asks `scripts/autotag.mjs` whether that commit's version has a tag yet. If it
+has, nothing happens, so an ordinary merge releases nothing; and a push that
+fails `ci` releases nothing either. If it has not, the release is checked (the
+AMO settings, and every manifest carrying that version), then `v<version>` is
+tagged on that commit, and then each extension is submitted. Only the tip of
+`main` is released: if `main` has moved on by the time `ci` finishes, the newer
+commit's run decides. Nobody tags by hand, and a tag pushed by hand releases
+nothing.
 
 `npm run bump` writes the new version to `package.json` and to every
 extension's manifest at once, which is the one part of a release that reliably
-goes wrong by hand; `scripts/check-version.mjs` then refuses any tag that
-disagrees with them.
+goes wrong by hand; `scripts/check-version.mjs` then refuses a release whose
+manifests disagree. `scripts/autotag.mjs` refuses a version that is not newer
+than every existing tag: AMO takes each version number once per add-on, even
+after that version is deleted, so a bump the wrong way or a number already used
+fails before anything is tagged, not at the store.
 
-A tag publishes each extension as a new version of its listing on
+Tagging comes before submitting, and creating the tag is the lock: a second run
+for the same version cannot create it again and stops, so a version is never
+submitted twice. A submission that fails after the tag is recovered by
+re-running the failed jobs of that run, or with **publish-stores** below.
+
+A release publishes each extension as a new version of its listing on
 addons.mozilla.org, through Mozilla's API (`web-ext sign --channel listed`).
 Mozilla reviews and signs it, and Firefox updates everyone who installed from
 AMO. Nothing is signed or hosted by this project, so a release needs no private
@@ -371,9 +385,9 @@ Each extension is submitted by a job of its own (`submit.yml`, which
 `publish-stores.yml` uses too), so a failed submission for one does not stop the
 other's. The submission does not wait for review, which can take days: the job
 submits and finishes, and the version appears on the listing once it passes. A
-tag whose AMO credentials or listing slugs are missing fails before anything is
-submitted, rather than quietly skipping an extension, and says which setting is
-missing. The GitHub release is created last, and only once every submission has
+release whose AMO credentials or listing slugs are missing fails before anything is
+submitted or tagged, rather than quietly skipping an extension, and says which
+setting is missing. The GitHub release is created last, and only once every submission has
 gone.
 
 ### First listing on each store, by hand

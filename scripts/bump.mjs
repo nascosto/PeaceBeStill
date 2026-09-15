@@ -43,5 +43,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     writeFileSync(file, JSON.stringify(doc, null, 2) + "\n");
   }
   console.log(`${current} -> ${version} in ${files.join(", ")}`);
-  console.log(`next: git commit -am "Release ${version}" && git tag v${version} && git push origin main v${version}`);
+  console.log(`next: commit this on a branch and merge it into main by pull request; the merge tags v${version} and releases it`);
 }
