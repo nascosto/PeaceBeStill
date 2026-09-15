@@ -61,7 +61,12 @@ and their values are kept, so turning it back off brings them back as they were.
   you tick the box.
 
 The options page has a filter box, a count of what is on, a button that turns
-everything off, and a note that settings follow your browser account.
+everything off, and a note that settings follow your browser account. The
+extension's toolbar button opens the same page as a popup, so the settings are
+a click away from the Extensions menu as well as from the add-ons manager. The
+one switch that needs a permission, the dislike count, is ticked from the full
+page: the popup opens it rather than asking, because a permission prompt can
+close a popup before its answer arrives.
 
 ### Firefox for Android
 

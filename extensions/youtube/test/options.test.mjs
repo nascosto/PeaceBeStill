@@ -42,6 +42,7 @@ function fakeDocument() {
   for (const id of ["features", "filter", "summary", "all-off", "status"]) byId[id] = element(id === "features" ? "form" : "div");
   const document = {
     byId,
+    documentElement: element("html"),
     getElementById: (id) => byId[id] ?? null,
     createElement: element,
     createTextNode: (text) => ({ tag: "#text", text, children: [] }),
@@ -75,7 +76,7 @@ function rowsOf(root) {
   }));
 }
 
-async function render(stored = {}, { failWrites = false } = {}) {
+async function render(stored = {}, { failWrites = false, search = "", screenWidth = 1920 } = {}) {
   const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
   const { document, byId } = fakeDocument();
   const writes = [];
@@ -86,14 +87,14 @@ async function render(stored = {}, { failWrites = false } = {}) {
     set: failWrites ? reject : async (obj) => { writes.push(obj); },
     remove: failWrites ? reject : async (keys) => { removes.push(keys); },
   } } };
-  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome, location: { search }, screen: { width: screenWidth } });
   await new Promise((resolve) => setTimeout(resolve, 0));
   const change = async (name, checked) => {
     const row = rowsOf(byId.features).find((r) => r.name === name);
     row.box.checked = checked;
     await byId.features.listeners.change({ target: row.box });
   };
-  return { PeaceBeStill, byId, writes, removes, change, rows: () => rowsOf(byId.features) };
+  return { PeaceBeStill, document, byId, writes, removes, change, rows: () => rowsOf(byId.features) };
 }
 
 test("every feature gets one checkbox, inside a fieldset with its section as the legend", async () => {
@@ -247,4 +248,55 @@ test("a browser without the data-collection permission API still stores the choi
   row.box.checked = true;
   await byId.features.listeners.change({ target: row.box });
   assert.deepEqual(plain(writes), [{ dislikeCount: true }]);
+});
+
+// The toolbar button opens this same page as its popup, as options.html?popup.
+// A popup is sized to its content, so the page gives itself a width there --
+// but not on a phone, where Firefox for Android opens the "popup" as a tab
+// and a fixed width would overflow the screen.
+test("opened from the toolbar button the page takes a popup's width, except on a phone", async () => {
+  const popup = await render({}, { search: "?popup", screenWidth: 1920 });
+  assert.equal(popup.document.documentElement.classList.contains("popup"), true);
+  assert.equal((await render({}, { search: "", screenWidth: 1920 })).document.documentElement.classList.contains("popup"), false, "the add-ons manager's copy");
+  assert.equal((await render({}, { search: "?popup", screenWidth: 412 })).document.documentElement.classList.contains("popup"), false, "a phone");
+  assert.equal(popup.rows().length, popup.PeaceBeStill.KEYS.length, "the popup is the whole options page, not a cut-down one");
+});
+
+// A permission prompt can outlive the popup that asked for it, losing the
+// answer. So the popup asks nothing: a switch that needs a permission not yet
+// granted opens the full options page, which asks, and the popup closes.
+test("in the toolbar popup, a switch needing a permission not yet granted hands over to the options page", async () => {
+  const run = async (granted) => {
+    const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
+    const { document, byId } = fakeDocument();
+    const calls = { writes: [], requests: [], opened: 0, closed: 0 };
+    const browser = {
+      storage: { sync: { get: async () => ({}), set: async (o) => { calls.writes.push(o); }, remove: async () => {} } },
+      permissions: {
+        contains: async () => { if (granted === "throws") throw new TypeError("Unexpected property: 'data_collection'"); return granted; },
+        request: async (req) => { calls.requests.push(req); return true; },
+      },
+      runtime: { openOptionsPage: async () => { calls.opened++; } },
+    };
+    loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, browser, location: { search: "?popup" }, screen: { width: 1920 }, close: () => { calls.closed++; } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const row = rowsOf(byId.features).find((r) => r.name === "dislikeCount");
+    row.box.checked = true;
+    await byId.features.listeners.change({ target: row.box });
+    return { ...calls, checked: row.box.checked };
+  };
+
+  const notYet = await run(false);
+  assert.equal(notYet.requests.length, 0, "the popup never asks");
+  assert.equal(notYet.opened, 1, "the options page opens to ask instead");
+  assert.equal(notYet.closed, 1);
+  assert.equal(notYet.checked, false, "and the box is not left ticked over nothing stored");
+  assert.deepEqual(plain(notYet.writes), []);
+
+  const already = await run(true);
+  assert.deepEqual(plain(already.writes), [{ dislikeCount: true }], "already granted: stored straight away");
+  assert.equal(already.opened + already.requests.length, 0);
+
+  const chromium = await run("throws");
+  assert.deepEqual(plain(chromium.writes), [{ dislikeCount: true }], "no such permission (Chromium): stored as before");
 });

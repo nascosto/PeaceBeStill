@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { SHARED, extensions } from "../scripts/sync-shared.mjs";
 
 // The two extensions' settings machinery and options pages drifted apart when
@@ -36,4 +36,19 @@ test("the options page is laid out for a phone", () => {
   assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1" \/>/);
   const css = readFileSync("shared/options.css", "utf8");
   assert.match(css, /@media \(max-width: 480px\)/);
+});
+
+// Without a toolbar action Firefox greys an extension out in its Extensions
+// menu -- there is nothing for a click to do -- which reads as switched off.
+// The action opens the options page, so a click anywhere a browser shows the
+// extension leads to its settings.
+test("every extension's toolbar button opens its options page, with an icon that exists", () => {
+  for (const extension of extensions()) {
+    const manifest = JSON.parse(readFileSync(`extensions/${extension}/src/manifest.json`, "utf8"));
+    assert.equal(manifest.action?.default_popup, "options.html?popup", `${extension}: the button must open the options page`);
+    assert.equal(manifest.options_ui?.page, "options.html", `${extension}: the same page the add-ons manager opens`);
+    const icons = manifest.action.default_icon ?? {};
+    assert.ok(Object.keys(icons).length, `${extension}: the button needs an icon`);
+    for (const file of Object.values(icons)) assert.ok(existsSync(`extensions/${extension}/src/${file}`), `${extension}: ${file} is missing`);
+  }
 });
