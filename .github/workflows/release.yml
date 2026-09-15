@@ -1,29 +1,76 @@
 name: release
 
-# A v* tag on main publishes every extension as a new version of its
+# Merging a version bump into main releases it. Once ci has built and passed a
+# push to main, this asks scripts/autotag.mjs whether that commit's version has
+# a tag yet: if it has, nothing happens. If not, the release is checked, the
+# version is tagged on that commit, and every extension is published as a new
+# version of its
 # addons.mozilla.org listing, through Mozilla's API. Nothing is signed or hosted
 # here: Mozilla signs each version and ships it to everyone who installed from
 # AMO once review passes. The Chrome Web Store is published to as well once
 # that store's credentials and listings exist.
 #
-# Releases are cut from main and nowhere else, so a tag on any other commit
-# fails before anything is built. AMO is what a release is for, so a tag with
-# its credentials or either listing missing fails there too, rather than
-# quietly skipping an extension.
+# Tags are made here and nowhere else. A tag pushed by hand no longer releases
+# anything; to publish a tagged version again, use publish-stores.yml. AMO is
+# what a release is for, so a release with its credentials or either listing
+# missing fails before tagging, rather than quietly skipping an extension.
 #
-# Each extension is submitted by a job of its own (submit.yml), and one failing
-# does not stop the other. The release page is only created once every
-# submission has gone through, so it never claims a version went out that did
-# not.
+# The tag goes on before anything is submitted, and creating it is the lock: a
+# second run that reaches this point for the same version fails to create it
+# and stops, so a version is never submitted twice. Each extension is then
+# submitted by a job of its own (submit.yml), and one failing does not stop the
+# other. The release page is only created once every submission has gone
+# through, so it never claims a version went out that did not.
+#
+# Only the commit at the tip of main is released. A run for a commit that main
+# has since moved past stands down: the newer commit's own run decides, once
+# ci has passed it too.
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
 
+# One release run at a time, queued rather than cancelled: a run that starts
+# while a release is going waits, then finds the tag and does nothing.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  version:
+    # ci passed, on a push to main -- not a pull request, whose branch this
+    # would otherwise be told about too.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.decide.outputs.release }}
+      tag: ${{ steps.decide.outputs.tag }}
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Is this commit main's tip, with a version not yet tagged?
+        id: decide
+        run: |
+          if [ "$(git rev-parse origin/main)" != "$SHA" ]; then
+            echo "main has moved past $SHA; the newer commit's run decides."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node scripts/autotag.mjs
+
   check:
+    needs: version
+    if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     env:
       AMO_JWT_ISSUER: ${{ vars.AMO_JWT_ISSUER }}
@@ -68,27 +115,36 @@ jobs:
           done
           exit $missing
 
+      # ci has already installed, tested, linted and built this commit.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
-      - name: The tag must be on main
+      - name: Every extension's manifest must carry the version being tagged
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: node scripts/check-version.mjs "$TAG" extensions/youtube/src extensions/linkedin/src
+
+  # Through the API, with the workflow's own token: a tag made that way starts
+  # no other workflow, so nothing else reacts to it. Fails if the tag exists.
+  tag:
+    needs: [version, check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Tag the commit being released
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::$GITHUB_REF_NAME is not on main. Releases are cut from main: merge the work into main, then tag main."
-            exit 1
-          fi
-
-      - run: npm ci --ignore-scripts
-      - run: npm test
-      - run: npm run lint
-
-      - name: The tag must match every extension's manifest version
-        run: node scripts/check-version.mjs "$GITHUB_REF_NAME" extensions/youtube/src extensions/linkedin/src
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA" > /dev/null
+          echo "Tagged $SHA as $TAG."
 
   submit:
-    needs: check
+    needs: tag
     strategy:
       fail-fast: false
       matrix:
@@ -96,12 +152,12 @@ jobs:
     uses: ./.github/workflows/submit.yml
     with:
       extension: ${{ matrix.extension }}
-      ref: ${{ github.sha }}
+      ref: ${{ github.event.workflow_run.head_sha }}
       require_amo: true
     secrets: inherit
 
   release:
-    needs: submit
+    needs: [version, submit]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -114,6 +170,7 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
-            --notes "PeaceBeStill $GITHUB_REF_NAME, submitted to addons.mozilla.org: https://addons.mozilla.org/firefox/addon/$YOUTUBE_AMO_SLUG/ and https://addons.mozilla.org/firefox/addon/$LINKEDIN_AMO_SLUG/ -- each version appears there once Mozilla's review passes."
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --verify-tag \
+            --notes "PeaceBeStill $TAG, submitted to addons.mozilla.org: https://addons.mozilla.org/firefox/addon/$YOUTUBE_AMO_SLUG/ and https://addons.mozilla.org/firefox/addon/$LINKEDIN_AMO_SLUG/ -- each version appears there once Mozilla's review passes."
