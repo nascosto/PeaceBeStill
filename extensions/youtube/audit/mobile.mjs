@@ -28,6 +28,9 @@ const VIDEO = process.argv[2] ?? "https://m.youtube.com/watch?v=dQw4w9WgXcQ";
 const HOME = "https://m.youtube.com/";
 // A Mix: the one kind of page with the playlist panel under the player.
 const PLAYLIST = "https://m.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ";
+// Signed out, the home page has no feed, so no Shorts shelf; search results
+// still come with several.
+const SEARCH = "https://m.youtube.com/results?search_query=cats";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(OUT, { recursive: true });
 
@@ -79,6 +82,24 @@ function survey(selectors) {
   return out;
 }
 
+// Hiding each Short can leave the shelf that held them on the page: its
+// header and padding, with nothing under them. The survey cannot see that,
+// since it only asks about what the rules name. So this asks the page instead:
+// climb from each hidden Short to the first box that shows an ordinary video,
+// and the box just below it, the Short's own group, must not be drawn.
+function leftShelves() {
+  const drawn = (e) => e.getClientRects().length > 0;
+  const showsVideo = (e) => [...e.querySelectorAll('a[href*="/watch?"]')].some(drawn);
+  const left = new Set();
+  for (const short of document.querySelectorAll("ytm-shorts-lockup-view-model")) {
+    if (drawn(short)) continue;
+    let group = short;
+    while (group.parentElement && !showsVideo(group.parentElement)) group = group.parentElement;
+    if (group.parentElement && drawn(group)) left.add(group);
+  }
+  return [...left].map((e) => `${e.localName} (${Math.round(e.getBoundingClientRect().height)}px)`);
+}
+
 async function phone(browser, url) {
   const page = await browser.newPage();
   await page.setUserAgent(UA);
@@ -93,7 +114,7 @@ async function phone(browser, url) {
 
 // Every real page load counts against a budget shared by all audit runs on this
 // machine (scripts/audit-budget.mjs), so claim this run's before starting.
-claimRunOrExit("youtube", 3);
+claimRunOrExit("youtube", 4);
 
 const browser = await puppeteer.launch({
   executablePath: CHROMIUM, headless: true,
@@ -145,6 +166,13 @@ try {
   const playlist = await phone(browser, PLAYLIST);
   report.playlist = await playlist.evaluate(survey, MOBILE);
   await playlist.close();
+
+  const search = await phone(browser, SEARCH);
+  report.search = await search.evaluate(survey, MOBILE);
+  report.searchShortsSeen = report.search.shorts?.present ?? 0;
+  report.leftShelves = await search.evaluate(leftShelves);
+  await search.screenshot({ path: OUT + "youtube-mobile-search.png" });
+  await search.close();
 } catch (e) {
   report.error = String(e.stack || e);
 } finally {
@@ -162,6 +190,7 @@ for (const [pass, data, judge] of [
   ["watch/parents", report.watchParents, () => true],
   ["home", report.home, () => true],
   ["playlist", report.playlist, () => true],
+  ["search", report.search, () => true],
 ]) {
   for (const [key, r] of Object.entries(data ?? {})) {
     if (judge(key) && r.present > 0 && r.visible > 0) failures.push(`${pass}: ${key} (${r.visible}/${r.present} still rendered)`);
@@ -171,14 +200,17 @@ for (const [pass, data, judge] of [
 if (report.afterToggle?.relatedVideos?.present > 0 && report.afterToggle.relatedVideos.visible === 0) {
   failures.push("afterToggle: relatedVideos stayed hidden after being switched off");
 }
+// A search with no Shorts in it would pass the shelf check without testing it.
+if (report.search && !report.searchShortsSeen) failures.push("search: no Shorts on the page, so the shelves they leave were not checked");
+for (const shelf of report.leftShelves ?? []) failures.push(`search: shorts left its shelf on the page, a ${shelf}`);
 const bait = baitProblem(report.adBlockerBait);
 if (bait) failures.push(bait);
 const leaked = Object.entries(report.desktopRulesOnMobile ?? {}).filter(([, r]) => r.present > 0).map(([k]) => k);
 
-const rows = [["switch", "watch/children", "watch/middle", "watch/parents", "home", "playlist"]];
+const rows = [["switch", "watch/children", "watch/middle", "watch/parents", "home", "playlist", "search"]];
 for (const key of Object.keys(MOBILE)) {
   const cell = (d) => (d?.[key] ? `${d[key].visible}/${d[key].present}` : "-");
-  rows.push([key, cell(report.watchChildren), cell(report.watchMiddle), cell(report.watchParents), cell(report.home), cell(report.playlist)]);
+  rows.push([key, cell(report.watchChildren), cell(report.watchMiddle), cell(report.watchParents), cell(report.home), cell(report.playlist), cell(report.search)]);
 }
 const w = rows[0].map((_, i) => Math.max(...rows.map((r) => r[i].length)));
 console.log("visible/present, so 0/n means the rule worked and 0/0 means nothing to hide here\n");

@@ -198,8 +198,14 @@ html[data-peacebestill~="exploreTrending"] :is(ytm-pivot-bar-item-renderer:has(.
 html[data-peacebestill~="home"] ytm-pivot-bar-item-renderer:has(.pivot-w2w) { display: none !important; }
 html[data-peacebestill~="homeToSubscriptions"] ytm-pivot-bar-item-renderer:has(.pivot-w2w) { display: none !important; }
 
-/* Feeds: Shorts, including the pivot-bar entry that has no desktop equivalent */
-html[data-peacebestill~="shorts"] :is(ytm-pivot-bar-item-renderer:has(.pivot-shorts), ytm-shorts-lockup-view-model, ytm-reel-shelf-renderer, ytm-video-with-context-renderer:has(a[href*="/shorts/"]), ytm-compact-video-renderer:has(a[href*="/shorts/"])) { display: none !important; }
+/* Feeds: Shorts, including the pivot-bar entry that has no desktop equivalent.
+   A shelf of Shorts goes with them, or its header stays behind with nothing
+   under it: a grid-shelf-view-model in search results, and the
+   ytm-rich-section-renderer that holds the shelf in the home and Explore
+   feeds. The desktop's search results use the same grid-shelf-view-model
+   around the same ytm-shorts-lockup-view-model, so this rule and the bare
+   lockup are what hide Shorts in desktop search too. */
+html[data-peacebestill~="shorts"] :is(ytm-pivot-bar-item-renderer:has(.pivot-shorts), ytm-shorts-lockup-view-model, ytm-reel-shelf-renderer, grid-shelf-view-model:has(ytm-shorts-lockup-view-model), ytm-rich-section-renderer:has(ytm-shorts-lockup-view-model), ytm-video-with-context-renderer:has(a[href*="/shorts/"]), ytm-compact-video-renderer:has(a[href*="/shorts/"])) { display: none !important; }
 
 /* Feeds: the home feed itself -- the Home tab's whole body, feed and the
    prompts that stand in for one when there is none. Keyed on the tab, since a
