@@ -149,8 +149,17 @@ html[data-peacebestill~="profile"] li.global-nav__primary-item:has(button img) {
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]),
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]) ~ * { display: none !important; }
 html[data-peacebestill~="forBusiness"] [data-pbs~="forBusiness"] { display: none !important; }
+/* The business end of the top bar: the "For Business" menu, and the link for
+   posting a job beside it -- "Hire with AI" in the new bar, "Post a job" in the
+   old one. That link is named by where it goes, which is the same in both bars
+   and in every language. The old bar's menu carries no label at all, only its
+   class. The rule the new bar draws between these and the rest goes with them,
+   or it stands at the end of the bar dividing nothing. */
 html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(button[aria-label="For Business"]),
-html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(button[aria-label="For Business"]) { display: none !important; }
+html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(a[href*="/talent/job-posting-redirect"]),
+html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] hr:has(+ nav button[aria-label="For Business"]),
+html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(.global-nav__app-launcher-menu),
+html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(a[href*="/talent/job-posting-redirect"]) { display: none !important; }
 
 /* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's
    older screens, whose class names are not hashed and whose ids are stable. */

@@ -59,3 +59,33 @@ test("the blackout text states its own colours", () => {
   assert.match(drawn.body, /color:/);
   assert.ok(rules.some((r) => r.gate === "blackout" && /background:/.test(r.body)), "the page needs a ground of its own");
 });
+
+// The top bar is drawn by two front ends, and a switch written for one of them
+// finds nothing on the other: "For Business" was hidden in the new bar and left
+// standing in the old one for as long as the old one's rule asked for a label
+// it does not carry. So every top-bar switch names its item in both.
+const selectorsFor = (gate) => [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{[^}]*\}/g)]
+  .flatMap((m) => m[1].split(","))
+  .map((s) => s.trim())
+  .filter((s) => s.startsWith(`html[data-peacebestill~="${gate}"]`));
+
+test("every top-bar switch hides its item in both front ends' bars", () => {
+  for (const gate of ["home", "myNetwork", "jobs", "messaging", "notifications", "profile", "forBusiness"]) {
+    const selectors = selectorsFor(gate);
+    assert.ok(selectors.some((s) => s.includes('[data-testid="primary-nav"] li')), `${gate}: no rule for the new bar`);
+    assert.ok(selectors.some((s) => s.includes("li.global-nav__primary-item")), `${gate}: no rule for the old bar`);
+  }
+});
+
+// "Hire with AI" in the new bar and "Post a job" in the old one are the same
+// link under two names, and a name is the one thing about it that changes --
+// with the front end and with the language. Where it goes does not.
+test("business features take the hiring link from both bars, by where it goes", () => {
+  const selectors = selectorsFor("forBusiness");
+  for (const bar of ['[data-testid="primary-nav"] li', "li.global-nav__primary-item"]) {
+    assert.ok(
+      selectors.some((s) => s.includes(bar) && s.includes('a[href*="/talent/job-posting-redirect"]')),
+      `no rule takes the hiring link from ${bar}`,
+    );
+  }
+});
