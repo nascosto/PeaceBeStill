@@ -37,7 +37,7 @@ const CONTAINERS = {
   ads: '[data-pbs~="sponsored"], [data-pbs~="otherAds"], [data-pbs~="premium"], [data-pbs~="jobsPromoted"]',
   feed: '[data-testid="mainFeed"]',
   aiAssistant: 'aside[aria-label^="AI-powered assistant"]',
-  forBusiness: 'li:has(> button[aria-label="For Business"])',
+  forBusiness: 'li:has(> button[aria-label="For Business"]), li:has(a[href*="/talent/job-posting-redirect"]), li.global-nav__primary-item:has(.global-nav__app-launcher-menu)',
 };
 
 // A panel is hidden properly when nothing of it is left behind: no sibling

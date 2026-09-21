@@ -74,6 +74,8 @@ async function run(options) {
     setTimeout, clearTimeout,
     setInterval: world.setInterval, clearInterval: world.clearInterval,
     localStorage: fakeStore(world.remembered),
+    // A frame is a window whose top is some other window.
+    ...(options?.framed ? { window: { self: {}, top: {} } } : {}),
   });
   // Let the storage promise settle.
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -216,6 +218,20 @@ test("the logo goes where the home page goes", async () => {
   onClick(event);
   assert.equal(event.prevented, true, "the site's own handler still ran");
   assert.deepEqual(world.replaced, ["/in/me/"], "the logo did not go to the chosen page");
+});
+
+// In a frame the page is hidden as it is at the top, but only the top frame is
+// the page you are on. A frame that sent itself to the page you chose would put
+// that page inside this one, so neither the home page nor the logo moves it.
+test("in a frame, everything is hidden and nothing is sent anywhere", async () => {
+  const stored = { home: true, homeRedirect: "messaging" };
+  const world = await run({ stored, pathname: "/feed/", framed: true, remembered: { "peacebestill.goes": "/messaging/" } });
+  assert.equal(world.root.dataset.peacebestill, "home", "the frame's top bar was left as it was");
+  assert.deepEqual([...world.replaced], [], "the frame navigated itself");
+  assert.equal(world.listeners.click, undefined, "the frame follows the logo");
+  // And the top frame still does both.
+  const top = await run({ stored, pathname: "/feed/", remembered: { "peacebestill.goes": "/messaging/" } });
+  assert.deepEqual([...top.replaced], ["/messaging/"]);
 });
 
 test("a click that is not the logo is left alone", async () => {

@@ -98,12 +98,18 @@ html[data-peacebestill~="aiAssistant"] aside#coach-container, html[data-peacebes
 
 /* Premium adverts and upsells, wherever they turn up. */
 html[data-peacebestill~="premium"] [data-pbs~="premium"] { display: none !important; }
+/* The free trial offered in your own menu in the old top bar, named by where it
+   goes rather than by what it says, which changes with each campaign. Only the
+   item whose own link it is: each section of that menu is an item of the same
+   class, and one merely holding the link took Settings and Help with it. */
+html[data-peacebestill~="premium"] li.global-nav__secondary-item:has(> a[href*="/premium/products"]) { display: none !important; }
 
 /* Every advert at once, whatever kind and whatever page: the parent switch
    repeats what its children do, so turning it on needs none of them on. */
 html[data-peacebestill~="ads"] [role="listitem"][data-pbs~="sponsored"],
 html[data-peacebestill~="ads"] [data-pbs~="otherAds"],
 html[data-peacebestill~="ads"] [data-pbs~="premium"],
+html[data-peacebestill~="ads"] li.global-nav__secondary-item:has(> a[href*="/premium/products"]),
 html[data-peacebestill~="ads"] [data-pbs~="jobsPromoted"],
 html[data-peacebestill~="ads"] iframe[data-ad-banner],
 html[data-peacebestill~="ads"] section:has(> iframe[data-ad-banner]) { display: none !important; }
@@ -149,8 +155,19 @@ html[data-peacebestill~="profile"] li.global-nav__primary-item:has(button img) {
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]),
 html[data-peacebestill~="siteFooter"] footer:has(a[href*="about.linkedin.com"]) ~ * { display: none !important; }
 html[data-peacebestill~="forBusiness"] [data-pbs~="forBusiness"] { display: none !important; }
+/* The business end of the top bar: the "For Business" menu, and the link for
+   posting a job beside it -- "Hire with AI" in the new bar, "Post a job" in the
+   old one. That link is named by where it goes, which is the same in both bars
+   and in every language. The old bar's menu carries no label at all, only its
+   class. The rule the new bar draws between these and the rest goes with them,
+   or it stands at the end of the bar dividing nothing. Your own menu in the old
+   bar has a way into the same hiring tools, "Job Posting Account". */
 html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(button[aria-label="For Business"]),
-html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(button[aria-label="For Business"]) { display: none !important; }
+html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] li:has(a[href*="/talent/job-posting-redirect"]),
+html[data-peacebestill~="forBusiness"] [data-testid="primary-nav"] hr:has(+ nav button[aria-label="For Business"]),
+html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(.global-nav__app-launcher-menu),
+html[data-peacebestill~="forBusiness"] li.global-nav__primary-item:has(a[href*="/talent/job-posting-redirect"]),
+html[data-peacebestill~="forBusiness"] li.global-nav__secondary-item:has(> a[href*="/talent/job-management-redirect"]) { display: none !important; }
 
 /* The chat bubble pinned to the bottom of every page. It is one of LinkedIn's
    older screens, whose class names are not hashed and whose ids are stable. */

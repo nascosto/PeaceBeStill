@@ -7,6 +7,14 @@
   const { KEYS, BLACKOUT_TITLE, tokensFor, effective, redirectFor, titleFor, kindsFor, pageFor, cutoffAt } = globalThis.PeaceBeStill;
   const { recall, remember, listen, watchMutations, followLogo } = globalThis.PeaceBeStillPage;
 
+  // LinkedIn draws part of itself inside a frame: messaging, reached from the
+  // newer top bar, is the older front end in a full-page iframe, top bar and
+  // all. So this runs in every frame, and hides there as it does at the top.
+  // Only the top frame is the page you are on, though. A frame sending itself
+  // to the page you chose would put that page inside this one, so a frame never
+  // redirects and never follows the logo; the top frame does both.
+  const framed = typeof window !== "undefined" && window.self !== window.top;
+
   // What is in force: the defaults filled in, and anything blackout has made
   // moot forced off. Only this is ever read, and every read tests for truth:
   // storage keeps only values that differ from a default, so an absent key
@@ -316,7 +324,8 @@
       // the verb in front: "Try Premium for $0" is an advert, "GitHub, Premium"
       // is not.
       // "Who your viewers also viewed" is a Premium feature dressed as a panel.
-      ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock)\b.*\bPremium\b/)
+      // "Claim Premium free trial" is the one in your own menu.
+      ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock|Claim)\b.*\bPremium\b/)
         .concat(labelled(/^Who your viewers also viewed$/))],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
       ["composer", () => labelled(/^Start a post$/)],
@@ -499,6 +508,7 @@
   // Pages that go somewhere else instead: the home page to Messaging,
   // Notifications or Jobs, when one of those switches is on.
   function redirectIfAsked() {
+    if (framed) return false;
     const target = redirectFor(location.pathname, settings);
     if (!target) return false;
     location.replace(target);
@@ -652,7 +662,7 @@
     tidyRules();
     watchDom();
     watchPath();
-    followLogo(isLogo, () => redirectFor("/feed/", settings));
+    if (!framed) followLogo(isLogo, () => redirectFor("/feed/", settings));
   }
 
   // First of all, and before a pixel of it is drawn: if the home page is one
@@ -660,7 +670,7 @@
   // storage to say so means arriving, being shown it, and only then being sent
   // away.
   const goes = recall(REMEMBERED_GOES);
-  if (goes && pageFor(location.pathname) === "home") {
+  if (goes && !framed && pageFor(location.pathname) === "home") {
     location.replace(goes);
     return;
   }

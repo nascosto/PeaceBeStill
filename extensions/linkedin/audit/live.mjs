@@ -78,7 +78,10 @@ const PROBES = {
   "Messaging (nav)": `${NEW_NAV}:has(> a[href*="/messaging"]), ${OLD_NAV}:has(a[href*="/messaging"])`,
   "Notifications (nav)": `${NEW_NAV}:has(> a[href*="/notifications"]), ${OLD_NAV}:has(a[href*="/notifications"])`,
   "Profile (nav)": `${NEW_NAV}:has(> button img), ${OLD_NAV}:has(button img)`,
-  "For Business (nav)": `${NEW_NAV}:has(> button[aria-label="For Business"]), ${OLD_NAV}:has(button[aria-label="For Business"])`,
+  // The old bar's menu has no label, only its class.
+  "For Business (nav)": `${NEW_NAV}:has(> button[aria-label="For Business"]), ${OLD_NAV}:has(.global-nav__app-launcher-menu)`,
+  // "Hire with AI" in the new bar, "Post a job" in the old.
+  "hiring link (nav)": `${NEW_NAV}:has(a[href*="/talent/job-posting-redirect"]), ${OLD_NAV}:has(a[href*="/talent/job-posting-redirect"])`,
   "the feed": '[data-testid="mainFeed"]',
   "left column": 'aside[aria-label="Sidebar"]',
   "right column": 'aside[aria-label="Aside"], aside.scaffold-layout__aside',
