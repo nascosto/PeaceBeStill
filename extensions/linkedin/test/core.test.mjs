@@ -29,7 +29,7 @@ const DEFAULTS = [
 ];
 
 const KEYS = DEFAULTS.map(([k]) => k);
-const GROUPS = ["The whole site", "Pages", "Advertisements", "Elsewhere on LinkedIn", "Mobile"];
+const GROUPS = ["The whole site", "Pages", "Profile pages", "Advertisements", "Elsewhere on LinkedIn", "Mobile"];
 
 test("the feature keys are the agreed thirty-four, in order, each with a label, a default and a group", () => {
   assert.deepEqual([...PeaceBeStill.KEYS], KEYS);
@@ -102,6 +102,16 @@ test("the suggestion panels belong to the pages they appear on", () => {
 // /in/ is everyone's profile, so the page cannot go. The panels on a profile
 // page are therefore still there with it on, and must still be hidden. They
 // were nested under it once, which switched them off whenever it was on.
+// They have a section of their own instead: grouped together, and with nothing
+// above them but blackout, which does hide every profile.
+test("the profile panels have a section of their own, under nothing but blackout", () => {
+  for (const key of ["profilePeople", "profileSuggestions"]) {
+    const [, , , group, parent] = PeaceBeStill.FEATURES.find(([k]) => k === key);
+    assert.equal(group, "Profile pages", key);
+    assert.equal(parent, "blackout", key);
+  }
+});
+
 test("hiding Profile leaves the profile panel switches working", () => {
   const both = { profile: true, profilePeople: true, profileSuggestions: true };
   assert.equal(PeaceBeStill.tokensFor(PeaceBeStill.effective(both)), "profile profilePeople profileSuggestions");

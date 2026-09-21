@@ -131,7 +131,10 @@ test("every switch is nested under the one that covers it, one indent per level"
     // advert and part of the feed, so it is offered in both places.
     "home", "feed", "composer", "suggested", "recommended", "socialProof", "sponsored", "homeGames", "news",
     "myNetwork", "networkPeople", "networkSuggestions", "networkGames", "networkPremium", "jobs", "jobsSuggestions",
-    "messaging", "notifications", "profile", "profilePeople", "profileSuggestions", "homeRedirect",
+    "messaging", "notifications", "profile", "homeRedirect",
+    // A section of their own: Hide Profile does not hide a profile page, so
+    // under it they would be counted as covered while still on screen.
+    "profilePeople", "profileSuggestions",
     "ads", "sponsored", "otherAds", "premium", "jobsPromoted",
     "games", "forBusiness", "siteFooter", "aiAssistant",
     "messagingOverlay", "notificationCount",

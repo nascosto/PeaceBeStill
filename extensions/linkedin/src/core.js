@@ -3,8 +3,8 @@
 (function (root) {
   // Options-page sections, in display order. Blackout has one to itself, and
   // it comes first, because it is the parent of everything below it.
-  const GROUPS = ["The whole site", "Pages", "Advertisements", "Elsewhere on LinkedIn", "Mobile"];
-  const [SITE, PAGES_GROUP, ADS, ELSEWHERE, MOBILE] = GROUPS;
+  const GROUPS = ["The whole site", "Pages", "Profile pages", "Advertisements", "Elsewhere on LinkedIn", "Mobile"];
+  const [SITE, PAGES_GROUP, PROFILES, ADS, ELSEWHERE, MOBILE] = GROUPS;
 
   // What the page says, and what the tab says, once the site is blacked out.
   // hide.css draws this string; a test holds the two to the same sentence.
@@ -158,12 +158,13 @@
     ["messaging", "Hide Messaging", false, PAGES_GROUP, "blackout"],
     ["notifications", "Hide Notifications", false, PAGES_GROUP, "blackout"],
     ["profile", "Hide Profile", false, PAGES_GROUP, "blackout"],
-    // Not under Profile, though they sit beside it. Hiding Profile takes your
-    // own menu out of the top bar and nothing else -- see PAGES -- so a panel
-    // on a profile page is still there with it on. Nested, these were counted
-    // as covered and switched off, and the panels came back.
-    ["profilePeople", "Hide “People you may know” on profiles", false, PAGES_GROUP, "blackout"],
-    ["profileSuggestions", "Hide suggestion panels on profiles", false, PAGES_GROUP, "blackout"],
+    // Not under Profile, and in a section of their own rather than beside it.
+    // Hiding Profile takes your own menu out of the top bar and nothing else --
+    // see PAGES -- so a panel on a profile page is still there with it on.
+    // Nested, these were counted as covered and switched off, and the panels
+    // came back. They are on every profile, your own included.
+    ["profilePeople", "Hide “People you may know” on profiles", false, PROFILES, "blackout"],
+    ["profileSuggestions", "Hide suggestion panels on profiles", false, PROFILES, "blackout"],
     // Not under Home: with Home gone, being sent somewhere else is more useful,
     // not less. The one setting that is not a switch.
     ["homeRedirect", "Default page", "", PAGES_GROUP, "blackout", REDIRECTS],
