@@ -38,6 +38,15 @@ test("content script loads the shared settings and page helpers, then the core, 
   assert.equal(cs.run_at, "document_start");
 });
 
+// Messaging, reached from the newer top bar, is the older front end inside a
+// full-page iframe -- top bar and all. A content script runs in the top frame
+// only unless asked, and there every switch did nothing at all: Home stood in
+// the top bar with Home switched off.
+test("content script runs in LinkedIn's own frames as well as the page", () => {
+  const [cs] = manifest.content_scripts;
+  assert.equal(cs.all_frames, true);
+});
+
 // Firefox for Android needs an explicit opt-in; without gecko_android AMO
 // lists the add-on as desktop-only and Android never offers it. Unlike the
 // YouTube extension there is no separate mobile host to match: LinkedIn serves
