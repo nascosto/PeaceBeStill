@@ -316,7 +316,8 @@
       // the verb in front: "Try Premium for $0" is an advert, "GitHub, Premium"
       // is not.
       // "Who your viewers also viewed" is a Premium feature dressed as a panel.
-      ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock)\b.*\bPremium\b/)
+      // "Claim Premium free trial" is the one in your own menu.
+      ["premium", () => labelled(/^(Try|Activate|Reactivate|Redeem|Get|Unlock|Claim)\b.*\bPremium\b/)
         .concat(labelled(/^Who your viewers also viewed$/))],
       ["jobsPromoted", () => (path.startsWith("/jobs") ? labelled(/^Promoted$/) : [])],
       ["composer", () => labelled(/^Start a post$/)],

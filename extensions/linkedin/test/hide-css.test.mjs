@@ -89,3 +89,24 @@ test("business features take the hiring link from both bars, by where it goes", 
     );
   }
 });
+
+// Your own menu in the old bar carries an upsell and a way into LinkedIn's
+// hiring tools. Each belongs to the switch for what it is, and -- like the
+// hiring link -- is named by where it goes. The advert switch repeats what
+// Premium does, so it takes the upsell too.
+//
+// Only the item whose own link it is: each section of that menu is an item of
+// the same class holding a list of them, so an item merely containing the link
+// is the whole section -- and took Settings, Help and Language with the trial.
+test("the old bar's own menu loses its Premium trial and its job-posting account, and nothing beside them", () => {
+  const item = (href) => `li.global-nav__secondary-item:has(> a[href*="${href}"])`;
+  const takes = (gate, href) => selectorsFor(gate).some((s) => s.endsWith(item(href)));
+  for (const gate of ["premium", "ads", "forBusiness"]) {
+    for (const s of selectorsFor(gate).filter((s) => s.includes("li.global-nav__secondary-item"))) {
+      assert.match(s, /li\.global-nav__secondary-item:has\(> /, `${gate} takes a whole section of the menu: ${s}`);
+    }
+  }
+  assert.ok(takes("premium", "/premium/products"), "Premium adverts leave the trial in the menu");
+  assert.ok(takes("ads", "/premium/products"), "every advert at once leaves the trial in the menu");
+  assert.ok(takes("forBusiness", "/talent/job-management-redirect"), "business features leave the job-posting account in the menu");
+});
