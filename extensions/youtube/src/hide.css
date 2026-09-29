@@ -56,8 +56,12 @@ html[data-peacebestill~="homeFeed"] :is(ytd-browse[page-subtype="home"] ytd-rich
 
 /* Shorts: shelves, grids, single items in feeds / results / the watch sidebar,
    the sidebar entries, the channel tab, the results chip, notifications, and
-   the Shorts player page itself (content.js opens a Short as a normal video) */
-html[data-peacebestill~="shorts"] :is(ytd-rich-shelf-renderer[is-shorts], ytd-reel-shelf-renderer, ytd-rich-grid-renderer[is-shorts-grid], ytd-rich-item-renderer:has(a[href*="/shorts/"]), ytd-video-renderer:has(a[href*="/shorts/"]), ytd-compact-video-renderer:has(a[href*="/shorts/"]), ytd-guide-entry-renderer:has(a[title="Shorts"]), ytd-mini-guide-entry-renderer:has(a[title="Shorts"]), yt-tab-shape[tab-title="Shorts"], yt-chip-cloud-chip-renderer:has([title="Shorts"]), ytd-notification-renderer:has(a[href^="/shorts/"]), ytd-shorts) { display: none !important; }
+   the Shorts player page itself (content.js opens a Short as a normal video).
+   A Shorts shelf in a feed sits in a ytd-rich-section-renderer, which the
+   grid lays out at full width; left behind with nothing in it, it still
+   breaks the grid's rows, so the cards before it stop short of the row's
+   end and leave a gap. The section goes with the shelf. */
+html[data-peacebestill~="shorts"] :is(ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]), ytd-rich-shelf-renderer[is-shorts], ytd-reel-shelf-renderer, ytd-rich-grid-renderer[is-shorts-grid], ytd-rich-item-renderer:has(a[href*="/shorts/"]), ytd-video-renderer:has(a[href*="/shorts/"]), ytd-compact-video-renderer:has(a[href*="/shorts/"]), ytd-guide-entry-renderer:has(a[title="Shorts"]), ytd-mini-guide-entry-renderer:has(a[title="Shorts"]), yt-tab-shape[tab-title="Shorts"], yt-chip-cloud-chip-renderer:has([title="Shorts"]), ytd-notification-renderer:has(a[href^="/shorts/"]), ytd-shorts) { display: none !important; }
 
 /* Mixes: auto-generated playlists, wherever they are offered. A link is no
    guide: YouTube gives ordinary music videos list=RD...&start_radio=1 links
