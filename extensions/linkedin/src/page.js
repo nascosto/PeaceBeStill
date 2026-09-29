@@ -7,6 +7,23 @@
 // a classic script loaded before content.js, and reads the page's globals
 // when called, not when loaded, so a test can hand it a fake page.
 (function (root) {
+  // Every switch can be set aside without being touched -- to see whether a
+  // page that will not load is this extension's doing or the site's. The
+  // options page keeps when that ends under this key in storage.local: a time
+  // in milliseconds, or "forever" for until it is switched back on. A disable
+  // belongs to the browser it was asked for in, not to every browser the
+  // settings follow.
+  const DISABLED = "disabledUntil";
+
+  // How long a disable has left, in milliseconds: Infinity for one with no
+  // end, and nothing (zero or less) when there is none. Anything that is not a
+  // time or "forever" is no disable, so a bad value can never switch a site's
+  // extension off for good.
+  function disabledFor(until, now = Date.now()) {
+    if (until === "forever") return Infinity;
+    return typeof until === "number" && Number.isFinite(until) ? until - now : 0;
+  }
+
   // --- Remembered settings -----------------------------------------------------
   // storage.sync answers a moment after the page starts drawing, so anything
   // hidden only once it has answered is seen first. What was applied last time
@@ -45,9 +62,16 @@
   // the read then answering with what storage held before. So changes that
   // arrive first are kept, and laid over whatever that read returns rather
   // than lost under it.
+  //
+  // While disabled (DISABLED, at the top) it hands over nothing stored at all
+  // -- every switch at its default, which is off -- until the disable ends,
+  // and then what is stored again, without anything being touched in between.
   function listen(api, keys, onSettings) {
     let stored = {};
     let early = {};
+    let disabledUntil = 0;
+    let disableHeard = false; // a disable changed before the first read answered
+    let resumeTimer = null;
 
     const take = (target, changes) => {
       for (const [key, change] of Object.entries(changes)) {
@@ -56,20 +80,47 @@
       }
     };
 
-    api.storage.sync.get(keys)
+    const deliver = () => {
+      if (resumeTimer) root.clearTimeout(resumeTimer);
+      resumeTimer = null;
+      const left = disabledFor(disabledUntil);
+      if (left <= 0) return onSettings(stored);
+      onSettings({});
+      // One with no end waits for the options page to end it.
+      if (left === Infinity) return;
+      // Wakes when the disable ends. A timer cannot wait longer than about
+      // 24 days, so a longer one wakes early, finds itself still disabled,
+      // and sets another.
+      resumeTimer = root.setTimeout(deliver, Math.min(left, 2 ** 31 - 1));
+    };
+
+    const syncRead = api.storage.sync.get(keys)
       .then((values) => values || {})
-      .catch(() => ({}))
-      .then((values) => {
-        stored = { ...values };
-        take(stored, early);
-        early = null;
-        onSettings(stored);
-      });
+      .catch(() => ({}));
+    // A browser that cannot keep a disable (or a test that gives it nowhere to
+    // keep one) is simply never disabled.
+    const disableRead = Promise.resolve()
+      .then(() => api.storage.local.get(DISABLED))
+      .then((values) => (values && values[DISABLED]) || 0)
+      .catch(() => 0);
+    Promise.all([syncRead, disableRead]).then(([values, until]) => {
+      stored = { ...values };
+      take(stored, early);
+      early = null;
+      if (!disableHeard) disabledUntil = until;
+      deliver();
+    });
     api.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && DISABLED in changes) {
+        disabledUntil = changes[DISABLED].newValue || 0;
+        disableHeard = true;
+        deliver();
+        return;
+      }
       if (area !== "sync") return;
       if (early) Object.assign(early, changes);
       take(stored, changes);
-      onSettings(stored);
+      deliver();
     });
   }
 
@@ -124,5 +175,5 @@
     }, true);
   }
 
-  root.PeaceBeStillPage = { recall, remember, listen, watchMutations, followLogo };
+  root.PeaceBeStillPage = { DISABLED, disabledFor, recall, remember, listen, watchMutations, followLogo };
 })(globalThis);

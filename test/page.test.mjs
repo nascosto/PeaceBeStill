@@ -122,3 +122,73 @@ test("a change that arrives before the first read answers is not undone by that 
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(seen.at(-1), '{"shorts":true}', "the older read won");
 });
+
+// A disable sets every switch aside without touching one: the settings handed
+// over are empty (everything at its default, off) until it ends, and then what
+// is stored comes back on its own.
+test("a disable hands over nothing stored until it ends, then everything that is", async () => {
+  const seen = [];
+  let onChanged;
+  const timers = [];
+  const now = Date.now();
+  const api = { storage: {
+    sync: { get: async () => ({ shorts: true }) },
+    local: { get: async () => ({ disabledUntil: now + 60_000 }) },
+    onChanged: { addListener: (fn) => { onChanged = fn; } },
+  } };
+  const { PeaceBeStillPage: page } = loadClassic(PAGE, {
+    setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    clearTimeout: () => {},
+  });
+  page.listen(api, ["shorts"], (stored) => seen.push(JSON.stringify(stored)));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(seen, ["{}"], "disabled: nothing stored is handed over");
+  assert.ok(timers.length === 1 && timers[0].ms > 59_000 && timers[0].ms <= 60_000, "and it wakes when the disable ends");
+
+  // A switch changed while disabled is kept for later, not applied now.
+  onChanged({ comments: { newValue: true } }, "sync");
+  assert.equal(seen.at(-1), "{}");
+
+  // Enabled early from the options page: everything comes back at once.
+  onChanged({ disabledUntil: {} }, "local");
+  assert.equal(seen.at(-1), '{"shorts":true,"comments":true}');
+
+  // Disabled again, then the time runs out.
+  onChanged({ disabledUntil: { newValue: Date.now() + 1000 } }, "local");
+  assert.equal(seen.at(-1), "{}");
+  onChanged({ disabledUntil: { newValue: Date.now() - 1 } }, "local");
+  assert.equal(seen.at(-1), '{"shorts":true,"comments":true}');
+});
+
+test("a disable with no end lasts until it is taken away, and sets no timer", async () => {
+  const seen = [];
+  let onChanged;
+  let timers = 0;
+  const api = { storage: {
+    sync: { get: async () => ({ shorts: true }) },
+    local: { get: async () => ({ disabledUntil: "forever" }) },
+    onChanged: { addListener: (fn) => { onChanged = fn; } },
+  } };
+  const { PeaceBeStillPage: page } = loadClassic(PAGE, { setTimeout: () => ++timers, clearTimeout: () => {} });
+  page.listen(api, ["shorts"], (stored) => seen.push(JSON.stringify(stored)));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(seen, ["{}"]);
+  assert.equal(timers, 0);
+  onChanged({ disabledUntil: {} }, "local");
+  assert.equal(seen.at(-1), '{"shorts":true}');
+});
+
+test("a disable that has already run out, or holds nonsense, is no disable", async () => {
+  for (const disabledUntil of [Date.now() - 1000, "soon", null, Infinity]) {
+    const seen = [];
+    const api = { storage: {
+      sync: { get: async () => ({ shorts: true }) },
+      local: { get: async () => ({ disabledUntil }) },
+      onChanged: { addListener() {} },
+    } };
+    const { PeaceBeStillPage: page } = loadClassic(PAGE);
+    page.listen(api, ["shorts"], (stored) => seen.push(JSON.stringify(stored)));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(seen, ['{"shorts":true}'], String(disabledUntil));
+  }
+});

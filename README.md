@@ -60,9 +60,17 @@ and their values are kept, so turning it back off brings them back as they were.
   treats it as an optional data-collection permission, asking you once when
   you tick the box.
 
-The options page has a filter box, a count of what is on, a button that turns
-everything off, and a note that settings follow your browser account. The
-extension's toolbar button opens the same page as a popup, so the settings are
+The options page has a filter box, a count of what is on, and a note that
+settings follow your browser account. **Disable**, with a choice of
+indefinitely, 1 hour, 2 hours or 24 hours, sets every switch aside without
+changing any of them: nothing is hidden or redirected until the time is up or
+you press Enable, which makes it quick to tell whether a page that misbehaves
+is the extension's doing or the site's. A disable applies to the browser it was
+asked for in, not to every browser your settings follow. **Clear all
+settings** is the other thing: it deletes every setting, everywhere they sync,
+and so asks for a second click first.
+
+The extension's toolbar button opens the same page as a popup, so the settings are
 a click away from the Extensions menu as well as from the add-ons manager. The
 one switch that needs a permission, the dislike count, is ticked from the full
 page: the popup opens it rather than asking, because a permission prompt can

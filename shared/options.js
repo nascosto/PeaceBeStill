@@ -13,7 +13,11 @@
   const filter = document.getElementById("filter");
   const summary = document.getElementById("summary");
   const status = document.getElementById("status");
-  const allOff = document.getElementById("all-off");
+  const clearAll = document.getElementById("clear-all");
+  const disable = document.getElementById("disable");
+  const disableFor = document.getElementById("disable-for");
+  const disabledNote = document.getElementById("disabled");
+  const { DISABLED, disabledFor } = globalThis.PeaceBeStillPage;
 
   // The toolbar button opens this page as its popup, as options.html?popup. A
   // popup takes its width from the page, so give it one -- but not on a phone,
@@ -253,12 +257,105 @@
     showState();
   });
 
-  allOff.addEventListener("click", async () => {
+  // --- Clearing ----------------------------------------------------------------
+  // Every stored setting deleted, which puts every switch back to its default
+  // and cannot be taken back -- and the settings follow the browser account,
+  // so it reaches every browser they sync to. So it takes a second click to
+  // mean it. Not a confirm() dialog: Firefox does not show one from the
+  // toolbar popup, which is where this page is most often opened.
+  const CLEAR = "Clear all settings";
+  const CLEAR_SURE = "Click again to clear";
+  const CLEAR_ARMED_MS = 4000;
+  let clearArmed = null;
+
+  function disarmClear() {
+    if (clearArmed) clearTimeout(clearArmed);
+    clearArmed = null;
+    clearAll.textContent = CLEAR;
+  }
+
+  clearAll.addEventListener("click", async () => {
+    if (!clearArmed) {
+      clearAll.textContent = CLEAR_SURE;
+      clearArmed = setTimeout(disarmClear, CLEAR_ARMED_MS);
+      return;
+    }
+    disarmClear();
     const keys = Object.keys(stored);
     stored = {};
     settings = defaults();
     showState();
     if (keys.length) await api.storage.sync.remove(keys).catch(report);
+  });
+
+  // --- Disabling ---------------------------------------------------------------
+  // Everything set aside for a while, without a switch being touched: the
+  // content script treats every switch as off until then (shared/page.js), and
+  // puts them all back when the time is up, or when Enable is pressed. For
+  // telling whether a page that misbehaves is this extension's doing or the
+  // site's own. Kept in storage.local, so it disables this browser and not
+  // every one you sync to.
+  const HOUR = 60 * 60 * 1000;
+  const DURATIONS = [["forever", "Indefinitely"], ["1", "1 hour"], ["2", "2 hours"], ["24", "24 hours"]];
+  for (const [value, text] of DURATIONS) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    disableFor.append(option);
+  }
+  disableFor.value = DURATIONS[0][0];
+
+  let disabledUntil = 0;
+  let disableTimer = null;
+
+  // "3:45 PM" today, "Tue 3:45 PM" on another day: a 24-hour disable ends
+  // tomorrow at much the time it began, and the time alone would read as now.
+  function whenItEnds(until) {
+    const end = new Date(until);
+    const time = end.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (end.toDateString() === new Date().toDateString()) return time;
+    return `${end.toLocaleDateString([], { weekday: "short" })} ${time}`;
+  }
+
+  function showDisabled() {
+    if (disableTimer) clearTimeout(disableTimer);
+    disableTimer = null;
+    const left = disabledFor(disabledUntil);
+    const off = left > 0;
+    disable.textContent = off ? "Enable" : "Disable";
+    disableFor.hidden = off;
+    if (!off) {
+      disabledNote.textContent = "";
+    } else if (left === Infinity) {
+      disabledNote.textContent = "Disabled until you enable it again. Nothing is hidden or redirected.";
+    } else {
+      disabledNote.textContent = `Disabled until ${whenItEnds(disabledUntil)}. Nothing is hidden or redirected until then.`;
+      // Put the button back when the time runs out with the page still open.
+      disableTimer = setTimeout(showDisabled, Math.min(left + 50, 2 ** 31 - 1));
+    }
+  }
+
+  Promise.resolve()
+    .then(() => api.storage.local.get(DISABLED))
+    .then((values) => {
+      disabledUntil = (values && values[DISABLED]) || 0;
+      showDisabled();
+    })
+    .catch(showDisabled);
+
+  disable.addEventListener("click", async () => {
+    disarmClear(); // a click elsewhere is not the second click
+    status.textContent = "";
+    const enabling = disabledFor(disabledUntil) > 0;
+    const choice = disableFor.value;
+    disabledUntil = enabling ? 0 : choice === "forever" ? "forever" : Date.now() + Number(choice) * HOUR;
+    showDisabled();
+    try {
+      if (enabling) await api.storage.local.remove(DISABLED);
+      else await api.storage.local.set({ [DISABLED]: disabledUntil });
+    } catch (error) {
+      report(error);
+    }
   });
 
   // The filter narrows the same list showState draws.
