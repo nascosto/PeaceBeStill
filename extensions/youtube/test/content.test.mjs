@@ -21,7 +21,7 @@ function fakeWorld({ stored = {}, failStorage = false, pathname = "/", search = 
     addEventListener(type, fn) { (listeners[type] ||= []).push(fn); },
     createElement: () => ({ className: "", style: {}, textContent: "" }),
   };
-  const window = { addEventListener() {} };
+  const window = { addEventListener() {}, innerHeight: 1000 };
   window.top = frame ? {} : window;
   const replaced = [];
   const location = { pathname: frame || pathname, search, replace: (url) => replaced.push(url), assign: (url) => replaced.push(url) };
@@ -44,7 +44,7 @@ function fakeWorld({ stored = {}, failStorage = false, pathname = "/", search = 
   return { root, document, window, location, api, listeners, replaced, changed, store, localStorage, fetched, fetch, MutationObserver };
 }
 
-async function run(options) {
+async function run(options = {}) {
   const world = fakeWorld(options);
   const { PeaceBeStill } = loadCore(SRC);
   loadContent(SRC, {
@@ -58,6 +58,7 @@ async function run(options) {
     MutationObserver: world.MutationObserver,
     NodeFilter: { SHOW_TEXT: 4 },
     setTimeout, clearTimeout,
+    ...options.globals,
   });
   await settle();
   return world;
@@ -177,4 +178,32 @@ test("autoplay is switched off on the desktop player and the phone's", async () 
   assert.match(query, /\.ytp-autonav-toggle-button\[aria-checked="true"\]/, "the desktop toggle");
   assert.match(query, /\.ytm-autonav-toggle-button-container\[aria-pressed="true"\]/, "the phone's toggle");
   assert.equal(clicked, 1);
+});
+
+test("a feed's loading block is folded away once stale, never taken out of the page, and one with no box is never counted as seen", async () => {
+  let now = 1000;
+  const clock = { now: () => now };
+  const grid = { querySelectorAll: () => ({ length: 20 }) };
+  const block = (rects, top) => ({
+    style: {},
+    closest: () => grid,
+    getClientRects: () => rects,
+    getBoundingClientRect: () => ({ top, bottom: top + 300 }),
+  });
+  // At the foot of the window, and on a page YouTube keeps in the background:
+  // no box, and the empty rectangle at the top that goes with it.
+  const shown = block([{}], 800);
+  const background = block([], 0);
+  const world = await run({
+    stored: { stalePlaceholders: true },
+    elements: { "ytd-rich-grid-renderer ytd-continuation-item-renderer": [shown, background] },
+    globals: { Date: { now: clock.now } },
+  });
+  now += 7000;
+  for (const fn of world.listeners["yt-navigate-finish"]) fn();
+  // YouTube's IntersectionObserver must still be able to see it, so no
+  // display: none -- it is folded to nothing instead.
+  assert.equal(shown.style.display, undefined);
+  assert.deepEqual({ ...shown.style }, { visibility: "hidden", height: "0", overflow: "hidden" });
+  assert.deepEqual({ ...background.style }, { visibility: "", height: "", overflow: "" });
 });
