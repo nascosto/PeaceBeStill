@@ -157,31 +157,51 @@
   }
 
   // --- Stale feed placeholders -----------------------------------------------
-  // YouTube fetches more of a feed when its "loading more" block scrolls into
-  // view, so that block must stay in the page while a feed is live. At the end
-  // of a feed (or when an ad blocker eats the request) it is sometimes left
-  // behind, ghost cards and spinner and all. placeholderVerdict hides a block
-  // that has sat in view for STALE_MS with the grid not growing, and brings it
-  // back the moment the grid grows. Scrolling does not mutate the DOM, so a
-  // scroll listener and a timer feed this as well as the observer.
+  // YouTube fetches more of a feed when an IntersectionObserver sees its
+  // "loading more" block come into view, so that block must stay in the page
+  // while a feed is live. At the end of a feed (or when an ad blocker eats the
+  // request) it is sometimes left behind, ghost cards and spinner and all.
+  // placeholderVerdict hides a block that has sat in view for STALE_MS with
+  // the grid not growing, and brings it back the moment the grid grows.
+  // Scrolling does not mutate the DOM, so a scroll listener and a timer feed
+  // this as well as the observer.
+  //
+  // Hiding never means display: none. A block with no box never intersects
+  // anything, so YouTube's observer would never fire for it again and the
+  // feed would stop loading for good. Instead it is folded to no height and
+  // made invisible, which leaves no gap but keeps it where the observer can
+  // see it. And a block with no box at all -- one on a page YouTube keeps in
+  // the background, like Home while a video plays -- is not in view: an empty
+  // rectangle sits at the top of the window, and used to be counted as seen.
   const STALE_MS = 6000;
   const placeholders = new WeakMap();
   let staleTimer = null;
 
+  function fold(block, hide) {
+    block.style.visibility = hide ? "hidden" : "";
+    block.style.height = hide ? "0" : "";
+    block.style.overflow = hide ? "hidden" : "";
+  }
+
+  function inView(block) {
+    if (block.getClientRects().length === 0) return false;
+    const { top, bottom } = block.getBoundingClientRect();
+    return top < window.innerHeight && bottom >= 0;
+  }
+
   function pruneStalePlaceholders() {
     const blocks = document.querySelectorAll("ytd-rich-grid-renderer ytd-continuation-item-renderer");
     if (!settings.stalePlaceholders) {
-      for (const block of blocks) block.style.display = "";
+      for (const block of blocks) fold(block, false);
       return;
     }
     const now = Date.now();
     let waiting = false;
     for (const block of blocks) {
       const items = block.closest("ytd-rich-grid-renderer").querySelectorAll("ytd-rich-item-renderer").length;
-      const inView = block.getBoundingClientRect().top < window.innerHeight;
-      const { record, hide } = placeholderVerdict(placeholders.get(block), now, items, inView, STALE_MS);
+      const { record, hide } = placeholderVerdict(placeholders.get(block), now, items, inView(block), STALE_MS);
       placeholders.set(block, record);
-      block.style.display = hide ? "none" : "";
+      fold(block, hide);
       if (!hide && record.since != null) waiting = true;
     }
     clearTimeout(staleTimer);

@@ -152,13 +152,17 @@
   // when the feed ends; YouTube sometimes leaves it, more often with an ad
   // blocker. Given the block's previous record, the time, the grid's item
   // count and whether the block is in view: the next record, and whether to
-  // hide it. The clock only runs while it is in view, and any growth of the
-  // grid restarts it, so a block that is still loading is never hidden.
+  // hide it. It takes staleMs in view without a break: leaving view stops the
+  // clock and starts it again from nothing. Any growth of the grid restarts it
+  // and brings the block back, so a block that is still loading is never
+  // hidden. Once hidden, a block stays hidden until the grid grows, in view or
+  // out of it, so scrolling back down does not show the ghost cards again.
   function placeholderVerdict(prev, now, items, inView, staleMs) {
-    if (!prev || prev.items !== items) return { record: { since: inView ? now : null, items }, hide: false };
-    if (!inView) return { record: prev, hide: false };
-    if (prev.since == null) return { record: { since: now, items }, hide: false };
-    return { record: prev, hide: now - prev.since >= staleMs };
+    if (!prev || prev.items !== items) return { record: { since: inView ? now : null, items, stale: false }, hide: false };
+    if (!inView) return { record: { ...prev, since: null }, hide: prev.stale };
+    if (prev.since == null) return { record: { ...prev, since: now }, hide: prev.stale };
+    const stale = prev.stale || now - prev.since >= staleMs;
+    return { record: { ...prev, stale }, hide: stale };
   }
 
   // True when some ancestor of this feature is switched on, i.e. the thing it

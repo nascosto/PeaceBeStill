@@ -224,14 +224,14 @@ test("placeholderVerdict hides a loading block only after it has sat in view wit
   const verdict = PeaceBeStill.placeholderVerdict;
   let { record, hide } = verdict(undefined, 1000, 20, true, 6000);
   assert.equal(hide, false);
-  assert.deepEqual({ ...record }, { since: 1000, items: 20 });
+  assert.deepEqual({ ...record }, { since: 1000, items: 20, stale: false });
   ({ record, hide } = verdict(record, 6900, 20, true, 6000));
   assert.equal(hide, false);
   ({ record, hide } = verdict(record, 7000, 20, true, 6000));
   assert.equal(hide, true);
   ({ record, hide } = verdict(record, 7100, 32, true, 6000));
   assert.equal(hide, false);
-  assert.deepEqual({ ...record }, { since: 7100, items: 32 });
+  assert.deepEqual({ ...record }, { since: 7100, items: 32, stale: false });
   ({ record, hide } = verdict(undefined, 1000, 20, false, 6000));
   assert.equal(hide, false);
   assert.equal(record.since, null);
@@ -240,6 +240,27 @@ test("placeholderVerdict hides a loading block only after it has sat in view wit
   ({ record, hide } = verdict(record, 20000, 20, true, 6000));
   assert.equal(hide, false);
   assert.equal(record.since, 20000);
+});
+
+test("placeholderVerdict needs the block in view without a break, and keeps it hidden until the grid grows", () => {
+  const verdict = PeaceBeStill.placeholderVerdict;
+  // Seen, then scrolled away: the clock starts again from nothing.
+  let { record, hide } = verdict(undefined, 1000, 20, true, 6000);
+  ({ record, hide } = verdict(record, 4000, 20, false, 6000));
+  assert.equal(hide, false);
+  assert.equal(record.since, null);
+  ({ record, hide } = verdict(record, 5000, 20, true, 6000));
+  ({ record, hide } = verdict(record, 10000, 20, true, 6000));
+  assert.equal(hide, false, "only five seconds in view since it came back");
+  ({ record, hide } = verdict(record, 11000, 20, true, 6000));
+  assert.equal(hide, true);
+  // Hidden stays hidden, out of view and back in, until the grid grows.
+  ({ record, hide } = verdict(record, 12000, 20, false, 6000));
+  assert.equal(hide, true);
+  ({ record, hide } = verdict(record, 13000, 20, true, 6000));
+  assert.equal(hide, true);
+  ({ record, hide } = verdict(record, 14000, 44, false, 6000));
+  assert.equal(hide, false);
 });
 
 test("calmTitle rewrites a shouting title in sentence case and leaves everything else alone", () => {
