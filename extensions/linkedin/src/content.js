@@ -313,10 +313,13 @@
       // A game tile is a div; "Play video" is the button on a post's video. The
       // invitation to a puzzle is text rather than a tile, and opens with an
       // emoji, so the leading punctuation is skipped -- and the apostrophe is
-      // the typographic one, which is not the one on a keyboard.
+      // the typographic one, which is not the one on a keyboard. "Need a 30
+      // second break? 🪫" heads a card offering the day's Zip; the number is
+      // matched loosely, since it is the game's and may change.
       ["games", () => [...document.querySelectorAll('div[aria-label^="Play "]')]
         .filter((el) => el.getAttribute("aria-label") !== "Play video")
         .concat(labelled(/^\W*You[’']ve been selected to join/))
+        .concat(labelled(/^Need an? [\w ]+ break\?/))
         .concat(labelled(/^Today[’']s puzzles$/))],
       ["news", () => labelled(/^(LinkedIn News|Top stories)$/)],
       ["otherAds", () => labelled(/^(Ad Options|Ad|Advertisement|Promoted by)$/)],
