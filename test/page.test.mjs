@@ -122,3 +122,53 @@ test("a change that arrives before the first read answers is not undone by that 
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(seen.at(-1), '{"shorts":true}', "the older read won");
 });
+
+// A pause sets every switch aside without touching one: the settings handed
+// over are empty (everything at its default, off) until it ends, and then what
+// is stored comes back on its own.
+test("a pause hands over nothing stored until it ends, then everything that is", async () => {
+  const seen = [];
+  let onChanged;
+  const timers = [];
+  const now = Date.now();
+  const api = { storage: {
+    sync: { get: async () => ({ shorts: true }) },
+    local: { get: async () => ({ pausedUntil: now + 60_000 }) },
+    onChanged: { addListener: (fn) => { onChanged = fn; } },
+  } };
+  const { PeaceBeStillPage: page } = loadClassic(PAGE, {
+    setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    clearTimeout: () => {},
+  });
+  page.listen(api, ["shorts"], (stored) => seen.push(JSON.stringify(stored)));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(seen, ["{}"], "paused: nothing stored is handed over");
+  assert.ok(timers.length === 1 && timers[0].ms > 59_000 && timers[0].ms <= 60_000, "and it wakes when the pause ends");
+
+  // A switch changed while paused is kept for later, not applied now.
+  onChanged({ comments: { newValue: true } }, "sync");
+  assert.equal(seen.at(-1), "{}");
+
+  // Resumed early from the options page: everything comes back at once.
+  onChanged({ pausedUntil: {} }, "local");
+  assert.equal(seen.at(-1), '{"shorts":true,"comments":true}');
+
+  // Paused again, then the hour runs out.
+  onChanged({ pausedUntil: { newValue: Date.now() + 1000 } }, "local");
+  assert.equal(seen.at(-1), "{}");
+  onChanged({ pausedUntil: { newValue: Date.now() - 1 } }, "local");
+  assert.equal(seen.at(-1), '{"shorts":true,"comments":true}');
+});
+
+test("a pause that has already run out is no pause", async () => {
+  const seen = [];
+  const api = { storage: {
+    sync: { get: async () => ({ shorts: true }) },
+    local: { get: async () => ({ pausedUntil: Date.now() - 1000 }) },
+    onChanged: { addListener() {} },
+  } };
+  const { PeaceBeStillPage: page } = loadClassic(PAGE);
+  page.listen(api, ["shorts"], (stored) => seen.push(JSON.stringify(stored)));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(seen, ['{"shorts":true}']);
+});

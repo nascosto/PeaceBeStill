@@ -13,7 +13,7 @@ test("options.html is a real document: language, a heading, and settings.js, cor
   assert.match(html, /<h1[^>]*>/);
   assert.ok(html.indexOf('src="settings.js"') < html.indexOf('src="core.js"'));
   assert.ok(html.indexOf('src="core.js"') < html.indexOf('src="options.js"'));
-  for (const id of ["features", "filter", "summary", "all-off", "status"]) {
+  for (const id of ["features", "filter", "summary", "all-off", "pause", "paused", "status"]) {
     assert.match(html, new RegExp(`id="${id}"`), id);
   }
 });
@@ -30,6 +30,9 @@ test("the options page is laid out for the screen it is on, not a desktop one", 
   // Nothing may state a width the screen might not have.
   assert.doesNotMatch(css, /min-width:\s*\d{3,}px/, "no floor wider than a phone");
 });
+
+// options.js takes the pause key from page.js, which options.html loads first.
+const { PeaceBeStillPage } = loadClassic(new URL("../src/page.js", import.meta.url));
 
 // A fake DOM just big enough for options.js.
 function fakeDocument() {
@@ -52,7 +55,7 @@ function fakeDocument() {
     return node;
   };
   const byId = {};
-  for (const id of ["features", "filter", "summary", "all-off", "status"]) byId[id] = element(id === "features" ? "form" : "div");
+  for (const id of ["features", "filter", "summary", "all-off", "pause", "paused", "status"]) byId[id] = element(id === "features" ? "form" : "div");
   const document = {
     byId,
     getElementById: (id) => byId[id] ?? null,
@@ -100,7 +103,7 @@ async function render(stored = {}, { failWrites = false } = {}) {
     set: failWrites ? reject : async (obj) => { writes.push(obj); },
     remove: failWrites ? reject : async (keys) => { removes.push(keys); },
   } } };
-  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
   const change = async (name, checked) => {
     const row = rowsOf(byId.features).find((r) => r.name === name);

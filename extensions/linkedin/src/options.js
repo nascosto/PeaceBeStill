@@ -14,6 +14,9 @@
   const summary = document.getElementById("summary");
   const status = document.getElementById("status");
   const allOff = document.getElementById("all-off");
+  const pause = document.getElementById("pause");
+  const pausedNote = document.getElementById("paused");
+  const { PAUSE } = globalThis.PeaceBeStillPage;
 
   // The toolbar button opens this page as its popup, as options.html?popup. A
   // popup takes its width from the page, so give it one -- but not on a phone,
@@ -259,6 +262,53 @@
     settings = defaults();
     showState();
     if (keys.length) await api.storage.sync.remove(keys).catch(report);
+  });
+
+  // --- Pausing -----------------------------------------------------------------
+  // Everything set aside for an hour, without a switch being touched: the
+  // content script treats every switch as off until then (shared/page.js), and
+  // puts them all back when the hour is up. For telling whether a page that
+  // misbehaves is this extension's doing or the site's own. Kept in
+  // storage.local, so it pauses this browser and not every one you sync to.
+  const PAUSE_MS = 60 * 60 * 1000;
+  let pausedUntil = 0;
+  let pauseTimer = null;
+
+  function showPause() {
+    if (pauseTimer) clearTimeout(pauseTimer);
+    pauseTimer = null;
+    const left = pausedUntil - Date.now();
+    const paused = left > 0;
+    pause.textContent = paused ? "Resume" : "Pause for an hour";
+    if (paused) {
+      const until = new Date(pausedUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      pausedNote.textContent = `Paused until ${until}. Nothing is hidden or redirected until then.`;
+      // Put the button back when the pause runs out with the page still open.
+      pauseTimer = setTimeout(showPause, Math.min(left + 50, 2 ** 31 - 1));
+    } else {
+      pausedNote.textContent = "";
+    }
+  }
+
+  Promise.resolve()
+    .then(() => api.storage.local.get(PAUSE))
+    .then((values) => {
+      pausedUntil = (values && values[PAUSE]) || 0;
+      showPause();
+    })
+    .catch(showPause);
+
+  pause.addEventListener("click", async () => {
+    status.textContent = "";
+    const resuming = pausedUntil > Date.now();
+    pausedUntil = resuming ? 0 : Date.now() + PAUSE_MS;
+    showPause();
+    try {
+      if (resuming) await api.storage.local.remove(PAUSE);
+      else await api.storage.local.set({ [PAUSE]: pausedUntil });
+    } catch (error) {
+      report(error);
+    }
   });
 
   // The filter narrows the same list showState draws.

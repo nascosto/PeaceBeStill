@@ -7,6 +7,13 @@
 // a classic script loaded before content.js, and reads the page's globals
 // when called, not when loaded, so a test can hand it a fake page.
 (function (root) {
+  // Every switch can be set aside for a while without being touched -- to see
+  // whether a page that will not load is this extension's doing or the site's.
+  // The options page keeps when that pause ends, as a time in milliseconds,
+  // under this key in storage.local: a pause belongs to the browser it was
+  // asked for in, not to every browser the settings follow.
+  const PAUSE = "pausedUntil";
+
   // --- Remembered settings -----------------------------------------------------
   // storage.sync answers a moment after the page starts drawing, so anything
   // hidden only once it has answered is seen first. What was applied last time
@@ -45,9 +52,16 @@
   // the read then answering with what storage held before. So changes that
   // arrive first are kept, and laid over whatever that read returns rather
   // than lost under it.
+  //
+  // A pause (PAUSE, at the top) hands over nothing stored at all -- every switch
+  // at its default, which is off -- until it ends, and then what is stored
+  // again, without anything being touched in between.
   function listen(api, keys, onSettings) {
     let stored = {};
     let early = {};
+    let pausedUntil = 0;
+    let pauseHeard = false; // a pause changed before the first read answered
+    let resumeTimer = null;
 
     const take = (target, changes) => {
       for (const [key, change] of Object.entries(changes)) {
@@ -56,20 +70,45 @@
       }
     };
 
-    api.storage.sync.get(keys)
+    const deliver = () => {
+      if (resumeTimer) root.clearTimeout(resumeTimer);
+      resumeTimer = null;
+      const left = pausedUntil - Date.now();
+      if (left <= 0) return onSettings(stored);
+      onSettings({});
+      // Wakes when the pause ends. A timer cannot wait longer than about
+      // 24 days, so a longer one wakes early, finds itself still paused, and
+      // sets another.
+      resumeTimer = root.setTimeout(deliver, Math.min(left, 2 ** 31 - 1));
+    };
+
+    const syncRead = api.storage.sync.get(keys)
       .then((values) => values || {})
-      .catch(() => ({}))
-      .then((values) => {
-        stored = { ...values };
-        take(stored, early);
-        early = null;
-        onSettings(stored);
-      });
+      .catch(() => ({}));
+    // A browser that cannot keep a pause (or a test that gives it nowhere to
+    // keep one) is simply never paused.
+    const pauseRead = Promise.resolve()
+      .then(() => api.storage.local.get(PAUSE))
+      .then((values) => (values && values[PAUSE]) || 0)
+      .catch(() => 0);
+    Promise.all([syncRead, pauseRead]).then(([values, until]) => {
+      stored = { ...values };
+      take(stored, early);
+      early = null;
+      if (!pauseHeard) pausedUntil = until;
+      deliver();
+    });
     api.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && PAUSE in changes) {
+        pausedUntil = changes[PAUSE].newValue || 0;
+        pauseHeard = true;
+        deliver();
+        return;
+      }
       if (area !== "sync") return;
       if (early) Object.assign(early, changes);
       take(stored, changes);
-      onSettings(stored);
+      deliver();
     });
   }
 
@@ -124,5 +163,5 @@
     }, true);
   }
 
-  root.PeaceBeStillPage = { recall, remember, listen, watchMutations, followLogo };
+  root.PeaceBeStillPage = { PAUSE, recall, remember, listen, watchMutations, followLogo };
 })(globalThis);

@@ -61,7 +61,12 @@ and their values are kept, so turning it back off brings them back as they were.
   you tick the box.
 
 The options page has a filter box, a count of what is on, a button that turns
-everything off, and a note that settings follow your browser account. The
+everything off, and a note that settings follow your browser account. **Pause
+for an hour** sets every switch aside without changing any of them: nothing is
+hidden or redirected until the hour is up or you press Resume, which makes it
+quick to tell whether a page that misbehaves is the extension's doing or the
+site's. A pause applies to the browser it was asked for in, not to every
+browser your settings follow. The
 extension's toolbar button opens the same page as a popup, so the settings are
 a click away from the Extensions menu as well as from the add-ons manager. The
 one switch that needs a permission, the dislike count, is ticked from the full

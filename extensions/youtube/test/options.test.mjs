@@ -13,10 +13,13 @@ test("options.html is a real document: language, a heading, and settings.js, cor
   assert.match(html, /<h1[^>]*>/);
   assert.ok(html.indexOf('src="settings.js"') < html.indexOf('src="core.js"'));
   assert.ok(html.indexOf('src="core.js"') < html.indexOf('src="options.js"'));
-  for (const id of ["features", "filter", "summary", "all-off", "status"]) {
+  for (const id of ["features", "filter", "summary", "all-off", "pause", "paused", "status"]) {
     assert.match(html, new RegExp(`id="${id}"`), id);
   }
 });
+
+// options.js takes the pause key from page.js, which options.html loads first.
+const { PeaceBeStillPage } = loadClassic(new URL("../src/page.js", import.meta.url));
 
 // A fake DOM just big enough for options.js.
 function fakeDocument() {
@@ -39,7 +42,7 @@ function fakeDocument() {
     return node;
   };
   const byId = {};
-  for (const id of ["features", "filter", "summary", "all-off", "status"]) byId[id] = element(id === "features" ? "form" : "div");
+  for (const id of ["features", "filter", "summary", "all-off", "pause", "paused", "status"]) byId[id] = element(id === "features" ? "form" : "div");
   const document = {
     byId,
     documentElement: element("html"),
@@ -87,7 +90,7 @@ async function render(stored = {}, { failWrites = false, search = "", screenWidt
     set: failWrites ? reject : async (obj) => { writes.push(obj); },
     remove: failWrites ? reject : async (keys) => { removes.push(keys); },
   } } };
-  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome, location: { search }, screen: { width: screenWidth } });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, document, chrome, location: { search }, screen: { width: screenWidth } });
   await new Promise((resolve) => setTimeout(resolve, 0));
   const change = async (name, checked) => {
     const row = rowsOf(byId.features).find((r) => r.name === name);
@@ -211,7 +214,7 @@ test("ticking the dislike count asks Firefox for the optional data-collection pe
     storage: { sync: { get: async () => ({}), set: async (o) => { writes.push(o); }, remove: async (k) => { removes.push(k); } } },
     permissions: { request: async (req) => { requests.push(req); return answer; } },
   };
-  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, browser });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, document, browser });
   await new Promise((resolve) => setTimeout(resolve, 0));
   const change = async (name, checked) => {
     const row = rowsOf(byId.features).find((r) => r.name === name);
@@ -242,7 +245,7 @@ test("a browser without the data-collection permission API still stores the choi
     storage: { sync: { get: async () => ({}), set: async (o) => { writes.push(o); }, remove: async () => {} } },
     permissions: { request: async () => { throw new TypeError("Unexpected property: 'data_collection'"); } },
   };
-  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, chrome });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
   const row = rowsOf(byId.features).find((r) => r.name === "dislikeCount");
   row.box.checked = true;
@@ -278,7 +281,7 @@ test("in the toolbar popup, a switch needing a permission not yet granted hands 
       },
       runtime: { openOptionsPage: async () => { calls.opened++; } },
     };
-    loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, document, browser, location: { search: "?popup" }, screen: { width: 1920 }, close: () => { calls.closed++; } });
+    loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, document, browser, location: { search: "?popup" }, screen: { width: 1920 }, close: () => { calls.closed++; } });
     await new Promise((resolve) => setTimeout(resolve, 0));
     const row = rowsOf(byId.features).find((r) => r.name === "dislikeCount");
     row.box.checked = true;
@@ -299,4 +302,42 @@ test("in the toolbar popup, a switch needing a permission not yet granted hands 
 
   const chromium = await run("throws");
   assert.deepEqual(plain(chromium.writes), [{ dislikeCount: true }], "no such permission (Chromium): stored as before");
+});
+
+// Pausing sets everything aside for an hour, in this browser only: the time it
+// ends goes to storage.local, never to the synced settings, and the button
+// turns into Resume, which takes it away again.
+test("the pause button pauses for an hour in storage.local, and Resume takes it back", async () => {
+  const { PeaceBeStill } = loadCore(new URL("../src/", import.meta.url));
+  const { document, byId } = fakeDocument();
+  const local = { sets: [], removes: [] };
+  const syncWrites = [];
+  const chrome = { storage: {
+    sync: { get: async () => ({}), set: async (o) => { syncWrites.push(o); }, remove: async (k) => { syncWrites.push(k); } },
+    local: { get: async () => ({}), set: async (o) => { local.sets.push(o); }, remove: async (k) => { local.removes.push(k); } },
+  } };
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, document, chrome, setTimeout, clearTimeout });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(byId.pause.textContent, "Pause for an hour");
+  assert.equal(byId.paused.textContent, "");
+
+  const before = Date.now();
+  await byId.pause.listeners.click();
+  assert.equal(local.sets.length, 1);
+  const until = local.sets[0].pausedUntil;
+  assert.ok(until >= before + 3_600_000 && until <= Date.now() + 3_600_000, "an hour from now");
+  assert.equal(byId.pause.textContent, "Resume");
+  assert.match(byId.paused.textContent, /^Paused until /);
+
+  await byId.pause.listeners.click();
+  assert.deepEqual(local.removes, ["pausedUntil"]);
+  assert.equal(byId.pause.textContent, "Pause for an hour");
+  assert.equal(byId.paused.textContent, "");
+  assert.deepEqual(syncWrites, [], "a pause never touches the synced settings");
+});
+
+test("options.html loads page.js before options.js, which takes the pause key from it", () => {
+  const html = readFileSync(new URL("../src/options.html", import.meta.url), "utf8");
+  assert.ok(html.indexOf('src="page.js"') > 0 && html.indexOf('src="page.js"') < html.indexOf('src="options.js"'));
+  for (const id of ["pause", "paused"]) assert.match(html, new RegExp(`id="${id}"`), id);
 });
