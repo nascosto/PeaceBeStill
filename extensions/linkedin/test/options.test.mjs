@@ -13,7 +13,7 @@ test("options.html is a real document: language, a heading, and settings.js, cor
   assert.match(html, /<h1[^>]*>/);
   assert.ok(html.indexOf('src="settings.js"') < html.indexOf('src="core.js"'));
   assert.ok(html.indexOf('src="core.js"') < html.indexOf('src="options.js"'));
-  for (const id of ["features", "filter", "summary", "all-off", "pause", "paused", "status"]) {
+  for (const id of ["features", "filter", "summary", "clear-all", "disable", "disable-for", "disabled", "status"]) {
     assert.match(html, new RegExp(`id="${id}"`), id);
   }
 });
@@ -31,7 +31,7 @@ test("the options page is laid out for the screen it is on, not a desktop one", 
   assert.doesNotMatch(css, /min-width:\s*\d{3,}px/, "no floor wider than a phone");
 });
 
-// options.js takes the pause key from page.js, which options.html loads first.
+// options.js takes the disable key from page.js, which options.html loads first.
 const { PeaceBeStillPage } = loadClassic(new URL("../src/page.js", import.meta.url));
 
 // A fake DOM just big enough for options.js.
@@ -55,7 +55,7 @@ function fakeDocument() {
     return node;
   };
   const byId = {};
-  for (const id of ["features", "filter", "summary", "all-off", "pause", "paused", "status"]) byId[id] = element(id === "features" ? "form" : "div");
+  for (const id of ["features", "filter", "summary", "clear-all", "disable", "disable-for", "disabled", "status"]) byId[id] = element(id === "features" ? "form" : "div");
   const document = {
     byId,
     getElementById: (id) => byId[id] ?? null,
@@ -103,7 +103,7 @@ async function render(stored = {}, { failWrites = false } = {}) {
     set: failWrites ? reject : async (obj) => { writes.push(obj); },
     remove: failWrites ? reject : async (keys) => { removes.push(keys); },
   } } };
-  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, document, chrome });
+  loadClassic(new URL("../src/options.js", import.meta.url), { PeaceBeStill, PeaceBeStillPage, setTimeout, clearTimeout, document, chrome });
   await new Promise((resolve) => setTimeout(resolve, 0));
   const change = async (name, checked) => {
     const row = rowsOf(byId.features).find((r) => r.name === name);
@@ -258,7 +258,9 @@ test("the summary counts what is on, and says how much a switch above has covere
   assert.match(byId.summary.textContent, /2 of 34/);
   assert.match(byId.summary.textContent, /33 covered by a switch above/);
 
-  await byId["all-off"].listeners.click();
+  await byId["clear-all"].listeners.click();
+  assert.equal(removes.length, 0, "one click only asks to be sure");
+  await byId["clear-all"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["blackout", "jobs"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
   assert.match(byId.summary.textContent, /0 of 34/);

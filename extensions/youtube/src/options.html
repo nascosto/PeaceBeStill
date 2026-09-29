@@ -16,9 +16,12 @@
     <p id="summary"></p>
     <p id="status" role="status" aria-live="polite"></p>
     <input id="filter" type="search" placeholder="Filter switches…" aria-label="Filter switches" autocomplete="off" />
-    <button id="all-off" type="button">Turn all off</button>
-    <button id="pause" type="button">Pause for an hour</button>
-    <p id="paused" role="status" aria-live="polite"></p>
+    <div id="actions">
+      <button id="clear-all" type="button">Clear all settings</button>
+      <button id="disable" type="button">Disable</button>
+      <select id="disable-for" aria-label="Disable for how long"></select>
+    </div>
+    <p id="disabled" role="status" aria-live="polite"></p>
     <form id="features"></form>
     <script src="settings.js"></script>
     <script src="page.js"></script>
