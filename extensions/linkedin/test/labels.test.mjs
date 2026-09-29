@@ -47,6 +47,31 @@ test("finding panels reads each element's text once, however many kinds of panel
   assert.equal(most, 1, `an element's text was read ${most} times in one pass`);
 });
 
+// The puzzle invitation LinkedIn shows as a card of its own: "Need a 30 second
+// break? 🪫" over a tile for Zip. Its heading is what marks it.
+test("the break-time puzzle card is marked as games, and ordinary text about breaks is not", () => {
+  const marked = new Map();
+  const element = (text) => {
+    const el = { tagName: "P", textContent: text, parentElement: null, children: [], closest: () => null,
+      contains: (other) => other === el, querySelectorAll: () => [], getBoundingClientRect: () => ({ height: 10 }),
+      getAttribute: (name) => (name === "data-pbs" ? marked.get(el) ?? null : null),
+      setAttribute: (name, value) => { if (name === "data-pbs") marked.set(el, value); } };
+    return el;
+  };
+  const card = element("Need a 30 second break? 🪫");
+  const post = element("I took a break from work last week and it was great");
+  const body = { tagName: "BODY", getBoundingClientRect: () => ({ height: 1000 }), querySelectorAll: () => [], contains: () => true };
+  const document = { body, querySelectorAll: (sel) => (sel === "span,p,h1,h2,h3,div,button" ? [card, post] : []) };
+  const { markModules } = new Function("PeaceBeStill", "document", "location", "getComputedStyle", `
+    const { kindsFor } = PeaceBeStill;
+    ${helpers}
+    return { markModules };
+  `)(loadCore(SRC).PeaceBeStill, document, { pathname: "/feed/" }, () => ({ display: "block" }));
+  markModules();
+  assert.equal(marked.get(card), "games");
+  assert.equal(marked.get(post), undefined);
+});
+
 function node(tag, ...kids) {
   const self = {
     tagName: tag.toUpperCase(),
