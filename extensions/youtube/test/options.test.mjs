@@ -177,14 +177,14 @@ test("settings already stored that match their default are cleaned up on load", 
 
 test("the summary counts what is on, and clearing all, on a second click, clears the lot", async () => {
   const { byId, rows, removes } = await render({ footer: true, create: true });
-  assert.match(byId.summary.textContent, /2 of 45/);
+  assert.match(byId.summary.textContent, /2 of 46/);
 
   await byId["clear-all"].listeners.click();
   assert.equal(removes.length, 0, "one click only asks to be sure");
   await byId["clear-all"].listeners.click();
   assert.deepEqual(plain(removes.at(-1)), ["footer", "create"], "every stored key is dropped");
   assert.equal(rows().every((r) => !r.checked), true);
-  assert.match(byId.summary.textContent, /0 of 45/);
+  assert.match(byId.summary.textContent, /0 of 46/);
 });
 
 test("the filter narrows the list to matching switches", async () => {

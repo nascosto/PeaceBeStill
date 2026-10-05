@@ -15,7 +15,7 @@ and runs only on its own site.
 
 ## PeaceBeStill - YouTube
 
-> Make YouTube "Be Still". Fully configurable with 45 options.
+> Make YouTube "Be Still". Fully configurable with 46 options.
 
 Every feature is a switch on the options page, grouped by where it acts and
 nested under the switch it depends on. Turning a switch on takes away the ones
@@ -31,7 +31,8 @@ and their values are kept, so turning it back off brings them back as they were.
 - feeds: the home feed (or send home straight to Subscriptions -- the logo goes
   there too, and Home's own entries go), Shorts
   everywhere (a Short opens as a normal video), Mixes, promo banners and
-  surveys, upcoming videos and their Notify me button, and the loading
+  surveys, upcoming videos and their Notify me button, the “Most relevant”
+  block YouTube puts above the uploads in Subscriptions, and the loading
   placeholders a feed leaves behind at its end
 - the watch page: the whole column beside the video or just its
   recommendations, live chat, the playlist panel, fundraisers, merch, comments
@@ -95,17 +96,18 @@ line, buttons, channel row, description -- comments, the playlist panel and
 in-page ads. The redirects work the same, since they follow the address.
 
 Written for a phone but only there signed in, so checked by hand: Create, the
-notifications bell and the Subscriptions tab. Written, but with nothing to hide
-on the pages the audit visits: Explore and Trending, fundraisers, offers, the
-autoplay toggle and the end screen's next and previous suggestions.
+notifications bell, the Subscriptions tab, and its “Most relevant” block and
+upcoming videos. Written, but with nothing to hide on the pages the audit visits: Explore and
+Trending, fundraisers, offers, the autoplay toggle and the end screen's next
+and previous suggestions.
 
 The rest have no phone rule of their own. Those that need a sidebar do nothing
 there, since a phone has none: "More from YouTube", the About / Press /
 Copyright block and the subscription dots. The end-screen cards and info cards
 share the desktop player's markup, so may well work, but have not been checked
-on a phone. Live chat, upcoming videos, search shelves, profile photos in
-comments, the description's own switches and sentence-casing titles are not
-written for one. None of this costs anything: an unmatched selector hides
+on a phone. Live chat, search shelves, profile photos in comments, the
+description's own switches and sentence-casing titles are not written for
+one. None of this costs anything: an unmatched selector hides
 nothing, and every switch is off until you turn it on.
 
 ### How it works
