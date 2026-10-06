@@ -32,6 +32,8 @@
     ["ask", "Hide YouTube's AI “Ask” button and card", false, WATCH],
     ["summary", "Hide AI-generated video summary", false, WATCH, "description"],
     ["upcoming", "Hide upcoming videos and their Notify me button in Subscriptions feed", false, HOME, "subscriptions"],
+    // YouTube's own picks from your subscriptions, put above the uploads.
+    ["mostRelevant", "Hide “Most relevant” section and its Show more button in Subscriptions feed", false, HOME, "subscriptions"],
     ["channelTabs", "Hide a channel's Posts and Store tabs", false, CHANNEL],
     ["channelTabRedirect", "Send a channel's Posts and Store pages to channel home", false, CHANNEL],
     ["stalePlaceholders", "Hide loading placeholders and spinner left at end of a feed", false, HOME],
