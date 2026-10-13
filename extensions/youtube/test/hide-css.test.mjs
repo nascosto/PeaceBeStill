@@ -12,6 +12,10 @@ const HIDE = "display: none !important;";
 // What hiding the header may do besides hide: give back the room the page, the
 // narrow sidebar and the phone's sticky player all keep clear for the bar.
 const HEADER_LAYOUT = new Set([HIDE, "margin-top: 0 !important;", "padding-top: 0 !important;", "top: 0 !important;"]);
+// What hiding the related videos may do besides hide: keep Ambient mode's glow,
+// which that column used to sit under, from scrolling the page sideways.
+const RELATED_LAYOUT = new Set([HIDE, "overflow-x: clip !important;"]);
+const LAYOUT = { header: HEADER_LAYOUT, relatedVideos: RELATED_LAYOUT };
 const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
 const rules = [...withoutComments.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2].trim() }));
 const gated = rules.map((r) => ({ ...r, gate: (/^html\[data-peacebestill~="([^"]+)"\]/.exec(r.selector) || [])[1] }));
@@ -31,14 +35,14 @@ test("every non-script feature has a gate; script-only features have none", () =
   for (const key of SCRIPT_ONLY) assert.ok(!gates.includes(key), `${key} should not be in the stylesheet`);
 });
 
-test("header is the only gate exempt from the hiding-only rule", () => {
+test("header and relatedVideos are the only gates exempt from the hiding-only rule", () => {
   const exempt = [...new Set(gated.filter((r) => r.body !== HIDE).map((r) => r.gate))];
-  assert.deepEqual(exempt, ["header"]);
+  assert.deepEqual(exempt, ["header", "relatedVideos"]);
 });
 
-test("every rule but header's only hides, and header's only hide or give back the bar's room", () => {
+test("every other rule only hides; header's give back the bar's room, relatedVideos' clip the glow", () => {
   for (const { gate, body } of gated) {
-    if (gate === "header") assert.ok(HEADER_LAYOUT.has(body), `header: ${body}`);
+    if (LAYOUT[gate]) assert.ok(LAYOUT[gate].has(body), `${gate}: ${body}`);
     else assert.equal(body, HIDE, gate);
   }
 });

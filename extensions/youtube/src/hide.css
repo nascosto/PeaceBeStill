@@ -2,7 +2,8 @@
    which content.js keeps equal to the set of enabled feature keys. So the
    stylesheet is fully static and a toggle takes effect without a reload.
    Rules only ever hide (display: none); the exceptions are the layout resets
-   that hiding the header needs, since the page keeps the bar's height clear. */
+   that hiding the header needs, since the page keeps the bar's height clear,
+   and the clip that hiding the related videos needs (see there). */
 
 /* ---- Header and sidebar ------------------------------------------------- */
 
@@ -120,6 +121,15 @@ html[data-peacebestill~="ads"] ytd-app :is(ytd-rich-item-renderer:has(ytd-ad-slo
 /* The whole column beside the video (related videos, chat, playlist), and the
    chat where theatre mode moves it, beside the player (see liveChat below) */
 html[data-peacebestill~="relatedVideos"] :is(ytd-watch-flexy #secondary, ytd-watch-flexy[live-chat-present-and-expanded] #panels-full-bleed-container:not(:has(ytd-engagement-panel-section-list-renderer[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]))) { display: none !important; }
+/* Ambient mode (dark theme) paints a blurred copy of the video at one and a
+   half times the player's width, so it reaches a quarter of the player past
+   each side. The column beside the video normally sits under that; without it
+   the player is centred with less room than that either side, and the glow
+   ran past the window's right edge and gave the page a sideways scroll into
+   empty space. Clip it at the window's edges. Clip, not hidden: it makes no
+   scroll container, so the glow still spills up and down and nothing sticky
+   breaks. */
+html[data-peacebestill~="relatedVideos"] ytd-watch-flexy { overflow-x: clip !important; }
 
 /* Just the recommendation list in that column, and the "More videos" overlay on pause */
 html[data-peacebestill~="recommended"] :is(ytd-watch-next-secondary-results-renderer #items, .ytp-pause-overlay) { display: none !important; }
